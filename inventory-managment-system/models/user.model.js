@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "staff","manager"],
+      enum: ["admin", "staff", "manager"],
       default: "staff",
     },
     isVerified: {
@@ -28,9 +28,9 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    refreshToken: {
-      type: String,
-      default: null,
+    tokenVersion: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true },

@@ -2,23 +2,23 @@ import mongoose from "mongoose";
 
 const supplierSchema = new mongoose.Schema(
   {
-    name: {
+    supplierName: {
       type: String,
       required: true,
     },
-    companyName: {
+    supplierCompanyName: {
       type: String,
       required: true,
     },
-    email: {
+    supplierEmail: {
       type: String,
       required: true,
     },
-    phone: {
+    supplierPhone: {
       type: String,
       required: true,
     },
-    address: {
+    supplierAddress: {
       type: String,
       required: true,
     },

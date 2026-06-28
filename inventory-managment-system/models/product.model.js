@@ -2,40 +2,40 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
-    name: {
+    productName: {
       type: String,
       required: true,
     },
-    category: {
+    productCategory: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: true,
     },
-    supplier: {
+    productSupplier: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Supplier",
       required: true,
     },
-    costPrice: {
+    productCostPrice: {
       type: Number,
       required: true,
       min: 0,
     },
-    sellingPrice: {
+    productSellingPrice: {
       type: Number,
       required: true,
       min: 0,
     },
-    currentStock: {
+    productCurrentStock: {
       type: Number,
       required: true,
       min: 0,
     },
-    reorderLevel: {
+    productReorderLevel: {
       type: Number,
       default: 10,
     },
-    imageUrl: {
+    productImageUrl: {
       type: String,
       default: null,
     },

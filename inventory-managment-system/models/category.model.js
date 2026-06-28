@@ -2,13 +2,13 @@ import mongoose from "mongoose";
 
 const categorySchema = new mongoose.Schema(
   {
-    name: {
+    categoryName: {
       type: String,
       required: true,
       unique: true,
       trim: true,
     },
-    slug: {
+    categorySlug: {
       type: String,
       required: true,
       unique: true,

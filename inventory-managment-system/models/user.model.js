@@ -2,20 +2,20 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
+    userName: {
       type: String,
       required: true,
     },
-    email: {
+    userEmail: {
       type: String,
       required: true,
       unique: true,
     },
-    password: {
+    userPassword: {
       type: String,
       required: true,
     },
-    role: {
+    userRole: {
       type: String,
       enum: ["admin", "staff", "manager"],
       default: "staff",
@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    tokenVersion: {
+    userTokenVersion: {
       type: Number,
       default: 0,
     },

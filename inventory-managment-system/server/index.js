@@ -17,3 +17,4 @@ app.listen(PORT, () => {
 });
 
 app.use("/api/v1/auth", authRoutes);
+

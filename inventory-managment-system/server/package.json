@@ -22,5 +22,8 @@
     "nodemailer": "^8.0.7",
     "slugify": "^1.6.9",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

@@ -179,4 +179,4 @@ body {
   `;
 };
 
-export default getResetPasswordEmailTemplate;
+export default resetPasswordEmailTemplate;

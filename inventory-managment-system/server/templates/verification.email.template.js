@@ -165,4 +165,4 @@ body {
 `;
 };
 
-export default getVerificationEmailTemplate;
+export default verificationEmailTemplate;

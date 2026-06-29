@@ -1,5 +1,7 @@
 import nodeMailer from "nodemailer";
 import { EMAIL_USER, EMAIL_PASSWORD, CLIENT_URL } from "../config/env.js";
+import resetPasswordEmailTemplate  from "../templates/reset.password.email.template.js";
+import  verifyEmailTemplate  from "../templates/verification.email.template.js";
 
 const transporter = nodeMailer.createTransport({
   service: "gmail",
@@ -18,28 +20,20 @@ export const sendEmail = async ({ to, subject, html }) => {
   });
 };
 
-export const sendVerificationEmail = async (user, token) => {
+export const sendVerificationEmail = async (userName, token, email) => {
   const url = `${CLIENT_URL}/verify-email?token=${token}`;
   return sendEmail({
-    to: user.email,
+    to: email,
     subject: "Verify Your Email",
-    html: `
-      <h2>Verify your email</h2>
-      <p>Click below to verify your account:</p>
-      <a href="${url}">Verify Email</a>
-    `,
+    html: verifyEmailTemplate(userName, url)
   });
 };
 
-export const sendPasswordResetEmail = async (user, token) => {
+export const sendResetPasswordEmail = async (userName, token, email) => {
   const url = `${CLIENT_URL}/reset-password?token=${token}`;
   return sendEmail({
-    to: user.email,
+    to: email,
     subject: "Reset Your Password",
-    html: `
-      <h2>Reset Your Password</h2>
-      <p>Click below to reset your password:</p>
-      <a href="${url}">Reset Password</a>
-    `,
+    html: resetPasswordEmailTemplate(userName, url)
   });
 };

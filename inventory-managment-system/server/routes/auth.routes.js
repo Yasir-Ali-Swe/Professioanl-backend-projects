@@ -1,25 +1,18 @@
 import {
-  register,
-  verifyEmail,
-  login,
-  getCurrentLoginUser,
-  getNewAccessToken,
-  logout,
-  forgotPassword,
-  resetPassword,
+  registerUser,verifyEmail,loginUser,getLoginUser,refreshAuth,logoutUser,forgetPassword,resetPassword
 } from "../controllers/auth.controller.js";
 import express from "express";
 import { authMiddleware } from "../middleware/auht.middleware.js";
 
 const router = express.Router();
 
-router.post("/register", register);
+router.post("/register", registerUser);
 router.post("/verify-email/:token", verifyEmail);
-router.post("/login", login);
-router.get("/me", authMiddleware, getCurrentLoginUser);
-router.post("/refresh-token", getNewAccessToken);
-router.post("/logout", authMiddleware, logout);
-router.post("/forgot-password", forgotPassword);
+router.post("/login", loginUser);
+router.get("/me", authMiddleware, getLoginUser);
+router.post("/refresh-auth", refreshAuth);
+router.post("/logout", authMiddleware, logoutUser);
+router.post("/forgot-password", forgetPassword);
 router.post("/reset-password/:token", resetPassword);
 
 export default router;

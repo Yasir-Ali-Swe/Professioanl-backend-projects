@@ -157,7 +157,7 @@ body {
     </div>
 
     <div class="expiry-warning">
-      <p><strong>⏱️ This password reset link expires in 1 hour.</strong></p>
+      <p><strong>⏱️ This password reset link expires in 15 minutes.</strong></p>
     </div>
 
     <div class="security-note">

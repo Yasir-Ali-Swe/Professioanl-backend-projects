@@ -141,7 +141,7 @@ body {
     </div>
 
     <div class="expiry-warning">
-      <p><strong>⏱️ This verification link expires in 24 hours.</strong></p>
+      <p><strong>⏱️ This verification link expires in 15 minutes.</strong></p>
     </div>
 
     <p class="info-text">

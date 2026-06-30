@@ -24,7 +24,7 @@ export const registerUser = async (req, res) => {
     if (existingUser && !existingUser.isVerified) {
       const token = generateToken(
         existingUser._id,
-        "1h",
+        "15m",
         existingUser.userTokenVersion,
         "auth",
       );
@@ -47,7 +47,7 @@ export const registerUser = async (req, res) => {
     });
     const token = generateToken(
       newUser._id,
-      "1h",
+      "15m",
       newUser.userTokenVersion,
       "auth",
     );
@@ -238,7 +238,7 @@ export const forgetPassword = async (req, res) => {
     }
     const token = generateToken(
       user._id,
-      "1h",
+      "15m",
       user.userTokenVersion,
       "resetPassword",
     );

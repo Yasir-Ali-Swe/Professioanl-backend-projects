@@ -1,19 +1,6 @@
 import mongoose from 'mongoose';
 
-export const SuggestionStatus = {
-  PENDING: 'pending',
-  ACTIONED: 'actioned',
-  DISMISSED: 'dismissed'
-};
-
-export const SuggestionPriority = {
-  LOW: 'low',
-  MEDIUM: 'medium',
-  HIGH: 'high',
-  URGENT: 'urgent'
-};
-
-const reorderSuggestionSchema = new mongoose.Schema({
+    const reorderSuggestionSchema = new mongoose.Schema({
   organizationId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Organization',

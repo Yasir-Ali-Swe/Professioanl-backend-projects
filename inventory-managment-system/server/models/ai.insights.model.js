@@ -8,7 +8,8 @@ const aiInsightsSchema = new mongoose.Schema({
   },
   period: {
     type: String,
-    enum: ["weekly", "monthly"]
+    enum: ["weekly", "monthly"],
+    required: true
   },
   summaryText: {
     type: String

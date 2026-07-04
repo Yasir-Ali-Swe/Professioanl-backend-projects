@@ -2,6 +2,7 @@ import nodeMailer from "nodemailer";
 import { EMAIL_USER, EMAIL_PASSWORD, CLIENT_URL } from "../config/env.js";
 import resetPasswordEmailTemplate  from "../templates/reset.password.email.template.js";
 import  verifyEmailTemplate  from "../templates/verification.email.template.js";
+import accountCreatedEmailTemplate from "../templates/account.created.email.template.js";
 
 const transporter = nodeMailer.createTransport({
   service: "gmail",
@@ -37,3 +38,12 @@ export const sendResetPasswordEmail = async (userName, token, email) => {
     html: resetPasswordEmailTemplate(userName, url)
   });
 };
+
+export const sendAccountCreatedEmail = async (userName, email, password) => {
+  const url=`${CLIENT_URL}/login`
+  return sendEmail({
+    to:email,
+    subject:"PrimeStock Accounted Successfully.",
+    html:accountCreatedEmailTemplate(userName, email, password, url)
+  })
+}

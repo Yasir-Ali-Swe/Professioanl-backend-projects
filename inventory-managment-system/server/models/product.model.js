@@ -21,6 +21,10 @@ const productSchema = new mongoose.Schema(
       ref: "Supplier",
       required: true,
     },
+    sku: {
+      type: String,
+      required: true,
+    },
     quantity: {
       type: Number,
       default: 0,
@@ -40,6 +44,7 @@ const productSchema = new mongoose.Schema(
     unit: {
       type: String,
       enum: ["piece", "kg", "liter", "box"],
+      required: true
     },
     imageUrl: {
       type: String,
@@ -58,5 +63,6 @@ const productSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+productSchema.index({ organizationId: 1, sku: 1 }, { unique: true });
 const productModel = mongoose.model("Product", productSchema);
 export default productModel;

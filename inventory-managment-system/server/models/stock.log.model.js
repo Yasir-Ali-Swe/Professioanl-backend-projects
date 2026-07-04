@@ -26,6 +26,11 @@ const stockLogSchema = new mongoose.Schema({
         ref: "Invoice",
         default: null
     },
+    relatedPurchaseOrderId:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "PurchaseOrder",
+        default: null
+    },
     quantity:{
         type: Number,
         required: true

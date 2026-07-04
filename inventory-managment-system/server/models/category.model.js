@@ -10,7 +10,6 @@ const categorySchema = new mongoose.Schema(
     name:{
       type: String,
       required: true,
-      unique: true
     }
   },
   {
@@ -18,5 +17,7 @@ const categorySchema = new mongoose.Schema(
   },
 );
 
+
+categorySchema.index({ organizationId: 1, name: 1 }, { unique: true });
 const categoryModel = mongoose.model("Category", categorySchema);
 export default categoryModel;

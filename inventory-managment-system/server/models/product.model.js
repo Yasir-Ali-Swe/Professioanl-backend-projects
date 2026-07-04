@@ -2,40 +2,46 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
-    productName: {
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+    },
+    name: {
       type: String,
       required: true,
     },
-    productCategory: {
+    categoryId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: true,
     },
-    productSupplier: {
+    supplierId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Supplier",
       required: true,
     },
-    productCostPrice: {
+    quantity: {
       type: Number,
-      required: true,
-      min: 0,
+      default: 0,
     },
-    productSellingPrice: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    productCurrentStock: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    productReorderLevel: {
+    reorderThreshold: {
       type: Number,
       default: 10,
     },
-    productImageUrl: {
+    costPrice: {
+      type: Number,
+      required: true,
+    },
+    sellingPrice: {
+      type: Number,
+      required: true,
+    },
+    unit: {
+      type: String,
+      enum: ["piece", "kg", "liter", "box"],
+    },
+    imageUrl: {
       type: String,
       default: null,
     },
@@ -43,6 +49,14 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true },
 );
+
+const productModel = mongoose.model("Product", productSchema);
+export default productModel;

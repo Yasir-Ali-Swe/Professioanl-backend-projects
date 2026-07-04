@@ -2,40 +2,55 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    userName: {
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null,
+      validate: {
+        validator: function (value) {
+          // 'this' refers to the document being validated
+          if (this.role !== "super_admin" && !value) {
+            return false; // fails validation
+          }
+          return true;
+        },
+        message: "organizationId is required for this role",
+      },
+    },
+    name: {
       type: String,
       required: true,
     },
-    userEmail: {
+    email: {
       type: String,
       required: true,
       unique: true,
     },
-    userPassword: {
+    password: {
       type: String,
       required: true,
-    },
-    userRole: {
-      type: String,
-      enum: ["admin", "staff", "manager"],
-      default: "staff",
     },
     isVerified: {
       type: Boolean,
       default: false,
     },
+    role: {
+      type: String,
+      enum: ["super_admin", "admin", "manager", "staff"],
+      required: true,
+    },
     isActive: {
       type: Boolean,
       default: true,
     },
-    userTokenVersion: {
-      type: Number,
-      default: 0,
+    invitedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
   },
   { timestamps: true },
 );
 
-const User = mongoose.model("User", userSchema);
-
-export default User;
+const userModel = mongoose.model("User", userSchema);
+export default userModel;

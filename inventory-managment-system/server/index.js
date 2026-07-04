@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { PORT } from "./config/env.js";
 import { connectDB } from "./config/db.connection.js";
 import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.route.js";
 
 const app = express();
 
@@ -17,4 +18,4 @@ app.listen(PORT, () => {
 });
 
 app.use("/api/v1/auth", authRoutes);
-
+app.use("/api/v1/user", userRoutes);

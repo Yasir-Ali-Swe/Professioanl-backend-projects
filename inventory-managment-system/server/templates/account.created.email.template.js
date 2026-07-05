@@ -1,3 +1,4 @@
+import {App_NAME} from "../config/env.js";
 const accountCreatedEmailTemplate = (userName, email, password, loginUrl) => {
   return `
 
@@ -168,7 +169,7 @@ body {
 <div class="email-container">
 
   <div class="header">
-    <h1>🎉 Welcome!</h1>
+    <h1>${App_NAME}</h1>
     <p>Your account has been created successfully</p>
   </div>
 

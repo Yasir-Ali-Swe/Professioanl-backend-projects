@@ -5,10 +5,10 @@ import userModel from "../models/user.model.js";
 export const generateToken = (
   userId,
   expiresIn,
-  userTokenVersion = 0,
+  tokenVersion = 0,
   purpose = "auth",
 ) => {
-  return jwt.sign({ userId, userTokenVersion, purpose }, JWT_SECRET, {
+  return jwt.sign({ userId, tokenVersion, purpose }, JWT_SECRET, {
     expiresIn,
   });
 };
@@ -16,7 +16,7 @@ export const generateToken = (
 export const getUserFromToken = async (token, tokenPurpose = "auth") => {
   try {
     if (!token) {
-      const err = new Error("Token is required");
+      const err = new Error("No active session found");
       err.status = 400;
       throw err;
     }
@@ -34,14 +34,14 @@ export const getUserFromToken = async (token, tokenPurpose = "auth") => {
       }
       throw err;
     }
-    const { userId, userTokenVersion, purpose } = decoded;
+    const { userId, tokenVersion, purpose } = decoded;
     const user = await userModel.findById(userId);
     if (!user) {
       const err = new Error("User not found");
       err.status = 404;
       throw err;
     }
-    if (userTokenVersion !== user.userTokenVersion) {
+    if (tokenVersion !== user.tokenVersion) {
       const err = new Error("Token has been invalidated");
       err.status = 401;
       throw err;

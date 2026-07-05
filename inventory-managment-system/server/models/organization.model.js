@@ -8,7 +8,6 @@ const organizationSchema = new mongoose.Schema({
     contactEmail:{
         type: String,
         required: true,
-        unique: true
     },
     address:{
         type: String,

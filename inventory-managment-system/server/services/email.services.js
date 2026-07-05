@@ -3,6 +3,7 @@ import { EMAIL_USER, EMAIL_PASSWORD, CLIENT_URL } from "../config/env.js";
 import resetPasswordEmailTemplate  from "../templates/reset.password.email.template.js";
 import  verifyEmailTemplate  from "../templates/verification.email.template.js";
 import accountCreatedEmailTemplate from "../templates/account.created.email.template.js";
+import {APP_NAME} from "../config/env.js"
 
 const transporter = nodeMailer.createTransport({
   service: "gmail",
@@ -43,7 +44,7 @@ export const sendAccountCreatedEmail = async (userName, email, password) => {
   const url=`${CLIENT_URL}/login`
   return sendEmail({
     to:email,
-    subject:"PrimeStock Accounted Successfully.",
+    subject:`${APP_NAME} Account Created Successfully.`,
     html:accountCreatedEmailTemplate(userName, email, password, url)
   })
 }

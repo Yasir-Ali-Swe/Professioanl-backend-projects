@@ -1,4 +1,4 @@
-import {App_NAME} from "../config/env.js";
+import {APP_NAME} from "../config/env.js";
 const resetPasswordEmailTemplate = (userName, resetPasswordLink) => {
   return `
 <!DOCTYPE html>
@@ -131,7 +131,7 @@ body {
 <div class="email-container">
 
   <div class="header">
-    <h1>${App_NAME}</h1>
+    <h1>${APP_NAME}</h1>
     <p>Reset your account password</p>
   </div>
 

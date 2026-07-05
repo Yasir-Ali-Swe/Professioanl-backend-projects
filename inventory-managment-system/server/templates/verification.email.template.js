@@ -1,3 +1,4 @@
+import { App_NAME } from "../config/env.js";
 const verificationEmailTemplate = (userName, verificationLink) => {
   return `
 <!DOCTYPE html>
@@ -120,7 +121,7 @@ body {
 <div class="email-container">
 
   <div class="header">
-    <h1>PrimeStock</h1>
+    <h1>${App_NAME}</h1>
     <p>Complete your registration to get started</p>
   </div>
 

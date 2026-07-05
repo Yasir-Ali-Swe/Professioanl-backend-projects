@@ -7,20 +7,7 @@ import { sendAccountCreatedEmail } from "../services/email.services.js";
 export const getOrganizationProfile = async (req, res) => {
   try {
     const userId = req.user._id;
-    const user = await userModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-    const organizationId = user.organizationId;
-    if (!organizationId) {
-      return res.status(404).json({
-        success: false,
-        message: "Organization not found for this user",
-      });
-    }
+    const organizationId = req.user.organizationId;
     const organization = await organizationModel
       .findById(organizationId)
       .select("-__v -updatedAt")
@@ -48,20 +35,7 @@ export const updateOrganizationProfile = async (req, res) => {
   try {
     const { name, contactEmail, address, phone } = req.body;
     const userId = req.user._id;
-    const user = await userModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-    const organizationId = user.organizationId;
-    if (!organizationId) {
-      return res.status(404).json({
-        success: false,
-        message: "Organization not found for this user",
-      });
-    }
+    const organizationId = req.user.organizationId;
     const updateData = {};
 
     if (name) updateData.name = name;
@@ -98,8 +72,9 @@ export const updateOrganizationProfile = async (req, res) => {
 export const getOrganizationAdminProfile = async (req, res) => {
   try {
     const userId = req.user._id;
+    const organizationId = req.user.organizationId;
     const user = await userModel
-      .findById(userId)
+      .findOne({ _id: userId, organizationId })
       .select("-password -__v -createdAt -updatedAt");
     if (!user) {
       return res.status(404).json({
@@ -124,11 +99,12 @@ export const updateOrganizationAdminProfile = async (req, res) => {
   try {
     const { name, email } = req.body;
     const userId = req.user._id;
+    const organizationId = req.user.organizationId;
     const updateData = {};
     if (name) updateData.name = name;
     if (email) updateData.email = email;
     const updatedUser = await userModel
-      .findByIdAndUpdate(userId, updateData, {
+      .findOneAndUpdate({ _id: userId, organizationId }, updateData, {
         new: true,
         runValidators: true,
       })
@@ -156,20 +132,7 @@ export const updateOrganizationAdminProfile = async (req, res) => {
 export const getOrganizationInvoiceDetails = async (req, res) => {
   try {
     const userId = req.user._id;
-    const user = await userModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-    const organizationId = user.organizationId;
-    if (!organizationId) {
-      return res.status(404).json({
-        success: false,
-        message: "Organization not found for this user",
-      });
-    }
+    const organizationId = req.user.organizationId;
     const organization = await organizationModel.findById(organizationId);
     if (!organization) {
       return res.status(404).json({
@@ -200,20 +163,7 @@ export const updateOrganizationInvoiceDetails = async (req, res) => {
   try {
     const { taxRate, defaultDiscount, invoicePrefix } = req.body;
     const userId = req.user._id;
-    const user = await userModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-    const organizationId = user.organizationId;
-    if (!organizationId) {
-      return res.status(404).json({
-        success: false,
-        message: "Organization not found for this user",
-      });
-    }
+    const organizationId = req.user.organizationId;
     const organization = await organizationModel.findById(organizationId);
     if (!organization) {
       return res.status(404).json({
@@ -247,6 +197,7 @@ export const updateOrganizationInvoiceDetails = async (req, res) => {
 export const adminInviteOrganizationUsers = async (req, res) => {
   try {
     const userId = req.user._id;
+    const organizationId = req.user.organizationId;
     const { name, email, role, password } = req.body;
     if (!name || !email || !role || !password) {
       return res.status(400).json({
@@ -254,8 +205,6 @@ export const adminInviteOrganizationUsers = async (req, res) => {
         message: "All fields are required",
       });
     }
-    const user = await userModel.findById(userId);
-    const organizationId = user.organizationId;
     const userExists = await userModel.findOne({ email });
     if (userExists) {
       return res.status(400).json({
@@ -289,8 +238,7 @@ export const adminInviteOrganizationUsers = async (req, res) => {
 
 export const getOrganizationUsers = async (req, res) => {
   try {
-    const organizationId = req.organizationId;
-
+    const organizationId = req.user.organizationId;
     const {
       page = 1,
       limit = 10,
@@ -391,7 +339,7 @@ export const getOrganizationUsers = async (req, res) => {
 export const getOrganizationUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const organizationId = req.organizationId;
+    const organizationId = req.user.organizationId;
 
     const user = await userModel
       .findOne({ _id: id, organizationId })
@@ -420,7 +368,7 @@ export const getOrganizationUserById = async (req, res) => {
 export const updateOrganizationUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const organizationId = req.organizationId;
+    const organizationId = req.user.organizationId;
     const { role, isActive } = req.body;
     if (!id) {
       return res.status(400).json({
@@ -460,7 +408,7 @@ export const updateOrganizationUserById = async (req, res) => {
 export const deleteOrganizationUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const organizationId = req.organizationId;
+    const organizationId = req.user.organizationId;
     if (!id) {
       return res.status(400).json({
         success: false,

@@ -6,7 +6,7 @@ export const adminMiddleware = async (req, res, next) => {
         if(!headers || !headers.startsWith("Bearer ")){
             return res.status(401).json({
                 success: false,
-                message: "Not authorized, token is required",
+                message: "Not authorized.Token is required",
             });
         }
         const token = headers.split(" ")[1];
@@ -14,10 +14,11 @@ export const adminMiddleware = async (req, res, next) => {
         if (!user || user.role !== "admin") {
             return res.status(403).json({
                 success: false,
-                message: "Access denied, admin privileges required",
+                message: "Access denied.Only authorized users have rights to access this route.",
             });
         }
         req.user = user;
+        req.organizationId = user.organizationId; // Attach organizationId to the request object
         next();
     } catch (error) {
         console.error("Error in adminMiddleware:", error.message);

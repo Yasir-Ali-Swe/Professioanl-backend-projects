@@ -3,6 +3,10 @@ import organizationModel from "../models/organization.model.js";
 import invoiceModel from "../models/invoice.model.js";
 import { hashPassword } from "../helpers/bcrypt.helper.js";
 import { sendAccountCreatedEmail } from "../services/email.services.js";
+import productModel from "../models/product.model.js";
+import categoryModel from "../models/category.model.js";
+import supplierModel from "../models/supplier.model.js";
+import purchaseOrderModel from "../models/purchase.order.model.js";
 
 export const getOrganizationProfile = async (req, res) => {
   try {
@@ -434,6 +438,153 @@ export const deleteOrganizationUserById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const getDashboardStats = async (req, res) => {
+  try {
+    const organizationId = new mongoose.Types.ObjectId(req.organizationId);
+
+    const [
+      totalProducts,
+      activeProducts,
+      inactiveProducts,
+      totalCategories,
+      totalSuppliers,
+      totalUsers,
+      totalManagers,
+      totalStaff,
+      totalPurchaseOrders,
+      pendingPurchaseOrders,
+      approvedPurchaseOrders,
+      fulfilledPurchaseOrders,
+      totalStock,
+      lowStockProducts,
+      categoryDistribution,
+    ] = await Promise.all([
+      productModel.countDocuments({ organizationId }),
+
+      productModel.countDocuments({
+        organizationId,
+        isActive: true,
+      }),
+
+      productModel.countDocuments({
+        organizationId,
+        isActive: false,
+      }),
+
+      categoryModel.countDocuments({ organizationId }),
+
+      supplierModel.countDocuments({ organizationId }),
+
+      userModel.countDocuments({ organizationId }),
+
+      userModel.countDocuments({
+        organizationId,
+        role: "manager",
+      }),
+
+      userModel.countDocuments({
+        organizationId,
+        role: "staff",
+      }),
+
+      purchaseOrderModel.countDocuments({
+        organizationId,
+      }),
+
+      purchaseOrderModel.countDocuments({
+        organizationId,
+        status: "pending",
+      }),
+
+      purchaseOrderModel.countDocuments({
+        organizationId,
+        status: "approved",
+      }),
+
+      purchaseOrderModel.countDocuments({
+        organizationId,
+        status: "fulfilled",
+      }),
+
+      productModel.aggregate([
+        {
+          $match: { organizationId },
+        },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: "$quantity",
+            },
+          },
+        },
+      ]),
+
+      productModel.countDocuments({
+        organizationId,
+        $expr: {
+          $lte: ["$quantity", "$reorderThreshold"],
+        },
+      }),
+
+      categoryModel.aggregate([
+        {
+          $match: { organizationId },
+        },
+        {
+          $lookup: {
+            from: "products",
+            localField: "_id",
+            foreignField: "categoryId",
+            as: "products",
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            categoryName: "$name",
+            productCount: {
+              $size: "$products",
+            },
+          },
+        },
+      ]),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        overview: {
+          totalProducts,
+          activeProducts,
+          inactiveProducts,
+          totalCategories,
+          totalSuppliers,
+          totalUsers,
+          totalManagers,
+          totalStaff,
+          totalPurchaseOrders,
+          pendingPurchaseOrders,
+          approvedPurchaseOrders,
+          fulfilledPurchaseOrders,
+        },
+        inventory: {
+          totalStock: totalStock[0]?.total || 0,
+          lowStockProducts,
+        },
+        categoryDistribution,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getDashboardStats:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
     });
   }
 };

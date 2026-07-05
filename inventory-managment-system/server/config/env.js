@@ -16,5 +16,5 @@ export {
   EMAIL_PASSWORD,
   CLIENT_URL,
   NODE_ENV,
-  App_NAME,
+  APP_NAME,
 };

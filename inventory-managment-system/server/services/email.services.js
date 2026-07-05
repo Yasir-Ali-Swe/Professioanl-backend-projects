@@ -30,7 +30,7 @@ export const sendVerificationEmail = async (userName, token, email) => {
   });
 };
 
-export const sendResetPasswordEmail = async (userName, token, email) => {
+export const sendForgetPasswordEmail = async (userName, token, email) => {
   const url = `${CLIENT_URL}/reset-password?token=${token}`;
   return sendEmail({
     to: email,

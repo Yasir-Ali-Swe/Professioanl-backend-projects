@@ -1,0 +1,491 @@
+import userModel from "../models/user.model.js";
+import organizationModel from "../models/organization.model.js";
+import invoiceModel from "../models/invoice.model.js";
+import { hashPassword } from "../helpers/bcrypt.helper.js";
+import { sendAccountCreatedEmail } from "../services/email.services.js";
+
+export const getOrganizationProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    const organizationId = user.organizationId;
+    if (!organizationId) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found for this user",
+      });
+    }
+    const organization = await organizationModel
+      .findById(organizationId)
+      .select("-__v -updatedAt")
+      .populate("subscriptionPlan", "-__v -updatedAt");
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: organization,
+    });
+  } catch (error) {
+    console.error("Error in getOrganizationProfile:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const updateOrganizationProfile = async (req, res) => {
+  try {
+    const { name, contactEmail, address, phone } = req.body;
+    const userId = req.user._id;
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    const organizationId = user.organizationId;
+    if (!organizationId) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found for this user",
+      });
+    }
+    const updateData = {};
+
+    if (name) updateData.name = name;
+    if (contactEmail) updateData.contactEmail = contactEmail;
+    if (address) updateData.address = address;
+    if (phone) updateData.phone = phone;
+
+    const updatedOrganization = await organizationModel
+      .findByIdAndUpdate(organizationId, updateData, {
+        new: true,
+        runValidators: true,
+      })
+      .select("-__v -createdAt -updatedAt -invoiceSettings");
+    if (!updatedOrganization) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: updatedOrganization,
+      message: "Organization profile updated successfully",
+    });
+  } catch (error) {
+    console.error("Error in updateOrganizationProfile:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const getOrganizationAdminProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await userModel
+      .findById(userId)
+      .select("-password -__v -createdAt -updatedAt");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error("Error in getOrganizationAdminProfile:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const updateOrganizationAdminProfile = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const userId = req.user._id;
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    const updatedUser = await userModel
+      .findByIdAndUpdate(userId, updateData, {
+        new: true,
+        runValidators: true,
+      })
+      .select("-password -__v -createdAt -updatedAt");
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: updatedUser,
+      message: "Profile updated successfully",
+    });
+  } catch (error) {
+    console.error("Error in updateOrganizationAdminProfile:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const getOrganizationInvoiceDetails = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    const organizationId = user.organizationId;
+    if (!organizationId) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found for this user",
+      });
+    }
+    const organization = await organizationModel.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found",
+      });
+    }
+    const invoiceDetails = {
+      taxRate: organization.invoiceSettings.taxRate,
+      defaultDiscount: organization.invoiceSettings.defaultDiscount,
+      invoicePrefix: organization.invoiceSettings.invoicePrefix,
+      nextInvoiceNumber: organization.invoiceSettings.nextInvoiceNumber,
+    };
+    res.status(200).json({
+      success: true,
+      data: invoiceDetails,
+    });
+  } catch (error) {
+    console.error("Error in getOrganizationInvoiceDetails:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const updateOrganizationInvoiceDetails = async (req, res) => {
+  try {
+    const { taxRate, defaultDiscount, invoicePrefix } = req.body;
+    const userId = req.user._id;
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    const organizationId = user.organizationId;
+    if (!organizationId) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found for this user",
+      });
+    }
+    const organization = await organizationModel.findById(organizationId);
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found",
+      });
+    }
+    const updateData = {};
+    if (taxRate !== undefined) updateData["invoiceSettings.taxRate"] = taxRate;
+    if (defaultDiscount !== undefined)
+      updateData["invoiceSettings.defaultDiscount"] = defaultDiscount;
+    if (invoicePrefix !== undefined)
+      updateData["invoiceSettings.invoicePrefix"] = invoicePrefix;
+    await organizationModel.findByIdAndUpdate(organizationId, updateData, {
+      new: true,
+      runValidators: true,
+    });
+    res.status(200).json({
+      success: true,
+      message: "Invoice details updated successfully",
+    });
+  } catch (error) {
+    console.error("Error in updateOrganizationInvoiceDetails:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const adminInviteOrganizationUsers = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { name, email, role, password } = req.body;
+    if (!name || !email || !role || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+    const user = await userModel.findById(userId);
+    const organizationId = user.organizationId;
+    const userExists = await userModel.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this email already exists",
+      });
+    }
+    const hashedPassword = await hashPassword(password);
+    const newUser = new userModel({
+      name,
+      email,
+      role,
+      password: hashedPassword,
+      organizationId,
+      invitedBy: userId,
+    });
+    await newUser.save();
+    await sendAccountCreatedEmail(email, name, password);
+    res.status(201).json({
+      success: true,
+      message: "User invited successfully",
+    });
+  } catch (error) {
+    console.error("Error in adminInviteOrganizationUsers:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const getOrganizationUsers = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      role,
+      isActive,
+      sortBy = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    // Allow sorting only by these fields
+    const allowedSortFields = [
+      "name",
+      "email",
+      "createdAt",
+      "isActive",
+      "role",
+    ];
+
+    const sortField = allowedSortFields.includes(sortBy) ? sortBy : "createdAt";
+
+    // Base query
+    const query = {
+      organizationId,
+      _id: { $ne: req.user._id }, // Exclude logged-in user
+    };
+
+    // Search by name or email
+    if (search) {
+      query.$or = [
+        {
+          name: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          email: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+      ];
+    }
+
+    // Filter by role
+    const allowedRoles = ["admin", "manager", "staff"];
+
+    if (role && allowedRoles.includes(role)) {
+      query.role = role;
+    }
+
+    // Filter by active status
+    if (isActive === "true") {
+      query.isActive = true;
+    } else if (isActive === "false") {
+      query.isActive = false;
+    }
+
+    const pageNumber = Math.max(parseInt(page, 10), 1);
+    const limitNumber = Math.max(parseInt(limit, 10), 1);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const totalUsers = await userModel.countDocuments(query);
+
+    const users = await userModel
+      .find(query)
+      .select("-password -tokenVersion -__v -updatedAt")
+      .populate("invitedBy", "name email role")
+      .sort({
+        [sortField]: order === "asc" ? 1 : -1,
+      })
+      .skip(skip)
+      .limit(limitNumber);
+
+    res.status(200).json({
+      success: true,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages: Math.ceil(totalUsers / limitNumber),
+        totalUsers,
+        limit: limitNumber,
+        hasNextPage: pageNumber < Math.ceil(totalUsers / limitNumber),
+        hasPreviousPage: pageNumber > 1,
+      },
+      data: users,
+    });
+  } catch (error) {
+    console.error("Error in getOrganizationUsers:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const getOrganizationUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const organizationId = req.organizationId;
+
+    const user = await userModel
+      .findOne({ _id: id, organizationId })
+      .select("-password -tokenVersion -__v -updatedAt");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error("Error in getOrganizationUserById:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const updateOrganizationUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const organizationId = req.organizationId;
+    const { role, isActive } = req.body;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+    const updateData = {};
+    if (role) updateData.role = role;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    const updatedUser = await userModel
+      .findOneAndUpdate({ _id: id, organizationId }, updateData, {
+        new: true,
+        runValidators: true,
+      })
+      .select("-password -tokenVersion -__v -updatedAt");
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: updatedUser,
+      message: "User updated successfully",
+    });
+  } catch (error) {
+    console.error("Error in updateOrganizationUserById:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const deleteOrganizationUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const organizationId = req.organizationId;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+    const deletedUser = await userModel.findOneAndDelete({
+      _id: id,
+      organizationId,
+    });
+    if (!deletedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error in deleteOrganizationUserById:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};

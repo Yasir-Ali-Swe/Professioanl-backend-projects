@@ -44,7 +44,7 @@ const productSchema = new mongoose.Schema(
     unit: {
       type: String,
       enum: ["piece", "kg", "liter", "box"],
-      required: true
+      required: true,
     },
     imageUrl: {
       type: String,

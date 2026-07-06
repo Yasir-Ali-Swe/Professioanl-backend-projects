@@ -1,9 +1,9 @@
 import nodeMailer from "nodemailer";
 import { EMAIL_USER, EMAIL_PASSWORD, CLIENT_URL } from "../config/env.js";
-import resetPasswordEmailTemplate  from "../templates/reset.password.email.template.js";
-import  verifyEmailTemplate  from "../templates/verification.email.template.js";
+import resetPasswordEmailTemplate from "../templates/reset.password.email.template.js";
+import verifyEmailTemplate from "../templates/verification.email.template.js";
 import accountCreatedEmailTemplate from "../templates/account.created.email.template.js";
-import {APP_NAME} from "../config/env.js"
+import { APP_NAME } from "../config/env.js";
 
 const transporter = nodeMailer.createTransport({
   service: "gmail",
@@ -27,7 +27,7 @@ export const sendVerificationEmail = async (userName, token, email) => {
   return sendEmail({
     to: email,
     subject: "Verify Your Email",
-    html: verifyEmailTemplate(userName, url)
+    html: verifyEmailTemplate(userName, url),
   });
 };
 
@@ -36,15 +36,15 @@ export const sendForgetPasswordEmail = async (userName, token, email) => {
   return sendEmail({
     to: email,
     subject: "Reset Your Password",
-    html: resetPasswordEmailTemplate(userName, url)
+    html: resetPasswordEmailTemplate(userName, url),
   });
 };
 
 export const sendAccountCreatedEmail = async (userName, email, password) => {
-  const url=`${CLIENT_URL}/login`
+  const url = `${CLIENT_URL}/login`;
   return sendEmail({
-    to:email,
-    subject:`${APP_NAME} Account Created Successfully.`,
-    html:accountCreatedEmailTemplate(userName, email, password, url)
-  })
-}
+    to: email,
+    subject: `${APP_NAME} Account Created Successfully.`,
+    html: accountCreatedEmailTemplate(userName, email, password, url),
+  });
+};

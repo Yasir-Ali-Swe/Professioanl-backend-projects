@@ -10,6 +10,7 @@ import {
 } from "../controllers/superAdmin.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
+
 const router = express.Router();
 
 router.get("/organizations", authMiddleware, authorize("super_admin"), getAllOrganizations);

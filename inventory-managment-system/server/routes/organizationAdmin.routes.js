@@ -12,21 +12,22 @@ import {
   deleteOrganizationUserById,
   getDashboardStats,
 } from "../controllers/organizationAdmin.controller.js";
-import { adminMiddleware } from "../middleware/admin.middleware.js";
+import { authMiddleware } from "../middleware/auth.middleware.js";
+import { authorize } from "../middleware/authorize.user.middleware.js";
 import express from "express";
 
 const router = express.Router();
-router.get("organization-profile", adminMiddleware, getOrganizationProfile);
-router.patch("organization-profile", adminMiddleware, updateOrganizationProfile);
-router.get("organization-admin-profile", adminMiddleware, getOrganizationAdminProfile);
-router.patch("organization-admin-profile", adminMiddleware, updateOrganizationAdminProfile);
-router.get("organization-invoice-details", adminMiddleware, getOrganizationInvoiceDetails);
-router.patch("organization-invoice-details", adminMiddleware, updateOrganizationInvoiceDetails);
-router.post("organization-invite-users", adminMiddleware, adminInviteOrganizationUsers);
-router.get("organization-users", adminMiddleware, getOrganizationUsers);
-router.get("organization-users/:id", adminMiddleware, getOrganizationUserById);
-router.patch("organization-users/:id", adminMiddleware, updateOrganizationUserById);
-router.delete("organization-users/:id", adminMiddleware, deleteOrganizationUserById);
-router.get("dashboard-stats", adminMiddleware, getDashboardStats);
+router.get("organization-profile", authMiddleware, authorize("admin"), getOrganizationProfile);
+router.patch("organization-profile", authMiddleware, authorize("admin"), updateOrganizationProfile);
+router.get("organization-admin-profile", authMiddleware, authorize("admin"), getOrganizationAdminProfile);
+router.patch("organization-admin-profile", authMiddleware, authorize("admin"), updateOrganizationAdminProfile);
+router.get("organization-invoice-details", authMiddleware, authorize("admin"), getOrganizationInvoiceDetails);
+router.patch("organization-invoice-details", authMiddleware, authorize("admin"), updateOrganizationInvoiceDetails);
+router.post("organization-invite-users", authMiddleware, authorize("admin"), adminInviteOrganizationUsers);
+router.get("organization-users", authMiddleware, authorize("admin"), getOrganizationUsers);
+router.get("organization-users/:id", authMiddleware, authorize("admin"), getOrganizationUserById);
+router.patch("organization-users/:id", authMiddleware, authorize("admin"), updateOrganizationUserById);
+router.delete("organization-users/:id", authMiddleware, authorize("admin"), deleteOrganizationUserById);
+router.get("dashboard-stats", authMiddleware, authorize("admin"), getDashboardStats);
 
 export default router;

@@ -1,5 +1,6 @@
 import stockLogModel from "../models/stock.log.model.js";
 import productModel from "../models/product.model.js";
+import { performStockIn, performStockOut } from "../services/stock.service.js";
 
 export const stockIn = async (req, res) => {
   try {
@@ -29,40 +30,18 @@ export const stockIn = async (req, res) => {
       });
     }
 
-    const product = await productModel.findOne({
-      _id: productId,
-      organizationId,
-    });
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-
-    product.quantity += quantity;
-    await product.save();
-
-    const stockLog = await stockLogModel.create({
+    const result = await performStockIn({
       organizationId,
       productId,
-      type: "in",
-      reason,
       quantity,
+      reason,
       performedBy,
     });
 
     res.status(201).json({
       success: true,
       message: "Stock added successfully",
-      data: {
-        product: {
-          _id: product._id,
-          name: product.name,
-          quantity: product.quantity,
-        },
-        stockLog,
-      },
+      data: result,
     });
   } catch (error) {
     console.error("Error in stockIn:", error.message);
@@ -101,47 +80,18 @@ export const stockOut = async (req, res) => {
       });
     }
 
-    const product = await productModel.findOne({
-      _id: productId,
-      organizationId,
-    });
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-
-    if (product.quantity < quantity) {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient stock",
-      });
-    }
-
-    product.quantity -= quantity;
-    await product.save();
-
-    const stockLog = await stockLogModel.create({
+    const result = await performStockOut({
       organizationId,
       productId,
-      type: "out",
-      reason,
       quantity,
+      reason,
       performedBy,
     });
 
     res.status(201).json({
       success: true,
       message: "Stock removed successfully",
-      data: {
-        product: {
-          _id: product._id,
-          name: product.name,
-          quantity: product.quantity,
-        },
-        stockLog,
-      },
+      data: result,
     });
   } catch (error) {
     console.error("Error in stockOut:", error.message);

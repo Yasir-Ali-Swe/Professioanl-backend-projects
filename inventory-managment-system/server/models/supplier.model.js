@@ -5,32 +5,37 @@ const supplierSchema = new mongoose.Schema(
     organizationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
-      required: true
+      required: true,
     },
     name: {
       type: String,
-      required: true
+      required: true,
     },
     contactPerson: {
       type: String,
-      required: true
+      required: true,
     },
     email: {
       type: String,
-      default: null
+      default: null,
     },
-    phone:{
+    phone: {
       type: String,
-      required: true
+      required: true,
     },
-    address:{
+    address: {
       type: String,
-      required: true
+      required: true,
     },
-    leadTimeDays:{
+    leadTimeDays: {
       type: Number,
-      default: null
-    }
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true },
 );

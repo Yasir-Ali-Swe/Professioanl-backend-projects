@@ -1,43 +1,46 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const aiInsightsSchema = new mongoose.Schema({
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: true
-  },
-  period: {
-    type: String,
-    enum: ["weekly", "monthly"],
-    required: true
-  },
-  summaryText: {
-    type: String
-  },
-  keyMetrics: {
-    topSellingProductId: {
+const aiInsightsSchema = new mongoose.Schema(
+  {
+    organizationId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
-      default: null
+      ref: "Organization",
+      required: true,
     },
-    decliningProductId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
-      default: null
+    period: {
+      type: String,
+      enum: ["weekly", "monthly"],
+      required: true,
     },
-    totalRevenue: {
-      type: Number,
-      required: true
+    summaryText: {
+      type: String,
     },
-    totalOrders: {
-      type: Number,
-      required: true
-    }
+    keyMetrics: {
+      topSellingProductId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+        default: null,
+      },
+      decliningProductId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+        default: null,
+      },
+      totalRevenue: {
+        type: Number,
+        required: true,
+      },
+      totalOrders: {
+        type: Number,
+        required: true,
+      },
+    },
   },
-}, {
-  timestamps: true
-});
+  {
+    timestamps: true,
+  },
+);
 
-const AiInsights = mongoose.model('AiInsights', aiInsightsSchema);
+const AiInsights = mongoose.model("AiInsights", aiInsightsSchema);
 
 export default AiInsights;

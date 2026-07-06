@@ -7,7 +7,7 @@ const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD;
 const CLIENT_URL = process.env.CLIENT_URL;
 const NODE_ENV = process.env.NODE_ENV;
-const App_NAME = process.env.App_NAME;
+const APP_NAME = process.env.APP_NAME;
 export {
   PORT,
   MONGODB_URI,

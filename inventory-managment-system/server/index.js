@@ -6,6 +6,7 @@ import { connectDB } from "./config/db.connection.js";
 import authRoutes from "./routes/auth.routes.js";
 import superAdminRoutes from "./routes/superAdmin.routes.js";
 import organizationAdminRoutes from "./routes/organizationAdmin.routes.js";
+import categoryRoutes from "./routes/category.routes.js";
 
 const app = express();
 
@@ -21,3 +22,4 @@ app.listen(PORT, () => {
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/super-admin", superAdminRoutes);
 app.use("/api/v1/organization-admin", organizationAdminRoutes);
+app.use("/api/v1/category", categoryRoutes);

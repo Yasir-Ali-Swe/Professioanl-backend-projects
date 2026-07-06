@@ -1,6 +1,6 @@
 import nodeMailer from "nodemailer";
 import { EMAIL_USER, EMAIL_PASSWORD, CLIENT_URL } from "../config/env.js";
-import resetPasswordEmailTemplate from "../templates/reset.password.email.template.js";
+import forgetPasswordEmailTemplate from "../templates/forget.password.email.template.js";
 import verifyEmailTemplate from "../templates/verification.email.template.js";
 import accountCreatedEmailTemplate from "../templates/account.created.email.template.js";
 import { APP_NAME } from "../config/env.js";
@@ -36,7 +36,7 @@ export const sendForgetPasswordEmail = async (userName, token, email) => {
   return sendEmail({
     to: email,
     subject: "Reset Your Password",
-    html: resetPasswordEmailTemplate(userName, url),
+    html: forgetPasswordEmailTemplate(userName, url),
   });
 };
 

@@ -126,12 +126,10 @@ export const getCategoryBySlug = async (req, res) => {
     const categorySlug = req.params.slug;
 
     if (!organizationId || !categorySlug) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Organization ID and category slug are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Organization ID and category slug are required",
+      });
     }
 
     const category = await categoryModel
@@ -160,12 +158,10 @@ export const getCategoryProducts = async (req, res) => {
     const organizationId = req.organizationId;
     const categoryId = req.params.id;
     if (!organizationId || !categoryId) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Organization ID and category ID are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Organization ID and category ID are required",
+      });
     }
     const products = await productModel
       .find({ organizationId, categoryId })

@@ -10,7 +10,6 @@ import categoryRoutes from "./routes/category.routes.js";
 import supplierRoutes from "./routes/supplier.route.js";
 import productRoutes from "./routes/product.routes.js";
 
-
 const app = express();
 
 app.use(cors());

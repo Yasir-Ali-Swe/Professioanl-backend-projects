@@ -1,7 +1,7 @@
 import userModel from "../models/user.model.js";
 import organizationModel from "../models/organization.model.js";
 import invoiceModel from "../models/invoice.model.js";
-import { hashPassword } from "../helpers/bcrypt.helper.js";
+import { hashPassword } from "../helpers/password.helper.js";
 import { sendAccountCreatedEmail } from "../services/email.services.js";
 import productModel from "../models/product.model.js";
 import categoryModel from "../models/category.model.js";

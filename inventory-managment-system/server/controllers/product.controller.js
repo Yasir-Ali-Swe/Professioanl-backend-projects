@@ -106,7 +106,7 @@ export const createProduct = async (req, res) => {
   }
 };
 
-import productModel from "../models/product.model.js";
+
 
 export const getAllProducts = async (req, res) => {
   try {

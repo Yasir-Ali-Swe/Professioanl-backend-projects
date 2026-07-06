@@ -1,25 +1,31 @@
 import mongoose from "mongoose";
 
-const subscriptionSchema = new mongoose.Schema({
-    name:{
-        type: String,
-        enum: ["free","premium"],
-        default: "free"
+const subscriptionSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      enum: ["free", "premium"],
+      default: "free",
     },
-    price:{
-        type: Number,
-        default: 0
+    price: {
+      type: Number,
+      default: 0,
     },
-    billingCycle:{
-        type: String,
-        enum: ["monthly","yearly"],
-        default: "monthly"
+    billingCycle: {
+      type: String,
+      enum: ["monthly", "yearly"],
+      default: "monthly",
     },
-    aiFeatures:{
-        type: Boolean,
-        default: false
-    }
-},{ timestamps: true });
+    aiFeatures: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { timestamps: true },
+);
 
-const subscriptionModel = mongoose.model("SubscriptionPlan", subscriptionSchema);
+const subscriptionModel = mongoose.model(
+  "SubscriptionPlan",
+  subscriptionSchema,
+);
 export default subscriptionModel;

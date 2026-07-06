@@ -1,4 +1,4 @@
-import {APP_NAME} from "../config/env.js";
+import { APP_NAME } from "../config/env.js";
 const accountCreatedEmailTemplate = (userName, email, password, loginUrl) => {
   return `
 

@@ -13,10 +13,30 @@ import { authorize } from "../middleware/authorize.user.middleware.js";
 
 const router = express.Router();
 
-router.get("/organizations", authMiddleware, authorize("super_admin"), getAllOrganizations);
-router.get("/organizations/:id", authMiddleware, authorize("super_admin"), getOrganizationById);
-router.delete("/organizations/:id", authMiddleware, authorize("super_admin"), deleteOrganization);
-router.get("/analytics", authMiddleware, authorize("super_admin"), getAnalytics);
+router.get(
+  "/organizations",
+  authMiddleware,
+  authorize("super_admin"),
+  getAllOrganizations,
+);
+router.get(
+  "/organizations/:id",
+  authMiddleware,
+  authorize("super_admin"),
+  getOrganizationById,
+);
+router.delete(
+  "/organizations/:id",
+  authMiddleware,
+  authorize("super_admin"),
+  deleteOrganization,
+);
+router.get(
+  "/analytics",
+  authMiddleware,
+  authorize("super_admin"),
+  getAnalytics,
+);
 router.get(
   "/organizations/:id/subscription",
   authMiddleware,

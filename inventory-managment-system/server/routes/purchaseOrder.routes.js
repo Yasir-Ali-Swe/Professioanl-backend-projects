@@ -6,7 +6,7 @@ import {
   approvePurchaseOrder,
   rejectPurchaseOrder,
   fulfillPurchaseOrder,
-} from "../controllers/purchase.order.controller.js";
+} from "../controllers/purchaseOrder.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
 

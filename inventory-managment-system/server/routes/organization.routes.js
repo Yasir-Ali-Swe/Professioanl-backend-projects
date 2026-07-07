@@ -11,9 +11,11 @@ import {
   updateOrganizationUserById,
   deleteOrganizationUserById,
   getDashboardStats,
+  uploadOrganizationLogo,
 } from "../controllers/organization.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
+import { uploadOrganization } from "../config/cloudinary.config.js";
 import express from "express";
 
 const router = express.Router();
@@ -29,6 +31,15 @@ router.patch(
   authorize("admin"),
   updateOrganizationProfile,
 );
+
+router.post(
+  "/upload-organization-logo",
+  authMiddleware,
+  authorize("admin"),
+  uploadOrganization.single("image"),
+  uploadOrganizationLogo,
+);
+
 router.get(
   "organization-admin-profile",
   authMiddleware,

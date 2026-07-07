@@ -1,8 +1,8 @@
 import demandForecastModel from "../models/ai.product.forcast.model.js";
 import reorderSuggestionModel from "../models/ai.reorder.suggestion.model.js";
-import stockLogModel from "../models/stock.log.model.js";
+import stockLogModel from "../models/stockLog.model.js";
 import productModel from "../models/product.model.js";
-import purchaseOrderModel from "../models/purchase.order.model.js";
+import purchaseOrderModel from "../models/purchaseOrder.model.js";
 import supplierModel from "../models/supplier.model.js";
 
 export const getForecastForProduct = async (req, res) => {

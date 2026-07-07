@@ -44,6 +44,10 @@ const userSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
     tokenVersion: {
       type: Number,
       default: 0,

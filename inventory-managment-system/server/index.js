@@ -14,7 +14,9 @@ import invoiceRoutes from "./routes/invoice.routes.js";
 import purchaseRoutes from "./routes/purchaseOrder.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import forecastRoutes from "./routes/forecast.routes.js";
+import anomalyRoutes from "./routes/anomaly.routes.js";
 import { scheduleForecastJob } from "./jobs/forecast.cron.js";
+import { scheduleAnomalyJob } from "./jobs/anomaly.cron.js";
 
 const app = express();
 
@@ -27,8 +29,9 @@ app.listen(PORT, () => {
   connectDB();
 });
 
-// Schedule the forecast job
+// Background jobs
 // scheduleForecastJob();
+// scheduleAnomalyJob();
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/super-admin", superAdminRoutes);
@@ -41,3 +44,4 @@ app.use("/api/v1/invoice", invoiceRoutes);
 app.use("/api/v1/purchse", purchaseRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/forecasts", forecastRoutes);
+app.use("/api/v1/anomaly", anomalyRoutes);

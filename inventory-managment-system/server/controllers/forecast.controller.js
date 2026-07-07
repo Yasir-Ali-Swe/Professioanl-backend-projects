@@ -1,0 +1,264 @@
+import demandForecastModel from "../models/ai.product.forcast.model.js";
+import reorderSuggestionModel from "../models/ai.reorder.suggestion.model.js";
+import stockLogModel from "../models/stock.log.model.js";
+import productModel from "../models/product.model.js";
+import purchaseOrderModel from "../models/purchase.order.model.js";
+import supplierModel from "../models/supplier.model.js";
+
+export const getForecastForProduct = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+    const productId = req.params.id;
+
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required",
+      });
+    }
+
+    const product = await productModel.findOne({
+      _id: productId,
+      organizationId,
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+    const salesLogs = await stockLogModel.find({
+      organizationId,
+      productId,
+      type: "out",
+      reason: "sale",
+      createdAt: { $gte: ninetyDaysAgo },
+    });
+
+    const totalSold = salesLogs.reduce((sum, log) => sum + log.quantity, 0);
+    const avgDailySales = totalSold / 90;
+
+    const daysUntilStockout =
+      avgDailySales > 0 ? Math.floor(product.quantity / avgDailySales) : null;
+
+    const predictedDemand = Math.round(avgDailySales * 30);
+
+    const confidence =
+      salesLogs.length >= 10 ? 0.8 : salesLogs.length >= 5 ? 0.6 : 0.4;
+
+    const forecast = await demandForecastModel.create({
+      organizationId,
+      productId,
+      predictedDemand,
+      forecastPeriod: "30_days",
+      daysUntilStockout,
+      confidence,
+      modelUsed: "moving_average_v1",
+    });
+
+    res.status(200).json({
+      success: true,
+      data: forecast,
+    });
+  } catch (error) {
+    console.error("Error in getForecastForProduct:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const getAllForecasts = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+
+    const forecasts = await demandForecastModel.aggregate([
+      { $match: { organizationId } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$productId",
+          latest: { $first: "$$ROOT" },
+        },
+      },
+    ]);
+
+    const result = await demandForecastModel.populate(
+      forecasts.map((f) => f.latest),
+      [{ path: "productId", select: "name sku quantity reorderThreshold" }],
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result.map((f) => f.latest),
+    });
+  } catch (error) {
+    console.error("Error in getAllForecasts:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const getReorderSuggestions = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+
+    const suggestions = await reorderSuggestionModel
+      .find({
+        organizationId,
+        status: "pending",
+      })
+      .populate("productId", "name sku quantity reorderThreshold supplierId")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: suggestions,
+    });
+  } catch (error) {
+    console.error("Error in getReorderSuggestions:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const approveReorderSuggestion = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+    const suggestionId = req.params.id;
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    const suggestion = await reorderSuggestionModel.findOne({
+      _id: suggestionId,
+      organizationId,
+    });
+
+    if (!suggestion) {
+      return res.status(404).json({
+        success: false,
+        message: "Suggestion not found",
+      });
+    }
+
+    if (suggestion.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: `Suggestion already ${suggestion.status}`,
+      });
+    }
+
+    const product = await productModel.findOne({
+      _id: suggestion.productId,
+      organizationId,
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const supplier = await supplierModel.findOne({
+      _id: product.supplierId,
+      organizationId,
+    });
+
+    if (!supplier) {
+      return res.status(404).json({
+        success: false,
+        message: "Supplier not found for this product",
+      });
+    }
+
+    const count = await purchaseOrderModel.countDocuments({ organizationId });
+    const poNumber = `PO-${String(count + 1).padStart(4, "0")}`;
+
+    const status = userRole === "admin" ? "approved" : "pending";
+
+    const purchaseOrder = await purchaseOrderModel.create({
+      organizationId,
+      poNumber,
+      supplierId: product.supplierId,
+      items: [
+        {
+          productId: product._id,
+          quantity: suggestion.suggestedQuantity,
+          unitCost: product.costPrice,
+        },
+      ],
+      totalCost: suggestion.suggestedQuantity * product.costPrice,
+      status,
+      createdBy: userId,
+      approvedBy: userRole === "admin" ? userId : null,
+      generatedFromAI: true,
+    });
+
+    suggestion.status = "actioned";
+    await suggestion.save();
+
+    const populatedPO = await purchaseOrderModel
+      .findById(purchaseOrder._id)
+      .populate("supplierId", "name")
+      .populate("items.productId", "name sku")
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      message: "Suggestion approved and purchase order created",
+      data: {
+        suggestion,
+        purchaseOrder: populatedPO,
+      },
+    });
+  } catch (error) {
+    console.error("Error in approveReorderSuggestion:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const dismissReorderSuggestion = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+    const suggestionId = req.params.id;
+
+    const suggestion = await reorderSuggestionModel.findOneAndUpdate(
+      { _id: suggestionId, organizationId },
+      { status: "dismissed" },
+      { new: true },
+    );
+
+    if (!suggestion) {
+      return res.status(404).json({
+        success: false,
+        message: "Suggestion not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Suggestion dismissed successfully",
+      data: suggestion,
+    });
+  } catch (error) {
+    console.error("Error in dismissReorderSuggestion:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};

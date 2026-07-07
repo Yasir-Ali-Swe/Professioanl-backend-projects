@@ -48,6 +48,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    imageUrl: {
+      type: String,
+      default: null,
+    },
     tokenVersion: {
       type: Number,
       default: 0,
@@ -55,7 +59,6 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
-
 
 const userModel = mongoose.model("User", userSchema);
 export default userModel;

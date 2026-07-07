@@ -6,7 +6,7 @@ import { sendAccountCreatedEmail } from "../services/email.services.js";
 import productModel from "../models/product.model.js";
 import categoryModel from "../models/category.model.js";
 import supplierModel from "../models/supplier.model.js";
-import purchaseOrderModel from "../models/purchase.order.model.js";
+import purchaseOrderModel from "../models/purchaseOrder.model.js";
 
 export const getOrganizationProfile = async (req, res) => {
   try {

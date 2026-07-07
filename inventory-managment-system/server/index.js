@@ -5,7 +5,7 @@ import { PORT } from "./config/env.js";
 import { connectDB } from "./config/db.connection.js";
 import authRoutes from "./routes/auth.routes.js";
 import superAdminRoutes from "./routes/superAdmin.routes.js";
-import organizationAdminRoutes from "./routes/organizationAdmin.routes.js";
+import organizationAdminRoutes from "./routes/organization.routes.js";
 import categoryRoutes from "./routes/category.routes.js";
 import supplierRoutes from "./routes/supplier.route.js";
 import productRoutes from "./routes/product.routes.js";

@@ -7,6 +7,8 @@ import {
 } from "../controllers/product.controller.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import { uploadProduct } from "../config/cloudinary.config.js";
+import { uploadProductImage } from "../controllers/product.controller.js";
 import express from "express";
 
 const router = express.Router();
@@ -44,6 +46,14 @@ router.get(
   authMiddleware,
   authorize("admin", "manager", "staff"),
   getProductById,
+);
+
+router.post(
+  "/upload-product-image/:id",
+  authMiddleware,
+  authorize("admin", "manager"),
+  uploadProduct.single("image"),
+  uploadProductImage,
 );
 
 export default router;

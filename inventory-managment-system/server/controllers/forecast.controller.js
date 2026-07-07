@@ -1,6 +1,6 @@
 import { generateForecastForProduct } from "../services/forecast.service.js";
-import demandForecastModel from "../models/ai.product.forcast.model.js";
-import reorderSuggestionModel from "../models/ai.reorder.suggestion.model.js";
+import demandForecastModel from "../models/product.forcast.model.js";
+import reorderSuggestionModel from "../models/reorder.suggestion.model.js";
 import stockLogModel from "../models/stockLog.model.js";
 import productModel from "../models/product.model.js";
 import purchaseOrderModel from "../models/purchaseOrder.model.js";

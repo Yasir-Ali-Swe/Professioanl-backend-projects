@@ -6,6 +6,7 @@ import {
   forgetPassword,
   resetPassword,
   refreshAuth,
+  verifyEmail,
 } from "../controllers/auth.controller.js";
 import express from "express";
 import { authMiddleware } from "../middleware/auth.middleware.js";
@@ -19,5 +20,6 @@ router.get("/get-login-user", authMiddleware, getLoginUser);
 router.post("/forget-password", forgetPassword);
 router.post("/reset-password/:token", resetPassword);
 router.post("/refresh-auth", refreshAuth);
+router.post("/verify-email/:token", verifyEmail);
 
 export default router;

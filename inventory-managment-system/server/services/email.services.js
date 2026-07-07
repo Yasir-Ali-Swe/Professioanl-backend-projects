@@ -1,6 +1,6 @@
 import nodeMailer from "nodemailer";
 import { EMAIL_USER, EMAIL_PASSWORD, CLIENT_URL } from "../config/env.js";
-import forgetPasswordEmailTemplate from "../templates/forget.password.email.template.js";
+import forgetPasswordEmailTemplate from "../templates/password.reset.email.template.js";
 import verifyEmailTemplate from "../templates/verification.email.template.js";
 import accountCreatedEmailTemplate from "../templates/account.created.email.template.js";
 import { APP_NAME } from "../config/env.js";

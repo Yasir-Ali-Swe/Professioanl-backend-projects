@@ -8,6 +8,10 @@ const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD;
 const CLIENT_URL = process.env.CLIENT_URL;
 const NODE_ENV = process.env.NODE_ENV;
 const APP_NAME = process.env.APP_NAME;
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
+
 export {
   PORT,
   MONGODB_URI,
@@ -17,4 +21,7 @@ export {
   CLIENT_URL,
   NODE_ENV,
   APP_NAME,
+  CLOUDINARY_CLOUD_NAME,
+  CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET,
 };

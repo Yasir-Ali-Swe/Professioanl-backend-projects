@@ -1,3 +1,4 @@
+import { generateForecastForProduct } from "../services/forecast.service.js";
 import demandForecastModel from "../models/ai.product.forcast.model.js";
 import reorderSuggestionModel from "../models/ai.reorder.suggestion.model.js";
 import stockLogModel from "../models/stockLog.model.js";
@@ -17,48 +18,10 @@ export const getForecastForProduct = async (req, res) => {
       });
     }
 
-    const product = await productModel.findOne({
-      _id: productId,
-      organizationId,
-    });
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-
-    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-
-    const salesLogs = await stockLogModel.find({
+    const forecast = await generateForecastForProduct(
       organizationId,
       productId,
-      type: "out",
-      reason: "sale",
-      createdAt: { $gte: ninetyDaysAgo },
-    });
-
-    const totalSold = salesLogs.reduce((sum, log) => sum + log.quantity, 0);
-    const avgDailySales = totalSold / 90;
-
-    const daysUntilStockout =
-      avgDailySales > 0 ? Math.floor(product.quantity / avgDailySales) : null;
-
-    const predictedDemand = Math.round(avgDailySales * 30);
-
-    const confidence =
-      salesLogs.length >= 10 ? 0.8 : salesLogs.length >= 5 ? 0.6 : 0.4;
-
-    const forecast = await demandForecastModel.create({
-      organizationId,
-      productId,
-      predictedDemand,
-      forecastPeriod: "30_days",
-      daysUntilStockout,
-      confidence,
-      modelUsed: "moving_average_v1",
-    });
+    );
 
     res.status(200).json({
       success: true,

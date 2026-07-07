@@ -1,7 +1,7 @@
 import productModel from "../models/product.model.js";
 import invoiceModel from "../models/invoice.model.js";
-import purchaseOrderModel from "../models/purchase.order.model.js";
-import stockLogModel from "../models/stock.log.model.js";
+import purchaseOrderModel from "../models/purchaseOrder.model.js";
+import stockLogModel from "../models/stockLog.model.js";
 
 export const getDashboardSummary = async (req, res) => {
   try {

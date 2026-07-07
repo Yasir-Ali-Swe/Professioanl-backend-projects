@@ -12,6 +12,7 @@ import productRoutes from "./routes/product.routes.js";
 import stockRoutes from "./routes/stock.routes.js";
 import invoiceRoutes from "./routes/invoice.routes.js";
 import purchaseRoutes from "./routes/purchaseOrder.routes.js";
+import dashboardRoutes from "./routes/dashboard.routes.js";
 
 const app = express();
 
@@ -33,3 +34,4 @@ app.use("/api/v1/product", productRoutes);
 app.use("/api/v1/stock", stockRoutes);
 app.use("/api/v1/invoice", invoiceRoutes);
 app.use("/api/v1/purchse", purchaseRoutes);
+app.use("/api/v1/dashboard", dashboardRoutes);

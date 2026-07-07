@@ -6,9 +6,72 @@ import productModel from "../models/product.model.js";
 import categoryModel from "../models/category.model.js";
 import supplierModel from "../models/supplier.model.js";
 import purchaseOrderModel from "../models/purchaseOrder.model.js";
-import {
-  queueAccountCreatedEmail,
-} from "../services/email.queue.service.js";
+import { queueAccountCreatedEmail } from "../services/email.queue.service.js";
+
+// export const getOrganizationProfile = async (req, res) => {
+//   try {
+//     const userId = req.user._id;
+//     const organizationId = req.user.organizationId;
+//     const organization = await organizationModel
+//       .findById(organizationId)
+//       .select("-__v -updatedAt")
+//       .populate("subscriptionPlan", "-__v -updatedAt");
+//     if (!organization) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Organization not found",
+//       });
+//     }
+//     res.status(200).json({
+//       success: true,
+//       data: organization,
+//     });
+//   } catch (error) {
+//     console.error("Error in getOrganizationProfile:", error.message);
+//     res.status(error.status || 500).json({
+//       success: false,
+//       message: error.message || "Internal server error",
+//     });
+//   }
+// };
+
+// export const updateOrganizationProfile = async (req, res) => {
+//   try {
+//     const { name, contactEmail, address, phone } = req.body;
+//     const userId = req.user._id;
+//     const organizationId = req.user.organizationId;
+//     const updateData = {};
+
+//     if (name) updateData.name = name;
+//     if (contactEmail) updateData.contactEmail = contactEmail;
+//     if (address) updateData.address = address;
+//     if (phone) updateData.phone = phone;
+
+//     const updatedOrganization = await organizationModel
+//       .findByIdAndUpdate(organizationId, updateData, {
+//         new: true,
+//         runValidators: true,
+//       })
+//       .select("-__v -createdAt -updatedAt -invoiceSettings");
+//     if (!updatedOrganization) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Organization not found",
+//       });
+//     }
+//     res.status(200).json({
+//       success: true,
+//       data: updatedOrganization,
+//       message: "Organization profile updated successfully",
+//     });
+//   } catch (error) {
+//     console.error("Error in updateOrganizationProfile:", error.message);
+//     res.status(error.status || 500).json({
+//       success: false,
+//       message: error.message || "Internal server error",
+//     });
+//   }
+// };
 
 export const getOrganizationProfile = async (req, res) => {
   try {
@@ -54,7 +117,9 @@ export const updateOrganizationProfile = async (req, res) => {
         new: true,
         runValidators: true,
       })
-      .select("-__v -createdAt -updatedAt -invoiceSettings");
+      .select("-__v -createdAt -updatedAt -invoiceSettings")
+      .populate("subscriptionPlan", "-__v -updatedAt");
+
     if (!updatedOrganization) {
       return res.status(404).json({
         success: false,
@@ -69,6 +134,47 @@ export const updateOrganizationProfile = async (req, res) => {
   } catch (error) {
     console.error("Error in updateOrganizationProfile:", error.message);
     res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const uploadOrganizationLogo = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
+
+    const organization = await organizationModel
+      .findByIdAndUpdate(
+        organizationId,
+        { logoUrl: req.file.path },
+        { new: true },
+      )
+      .select("-__v -updatedAt")
+      .populate("subscriptionPlan", "-__v -updatedAt");
+
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Organization logo uploaded successfully",
+      data: organization,
+    });
+  } catch (error) {
+    console.error("Error uploading organization logo:", error.message);
+    res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
     });

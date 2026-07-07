@@ -1,4 +1,3 @@
-// Fix for anomaly model - remove duplicate severity field
 import mongoose from "mongoose";
 
 const anomalySchema = new mongoose.Schema(

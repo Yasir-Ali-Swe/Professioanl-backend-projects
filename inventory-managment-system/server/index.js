@@ -14,6 +14,7 @@ import invoiceRoutes from "./routes/invoice.routes.js";
 import purchaseRoutes from "./routes/purchaseOrder.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import forecastRoutes from "./routes/forecast.routes.js";
+import { scheduleForecastJob } from "./jobs/forecast.cron.js";
 
 const app = express();
 
@@ -25,6 +26,9 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   connectDB();
 });
+
+// Schedule the forecast job
+// scheduleForecastJob();
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/super-admin", superAdminRoutes);

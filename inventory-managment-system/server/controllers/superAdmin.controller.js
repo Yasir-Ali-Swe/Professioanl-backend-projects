@@ -7,10 +7,10 @@ import subscriptionPlanModel from "../models/subscription.model.js";
 import stockLogModel from "../models/stockLog.model.js";
 import invoiceModel from "../models/invoice.model.js";
 import purchaseOrderModel from "../models/purchaseOrder.model.js";
-import aiReorderModel from "../models/ai.reorder.suggestion.model.js";
-import aiProductForecastModel from "../models/ai.product.forcast.model.js";
-import aiInsightModel from "../models/ai.insights.model.js";
-import aiAnomalyModel from "../models/ai.anomaly.model.js";
+import aiReorderModel from "../models/reorder.suggestion.model.js";
+import aiProductForecastModel from "../models/product.forcast.model.js";
+import aiInsightModel from "../models/insights.model.js";
+import aiAnomalyModel from "../models/anomaly.model.js";
 
 export const getAllOrganizations = async (req, res) => {
   try {

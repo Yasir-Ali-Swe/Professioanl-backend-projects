@@ -1,7 +1,7 @@
 // services/forecast.service.js
 import productModel from "../models/product.model.js";
 import stockLogModel from "../models/stockLog.model.js";
-import demandForecastModel from "../models/ai.product.forcast.model.js";
+import demandForecastModel from "../models/product.forcast.model.js";
 import organizationModel from "../models/organization.model.js";
 
 export const generateForecastForProduct = async (organizationId, productId) => {

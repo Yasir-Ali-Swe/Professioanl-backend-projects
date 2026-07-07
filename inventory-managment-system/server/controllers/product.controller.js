@@ -2,6 +2,50 @@ import productModel from "../models/product.model.js";
 import categoryModel from "../models/category.model.js";
 import supplierModel from "../models/supplier.model.js";
 
+export const uploadProductImage = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+    const productId = req.params.id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
+
+    const product = await productModel
+      .findOneAndUpdate(
+        { _id: productId, organizationId },
+        { imageUrl: req.file.path },
+        { new: true },
+      )
+      .populate("categoryId", "name categorySlug")
+      .populate("supplierId", "name contactPerson phone")
+      .select("-__v -updatedAt")
+      .lean();
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Product image uploaded successfully",
+      data: product,
+    });
+  } catch (error) {
+    console.error("Error uploading product image:", error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
 export const createProduct = async (req, res) => {
   try {
     const organizationId = req.organizationId;
@@ -16,6 +60,7 @@ export const createProduct = async (req, res) => {
       costPrice,
       sellingPrice,
       unit,
+      imageUrl,
     } = req.body;
 
     if (
@@ -89,6 +134,7 @@ export const createProduct = async (req, res) => {
       costPrice,
       sellingPrice,
       unit,
+      imageUrl: imageUrl || null,  // Add this
       createdBy,
     });
 
@@ -105,8 +151,6 @@ export const createProduct = async (req, res) => {
     });
   }
 };
-
-
 
 export const getAllProducts = async (req, res) => {
   try {

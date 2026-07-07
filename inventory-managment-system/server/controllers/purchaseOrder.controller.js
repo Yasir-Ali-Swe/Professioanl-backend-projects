@@ -1,4 +1,4 @@
-import purchaseOrderModel from "../models/purchase.order.model.js";
+import purchaseOrderModel from "../models/purchaseOrder.model.js";
 import supplierModel from "../models/supplier.model.js";
 import { performStockIn } from "../services/stock.service.js";
 

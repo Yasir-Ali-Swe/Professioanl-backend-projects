@@ -1,4 +1,4 @@
-import stockLogModel from "../models/stock.log.model.js";
+import stockLogModel from "../models/stockLog.model.js";
 import productModel from "../models/product.model.js";
 
 export const performStockIn = async ({

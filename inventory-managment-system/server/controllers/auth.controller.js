@@ -3,7 +3,11 @@ import organizationModel from "../models/organization.model.js";
 import { hashPassword, comparePassword } from "../helpers/password.helper.js";
 import { NODE_ENV } from "../config/env.js";
 import { generateToken, getUserFromToken } from "../helpers/jwt.helper.js";
-import { sendForgetPasswordEmail } from "../services/email.services.js";
+import {
+  queueVerificationEmail,
+  queueForgetPasswordEmail,
+  queueAccountCreatedEmail,
+} from "../services/email.queue.service.js";
 
 export const registerOrganization = async (req, res) => {
   try {
@@ -30,11 +34,25 @@ export const registerOrganization = async (req, res) => {
         .json({ success: false, message: "All fields are required" });
     }
     const existingUser = await userModel.findOne({ email: ownerEmail });
-    if (existingUser) {
+    if (existingUser || existingUser.isVerified) {
       return res.status(400).json({
         success: false,
         message:
           "User with this email already exists,Please use a different email",
+      });
+    }
+    if (existingUser && !existingUser.isVerified) {
+      const verificationToken = generateToken(
+        existingUser._id,
+        "15m",
+        existingUser.tokenVersion,
+        "emailVerification",
+      );
+      queueVerificationEmail(ownerName, verificationToken, ownerEmail);
+      return res.status(200).json({
+        success: true,
+        message:
+          "A verification email has been sent to your email address. Please verify your email to complete the registration.",
       });
     }
     const hashedPassword = await hashPassword(ownerPassword);
@@ -53,6 +71,13 @@ export const registerOrganization = async (req, res) => {
     });
     const savedUser = await newUser.save();
     const savedOrganization = await newOrganization.save();
+    const verificationToken = generateToken(
+      savedUser._id,
+      "15m",
+      savedUser.tokenVersion,
+      "emailVerification",
+    );
+    queueVerificationEmail(ownerName, verificationToken, ownerEmail);
     res.status(201).json({
       success: true,
       message: "Registeration successful. ",
@@ -85,6 +110,14 @@ export const loginUser = async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Invalid Credentials." });
+    }
+
+    if (!userExists.isVerified) {
+      res.status(400).json({
+        success: false,
+        message: "Please verify your email before logging in.",
+      });
+      return;
     }
     const accessToken = generateToken(
       userExists._id,
@@ -178,7 +211,7 @@ export const forgetPassword = async (req, res) => {
       userExists.tokenVersion,
       "forgetPassword",
     );
-    await sendForgetPasswordEmail(userExists.name, forgetPasswordToken, email);
+    await queueForgetPasswordEmail(userExists.name, forgetPasswordToken, email);
     res.status(200).json({
       success: true,
       message: "Please check your email for the password reset link",
@@ -264,7 +297,7 @@ export const verifyEmail = async (req, res) => {
         .json({ success: false, message: "user is already verified" });
     }
     user.isVerified = true;
-    user.token += 1;
+    user.tokenVersion += 1;
     await userModel.save();
     res
       .status(200)

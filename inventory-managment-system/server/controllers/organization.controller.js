@@ -2,11 +2,13 @@ import userModel from "../models/user.model.js";
 import organizationModel from "../models/organization.model.js";
 import invoiceModel from "../models/invoice.model.js";
 import { hashPassword } from "../helpers/password.helper.js";
-import { sendAccountCreatedEmail } from "../services/email.services.js";
 import productModel from "../models/product.model.js";
 import categoryModel from "../models/category.model.js";
 import supplierModel from "../models/supplier.model.js";
 import purchaseOrderModel from "../models/purchaseOrder.model.js";
+import {
+  queueAccountCreatedEmail,
+} from "../services/email.queue.service.js";
 
 export const getOrganizationProfile = async (req, res) => {
   try {
@@ -226,7 +228,7 @@ export const adminInviteOrganizationUsers = async (req, res) => {
       invitedBy: userId,
     });
     await newUser.save();
-    await sendAccountCreatedEmail(email, name, password);
+    queueAccountCreatedEmail(email, name, password);
     res.status(201).json({
       success: true,
       message: "User invited successfully",

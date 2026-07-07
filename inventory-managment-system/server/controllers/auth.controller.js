@@ -253,3 +253,27 @@ export const refreshAuth = async (req, res) => {
     });
   }
 };
+
+export const verifyEmail = async (req, res) => {
+  try {
+    const token = req.params.token;
+    const user = getUserFromToken(token, "emailVerification");
+    if (user.isVerified) {
+      res
+        .status(200)
+        .json({ success: false, message: "user is already verified" });
+    }
+    user.isVerified = true;
+    user.token += 1;
+    await userModel.save();
+    res
+      .status(200)
+      .json({ success: true, message: "Email verified Succesfully." });
+  } catch (error) {
+    console.error("Error in verify email controller:", error);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};

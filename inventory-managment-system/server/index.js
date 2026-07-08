@@ -21,9 +21,11 @@ import chatRoutes from "./routes/chat.routes.js";
 import { scheduleForecastJob } from "./jobs/forecast.cron.js";
 import { scheduleAnomalyJob } from "./jobs/anomaly.cron.js";
 import { scheduleInsightsJob } from "./jobs/insights.cron.js";
+import morgan from "morgan";
 
 const app = express();
 
+app.use(morgan("dev"));
 app.use(cors());
 app.use(cookieParser());
 app.use(express.json());

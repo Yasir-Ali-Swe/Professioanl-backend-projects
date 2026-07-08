@@ -13,6 +13,12 @@ export const authMiddleware = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
     const user = await getUserFromToken(token, "auth");
+    if (user.isVerified === false) {
+      return res.status(403).json({
+        success: false,
+        message: "Please verify your email before accessing this resource.",
+      });
+    }
     req.user = user;
     next();
   } catch (error) {

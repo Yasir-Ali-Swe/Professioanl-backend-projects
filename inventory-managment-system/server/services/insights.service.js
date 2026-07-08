@@ -87,7 +87,7 @@ export const generateInsightsForOrg = async (
     : null;
 
   const prompt = `
-You are a business analyst. Write a short, plain-English 2-3 sentence summary for a store manager based on this data:
+You are a business analyst. Write a short, plain-English 2-4 sentence summary for a store manager based on this data:
 - Total revenue: $${totalRevenue}
 - Total orders: ${totalOrders}
 - Top selling product: ${topProduct?.name || "N/A"}

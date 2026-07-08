@@ -156,7 +156,7 @@ body {
   </div>
 
   <div class="footer">
-    <p>© ${new Date().getFullYear()} PrimeStock. All rights reserved.</p>
+    <p>© ${new Date().getFullYear()} ${APP_NAME}. All rights reserved.</p>
   </div>
 
 </div>

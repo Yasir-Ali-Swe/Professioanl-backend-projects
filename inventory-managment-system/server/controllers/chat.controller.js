@@ -11,6 +11,9 @@ import { GEMINI_API_KEY } from "../config/env.js";
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
+// Simple conversation context cache
+const contextCache = new Map();
+
 export const chatWithAI = async (req, res) => {
   try {
     const organizationId = req.organizationId;
@@ -25,17 +28,51 @@ export const chatWithAI = async (req, res) => {
       });
     }
 
+    // Get conversation context
+    const contextKey = `${organizationId}_${userId}`;
+    let context = contextCache.get(contextKey) || {
+      lastQuery: null,
+      lastResults: null,
+      lastTool: null,
+      conversationCount: 0,
+    };
+
+    // Enhance query with context if needed
+    let enhancedQuery = query;
+    const followUpWords = [
+      "those",
+      "them",
+      "these",
+      "that",
+      "they",
+      "it",
+      "more",
+      "again",
+      "update",
+      "instead",
+    ];
+    if (
+      context.lastResults &&
+      context.lastTool &&
+      followUpWords.some((word) => query.toLowerCase().includes(word))
+    ) {
+      enhancedQuery = `${query} (Based on previous results about ${context.lastTool})`;
+    }
+
+    // Get tools based on role
     const tools = getToolsForRole(chatTools[0].functionDeclarations, role);
 
+    // Initialize Gemini
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       tools: [{ functionDeclarations: tools }],
     });
 
     const chat = model.startChat();
-    const result = await chat.sendMessage(query);
+    const result = await chat.sendMessage(enhancedQuery);
     const call = result.response.functionCalls()?.[0];
 
+    // If no tool called, just return text response
     if (!call) {
       const replyText = result.response.text();
       await chatLogModel.create({
@@ -45,6 +82,13 @@ export const chatWithAI = async (req, res) => {
         response: replyText,
         intent: null,
       });
+
+      contextCache.set(contextKey, {
+        ...context,
+        lastQuery: query,
+        conversationCount: context.conversationCount + 1,
+      });
+
       return res.json({
         success: true,
         reply: replyText,
@@ -53,8 +97,21 @@ export const chatWithAI = async (req, res) => {
       });
     }
 
+    // Execute the tool
     const toolResult = await executeTool(call.name, call.args, organizationId);
 
+    // Check for errors in tool result
+    if (toolResult.error) {
+      return res.json({
+        success: false,
+        reply:
+          toolResult.message || "An error occurred processing your request",
+        type: "text",
+        data: null,
+      });
+    }
+
+    // Send result back to AI for final response
     const followUp = await chat.sendMessage([
       {
         functionResponse: {
@@ -67,6 +124,7 @@ export const chatWithAI = async (req, res) => {
     const replyText = followUp.response.text();
     const responseType = getResponseType(call.name);
 
+    // Save to history
     await chatLogModel.create({
       organizationId,
       userId,
@@ -75,26 +133,34 @@ export const chatWithAI = async (req, res) => {
       intent: call.name,
     });
 
-    res.json({
+    // Update context
+    contextCache.set(contextKey, {
+      lastQuery: query,
+      lastResults: toolResult,
+      lastTool: call.name,
+      conversationCount: context.conversationCount + 1,
+    });
+
+    // Extract data for response
+    const data = extractData(toolResult);
+
+    // Build response
+    const response = {
       success: true,
       reply: replyText,
       type: responseType,
-      data:
-        toolResult.products ||
-        toolResult.product ||
-        toolResult.orders ||
-        toolResult.invoices ||
-        toolResult.suggestions ||
-        toolResult.anomalies ||
-        toolResult.users ||
-        toolResult.suppliers ||
-        toolResult.logs ||
-        toolResult.forecast ||
-        toolResult.insight ||
-        toolResult.categories ||
-        toolResult.supplier ||
-        null,
-    });
+      data: data,
+    };
+
+    // Add metadata if available
+    if (toolResult.count !== undefined) {
+      response.metadata = { count: toolResult.count };
+    }
+    if (toolResult.summary) {
+      response.metadata = { ...response.metadata, summary: toolResult.summary };
+    }
+
+    res.json(response);
   } catch (error) {
     console.error("Error in chatWithAI:", error.message);
     res.status(500).json({
@@ -104,18 +170,59 @@ export const chatWithAI = async (req, res) => {
   }
 };
 
+// Helper to extract data from tool result
+const extractData = (toolResult) => {
+  const dataKeys = [
+    "products",
+    "product",
+    "suppliers",
+    "supplier",
+    "invoices",
+    "orders",
+    "forecasts",
+    "forecast",
+    "anomalies",
+    "suggestions",
+    "users",
+    "user",
+    "insight",
+    "insights",
+    "metrics",
+    "summary",
+    "topProducts",
+    "inventoryValue",
+    "customerAnalytics",
+  ];
+
+  for (const key of dataKeys) {
+    if (toolResult[key]) return toolResult[key];
+  }
+  return null;
+};
+
 export const getChatHistory = async (req, res) => {
   try {
     const organizationId = req.organizationId;
     const userId = req.user._id;
+    const { limit = 50, intent, startDate, endDate } = req.query;
+
+    const filter = {
+      organizationId,
+      userId,
+    };
+
+    if (intent) filter.intent = intent;
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
 
     const history = await chatLogModel
-      .find({
-        organizationId,
-        userId,
-      })
+      .find(filter)
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(parseInt(limit));
 
     res.status(200).json({
       success: true,
@@ -123,6 +230,25 @@ export const getChatHistory = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getChatHistory:", error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const clearContext = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+    const userId = req.user._id;
+    const contextKey = `${organizationId}_${userId}`;
+    contextCache.delete(contextKey);
+
+    res.status(200).json({
+      success: true,
+      message: "Conversation context cleared",
+    });
+  } catch (error) {
     res.status(500).json({
       success: false,
       message: error.message || "Internal server error",

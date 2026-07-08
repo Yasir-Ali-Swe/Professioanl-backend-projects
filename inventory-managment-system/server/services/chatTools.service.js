@@ -10,239 +10,1143 @@ import reorderSuggestionModel from "../models/reorder.suggestion.model.js";
 import anomalyModel from "../models/anomaly.model.js";
 import aiInsightsModel from "../models/insights.model.js";
 import userModel from "../models/user.model.js";
+import organizationModel from "../models/organization.model.js";
+
+// ============ HELPER FUNCTIONS ============
+
+/**
+ * Parse date ranges from various formats
+ */
+const parseDateRange = (args) => {
+  const now = new Date();
+  let startDate = null;
+  let endDate = new Date();
+
+  // If specific dates provided
+  if (args.startDate && args.endDate) {
+    return {
+      startDate: new Date(args.startDate),
+      endDate: new Date(args.endDate),
+    };
+  }
+
+  // If period specified
+  if (args.period) {
+    const periods = {
+      today: () => {
+        const d = new Date(now.setHours(0, 0, 0, 0));
+        return { startDate: d, endDate: new Date() };
+      },
+      yesterday: () => {
+        const d = new Date(now.setDate(now.getDate() - 1));
+        d.setHours(0, 0, 0, 0);
+        const e = new Date(d);
+        e.setHours(23, 59, 59, 999);
+        return { startDate: d, endDate: e };
+      },
+      this_week: () => {
+        const d = new Date(now.setDate(now.getDate() - now.getDay()));
+        d.setHours(0, 0, 0, 0);
+        return { startDate: d, endDate: new Date() };
+      },
+      last_week: () => {
+        const d = new Date(now.setDate(now.getDate() - now.getDay() - 7));
+        d.setHours(0, 0, 0, 0);
+        const e = new Date(d);
+        e.setDate(e.getDate() + 6);
+        e.setHours(23, 59, 59, 999);
+        return { startDate: d, endDate: e };
+      },
+      this_month: () => {
+        const d = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { startDate: d, endDate: new Date() };
+      },
+      last_month: () => {
+        const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const e = new Date(now.getFullYear(), now.getMonth(), 0);
+        e.setHours(23, 59, 59, 999);
+        return { startDate: d, endDate: e };
+      },
+      this_year: () => {
+        const d = new Date(now.getFullYear(), 0, 1);
+        return { startDate: d, endDate: new Date() };
+      },
+    };
+
+    if (periods[args.period]) {
+      return periods[args.period]();
+    }
+  }
+
+  // Default: last 30 days
+  return {
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    endDate: new Date(),
+  };
+};
+
+/**
+ * Build sort object for Mongoose
+ */
+const buildSort = (sortBy, sortOrder = "asc") => {
+  if (!sortBy) return { createdAt: -1 };
+
+  const sortMap = {
+    name: "name",
+    price: "sellingPrice",
+    stock: "quantity",
+    sku: "sku",
+    date: "createdAt",
+    amount: "total",
+    customer: "customerName",
+    leadTime: "leadTimeDays",
+  };
+
+  const field = sortMap[sortBy] || "name";
+  return { [field]: sortOrder === "desc" ? -1 : 1 };
+};
+
+/**
+ * Apply limit to query
+ */
+const applyLimit = (query, limit) => {
+  const maxLimit = Math.min(limit || 20, 100);
+  return query.limit(maxLimit);
+};
+
+/**
+ * Find category by name
+ */
+const findCategory = async (organizationId, name) => {
+  if (!name) return null;
+  return await categoryModel.findOne({
+    organizationId,
+    name: new RegExp(name, "i"),
+  });
+};
+
+/**
+ * Find supplier by name
+ */
+const findSupplier = async (organizationId, name) => {
+  if (!name) return null;
+  return await supplierModel.findOne({
+    organizationId,
+    name: new RegExp(name, "i"),
+  });
+};
+
+// ============ MAIN HANDLER ============
 
 export const executeTool = async (toolName, args, organizationId) => {
-  switch (toolName) {
-    case "get_products_by_category": {
-      const category = await categoryModel.findOne({
-        organizationId,
-        name: new RegExp(args.categoryName, "i"),
-      });
-      if (!category) return { message: "Category not found" };
-      const filter = {
-        organizationId,
-        categoryId: category._id,
-        isActive: true,
-      };
-      if (args.lowStockOnly) {
-        filter.$expr = { $lte: ["$quantity", "$reorderThreshold"] };
-      }
-      const products = await productModel
-        .find(filter)
-        .select("name sku quantity sellingPrice imageUrl");
-      return { products };
+  try {
+    switch (toolName) {
+      case "query_products":
+        return await handleProducts(args, organizationId);
+      case "query_suppliers":
+        return await handleSuppliers(args, organizationId);
+      case "query_sales":
+        return await handleSales(args, organizationId);
+      case "query_orders":
+        return await handleOrders(args, organizationId);
+      case "query_analytics":
+        return await handleAnalytics(args, organizationId);
+      case "query_team":
+        return await handleTeam(args, organizationId);
+      case "query_insights":
+        return await handleInsights(args, organizationId);
+      case "get_dashboard":
+        return await handleDashboard(args, organizationId);
+      case "get_comprehensive_info":
+        return await handleComprehensive(args, organizationId);
+      default:
+        return { message: "I don't understand that request. Please rephrase." };
     }
-    case "get_low_stock_products": {
-      const products = await productModel
-        .find({
-          organizationId,
-          isActive: true,
-          $expr: { $lte: ["$quantity", "$reorderThreshold"] },
-        })
-        .select("name sku quantity sellingPrice imageUrl");
-      return { products };
-    }
-    case "get_product_stock": {
-      const product = await productModel
-        .findOne({
-          organizationId,
-          name: new RegExp(args.productName, "i"),
-        })
-        .select("name sku quantity sellingPrice imageUrl");
-      if (!product) return { message: "Product not found" };
-      return { product };
-    }
-    case "search_products": {
-      const products = await productModel
-        .find({
-          organizationId,
-          isActive: true,
-          name: new RegExp(args.keyword, "i"),
-        })
-        .select("name sku quantity sellingPrice imageUrl");
-      return { products };
-    }
-    case "get_out_of_stock_products": {
-      const products = await productModel
-        .find({ organizationId, isActive: true, quantity: 0 })
-        .select("name sku imageUrl");
-      return { products };
-    }
-    case "list_categories": {
-      const categories = await categoryModel
-        .find({ organizationId })
-        .select("name");
-      return { categories };
-    }
-    case "get_supplier_info": {
-      const supplier = await supplierModel.findOne({
-        organizationId,
-        name: new RegExp(args.supplierName, "i"),
-      });
-      if (!supplier) return { message: "Supplier not found" };
-      return { supplier };
-    }
-    case "list_suppliers": {
-      const suppliers = await supplierModel
-        .find({ organizationId })
-        .select("name contactPerson leadTimeDays");
-      return { suppliers };
-    }
-    case "get_stock_history": {
-      const product = await productModel.findOne({
-        organizationId,
-        name: new RegExp(args.productName, "i"),
-      });
-      if (!product) return { message: "Product not found" };
-      const since = new Date(
-        Date.now() - (args.days || 30) * 24 * 60 * 60 * 1000,
-      );
-      const logs = await stockLogModel
-        .find({
-          organizationId,
-          productId: product._id,
-          createdAt: { $gte: since },
-        })
-        .populate("performedBy", "name")
-        .sort({ createdAt: -1 });
-      return { productName: product.name, logs };
-    }
-    case "get_sales_summary": {
-      const since = new Date(Date.now() - args.days * 24 * 60 * 60 * 1000);
-      const invoices = await invoiceModel.find({
-        organizationId,
-        status: "paid",
-        createdAt: { $gte: since },
-      });
-      const totalRevenue = invoices.reduce((sum, inv) => sum + inv.total, 0);
-      return { totalRevenue, totalOrders: invoices.length, days: args.days };
-    }
-    case "get_recent_invoices": {
-      const filter = { organizationId };
-      if (args.status) filter.status = args.status;
-      const invoices = await invoiceModel
-        .find(filter)
-        .sort({ createdAt: -1 })
-        .limit(args.limit || 10)
-        .select("invoiceNumber customerName total status createdAt");
-      return { invoices };
-    }
-    case "get_top_selling_products": {
-      const since = new Date(Date.now() - args.days * 24 * 60 * 60 * 1000);
-      const invoices = await invoiceModel.find({
-        organizationId,
-        status: "paid",
-        createdAt: { $gte: since },
-      });
-      const tally = {};
-      invoices.forEach((inv) =>
-        inv.products.forEach((p) => {
-          tally[p.productId] = (tally[p.productId] || 0) + p.quantity;
-        }),
-      );
-      const sorted = Object.entries(tally)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
-      const products = await Promise.all(
-        sorted.map(async ([id, qty]) => {
-          const p = await productModel.findById(id).select("name imageUrl");
-          return { name: p?.name, imageUrl: p?.imageUrl, unitsSold: qty };
-        }),
-      );
-      return { products };
-    }
-    case "get_pending_purchase_orders": {
-      const orders = await purchaseOrderModel
-        .find({ organizationId, status: "pending" })
-        .populate("supplierId", "name");
-      return { orders };
-    }
-    case "get_purchase_orders_by_status": {
-      const orders = await purchaseOrderModel
-        .find({ organizationId, status: args.status })
-        .populate("supplierId", "name");
-      return { orders };
-    }
-    case "get_demand_forecast": {
-      const product = await productModel.findOne({
-        organizationId,
-        name: new RegExp(args.productName, "i"),
-      });
-      if (!product) return { message: "Product not found" };
-      const forecast = await demandForecastModel
-        .findOne({ organizationId, productId: product._id })
-        .sort({ createdAt: -1 });
-      if (!forecast)
-        return { message: "No forecast available yet for this product" };
-      return { productName: product.name, forecast };
-    }
-    case "get_reorder_suggestions": {
-      const suggestions = await reorderSuggestionModel
-        .find({ organizationId, status: "pending" })
-        .populate("productId", "name imageUrl");
-      return { suggestions };
-    }
-    case "get_unresolved_anomalies": {
-      const anomalies = await anomalyModel
-        .find({ organizationId, isResolved: false })
-        .populate("productId", "name imageUrl");
-      return { anomalies };
-    }
-    case "get_latest_insight_summary": {
-      const insight = await aiInsightsModel
-        .findOne({ organizationId, period: args.period || "weekly" })
-        .sort({ createdAt: -1 });
-      if (!insight) return { message: "No insights generated yet" };
-      return { insight };
-    }
-    case "get_team_members": {
-      const users = await userModel
-        .find({ organizationId })
-        .select("name email role isActive");
-      return { users };
-    }
-    default:
-      return { message: "Unknown request" };
+  } catch (error) {
+    console.error(`Error in ${toolName}:`, error);
+    return {
+      error: true,
+      message: "An error occurred processing your request",
+      details: error.message,
+    };
   }
 };
 
-export const getResponseType = (toolName) => {
-  const productListTools = [
-    "get_products_by_category",
-    "get_low_stock_products",
-    "search_products",
-    "get_out_of_stock_products",
-    "get_top_selling_products",
-  ];
-  const singleProductTools = ["get_product_stock"];
-  const tableTools = [
-    "get_pending_purchase_orders",
-    "get_purchase_orders_by_status",
-    "get_recent_invoices",
-    "list_suppliers",
-    "get_team_members",
-    "get_unresolved_anomalies",
-    "get_reorder_suggestions",
-    "get_stock_history",
-  ];
+// ============ PRODUCT HANDLER ============
 
-  if (productListTools.includes(toolName)) return "product_list";
-  if (singleProductTools.includes(toolName)) return "product_single";
-  if (tableTools.includes(toolName)) return "table";
+const handleProducts = async (args, organizationId) => {
+  const filter = { organizationId, isActive: true };
+
+  // Search filter
+  if (args.search) {
+    filter.$or = [
+      { name: new RegExp(args.search, "i") },
+      { sku: new RegExp(args.search, "i") },
+    ];
+  }
+
+  // Category filter
+  if (args.category) {
+    const category = await findCategory(organizationId, args.category);
+    if (category) filter.categoryId = category._id;
+  }
+
+  // Supplier filter
+  if (args.supplier) {
+    const supplier = await findSupplier(organizationId, args.supplier);
+    if (supplier) filter.supplierId = supplier._id;
+  }
+
+  // Price range
+  if (args.minPrice || args.maxPrice) {
+    filter.sellingPrice = {};
+    if (args.minPrice) filter.sellingPrice.$gte = args.minPrice;
+    if (args.maxPrice) filter.sellingPrice.$lte = args.maxPrice;
+  }
+
+  // Stock status
+  if (args.stockStatus) {
+    switch (args.stockStatus) {
+      case "low_stock":
+        filter.$expr = { $lte: ["$quantity", "$reorderThreshold"] };
+        break;
+      case "out_of_stock":
+        filter.quantity = 0;
+        break;
+      case "in_stock":
+        filter.quantity = { $gt: 0 };
+        break;
+      // "all" = no filter needed
+    }
+  }
+
+  // Build query
+  let query = productModel
+    .find(filter)
+    .populate("categoryId", "name")
+    .populate("supplierId", "name contactPerson")
+    .select(
+      "name sku quantity sellingPrice costPrice imageUrl unit reorderThreshold",
+    );
+
+  // Apply sorting
+  if (args.sortBy) {
+    query = query.sort(buildSort(args.sortBy, args.sortOrder));
+  }
+
+  // Apply limit
+  query = applyLimit(query, args.limit);
+
+  const products = await query;
+
+  // Calculate summary stats
+  const totalValue = products.reduce(
+    (sum, p) => sum + p.quantity * p.sellingPrice,
+    0,
+  );
+  const avgPrice =
+    products.length > 0
+      ? products.reduce((sum, p) => sum + p.sellingPrice, 0) / products.length
+      : 0;
+
+  return {
+    products,
+    count: products.length,
+    summary: {
+      totalValue: Math.round(totalValue * 100) / 100,
+      averagePrice: Math.round(avgPrice * 100) / 100,
+      totalItems: products.reduce((sum, p) => sum + p.quantity, 0),
+    },
+  };
+};
+
+// ============ SUPPLIER HANDLER ============
+
+const handleSuppliers = async (args, organizationId) => {
+  const filter = { organizationId };
+
+  // Search
+  if (args.search) {
+    filter.$or = [
+      { name: new RegExp(args.search, "i") },
+      { contactPerson: new RegExp(args.search, "i") },
+      { email: new RegExp(args.search, "i") },
+    ];
+  }
+
+  // Lead time range
+  if (args.minLeadTime || args.maxLeadTime) {
+    filter.leadTimeDays = {};
+    if (args.minLeadTime) filter.leadTimeDays.$gte = args.minLeadTime;
+    if (args.maxLeadTime) filter.leadTimeDays.$lte = args.maxLeadTime;
+  }
+
+  let query = supplierModel
+    .find(filter)
+    .select("name contactPerson email phone leadTimeDays address");
+
+  if (args.sortBy) {
+    query = query.sort(buildSort(args.sortBy, args.sortOrder));
+  }
+
+  query = applyLimit(query, args.limit);
+
+  const suppliers = await query;
+
+  // Get product count for each supplier
+  for (const supplier of suppliers) {
+    supplier._doc.productCount = await productModel.countDocuments({
+      organizationId,
+      supplierId: supplier._id,
+      isActive: true,
+    });
+  }
+
+  return { suppliers, count: suppliers.length };
+};
+
+// ============ SALES HANDLER ============
+
+const handleSales = async (args, organizationId) => {
+  const { startDate, endDate } = parseDateRange(args);
+  const filter = { organizationId };
+
+  // Status filter
+  if (args.status && args.status !== "all") {
+    filter.status = args.status;
+  }
+
+  // Customer filter
+  if (args.customer) {
+    filter.customerName = new RegExp(args.customer, "i");
+  }
+
+  // Date range
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = startDate;
+    if (endDate) filter.createdAt.$lte = endDate;
+  }
+
+  // Amount range
+  if (args.minAmount || args.maxAmount) {
+    filter.total = {};
+    if (args.minAmount) filter.total.$gte = args.minAmount;
+    if (args.maxAmount) filter.total.$lte = args.maxAmount;
+  }
+
+  let query = invoiceModel
+    .find(filter)
+    .populate("createdBy", "name email")
+    .select("invoiceNumber customerName total status createdAt");
+
+  if (args.sortBy) {
+    query = query.sort(buildSort(args.sortBy, args.sortOrder));
+  } else {
+    query = query.sort({ createdAt: -1 });
+  }
+
+  query = applyLimit(query, args.limit || 20);
+
+  const invoices = await query;
+
+  // Calculate summary
+  const summary = {
+    totalRevenue:
+      Math.round(invoices.reduce((sum, inv) => sum + inv.total, 0) * 100) / 100,
+    totalOrders: invoices.length,
+    averageOrder:
+      invoices.length > 0
+        ? Math.round(
+            (invoices.reduce((sum, inv) => sum + inv.total, 0) /
+              invoices.length) *
+              100,
+          ) / 100
+        : 0,
+  };
+
+  // Get product details if requested
+  let topProducts = null;
+  if (args.includeProducts && invoices.length > 0) {
+    const productMap = {};
+    for (const inv of invoices) {
+      const fullInvoice = await invoiceModel.findById(inv._id);
+      for (const p of fullInvoice.products) {
+        const key = p.productId.toString();
+        if (!productMap[key]) {
+          productMap[key] = { quantity: 0, revenue: 0 };
+        }
+        productMap[key].quantity += p.quantity;
+        productMap[key].revenue += p.subtotal;
+      }
+    }
+
+    const sorted = Object.entries(productMap)
+      .sort((a, b) => b[1].quantity - a[1].quantity)
+      .slice(0, 10);
+
+    topProducts = await Promise.all(
+      sorted.map(async ([id, data]) => {
+        const product = await productModel.findById(id).select("name imageUrl");
+        return {
+          name: product?.name || "Unknown",
+          imageUrl: product?.imageUrl,
+          quantity: data.quantity,
+          revenue: Math.round(data.revenue * 100) / 100,
+        };
+      }),
+    );
+  }
+
+  // Customer analytics if customer specified
+  let customerAnalytics = null;
+  if (args.customer) {
+    const customerInvoices = await invoiceModel.find({
+      organizationId,
+      customerName: new RegExp(args.customer, "i"),
+      status: "paid",
+    });
+
+    customerAnalytics = {
+      customerName: args.customer,
+      totalSpent:
+        Math.round(
+          customerInvoices.reduce((sum, inv) => sum + inv.total, 0) * 100,
+        ) / 100,
+      totalOrders: customerInvoices.length,
+      firstPurchase:
+        customerInvoices.length > 0
+          ? customerInvoices[customerInvoices.length - 1]?.createdAt
+          : null,
+      lastPurchase:
+        customerInvoices.length > 0 ? customerInvoices[0]?.createdAt : null,
+    };
+  }
+
+  return {
+    invoices,
+    summary,
+    topProducts,
+    customerAnalytics,
+    count: invoices.length,
+    dateRange: { startDate, endDate },
+  };
+};
+
+// ============ ORDERS HANDLER ============
+
+const handleOrders = async (args, organizationId) => {
+  const filter = { organizationId };
+
+  // Status filter
+  if (args.status && args.status !== "all") {
+    filter.status = args.status;
+  }
+
+  // Supplier filter
+  if (args.supplier) {
+    const supplier = await findSupplier(organizationId, args.supplier);
+    if (supplier) filter.supplierId = supplier._id;
+  }
+
+  // Date range
+  const { startDate, endDate } = parseDateRange(args);
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = startDate;
+    if (endDate) filter.createdAt.$lte = endDate;
+  }
+
+  let query = purchaseOrderModel
+    .find(filter)
+    .populate("supplierId", "name contactPerson email")
+    .populate("createdBy", "name")
+    .populate("approvedBy", "name")
+    .select("poNumber totalCost status createdAt items");
+
+  if (args.sortBy) {
+    query = query.sort(buildSort(args.sortBy, args.sortOrder));
+  } else {
+    query = query.sort({ createdAt: -1 });
+  }
+
+  query = applyLimit(query, args.limit || 20);
+
+  const orders = await query;
+
+  return {
+    orders,
+    count: orders.length,
+    totalCost:
+      Math.round(orders.reduce((sum, o) => sum + o.totalCost, 0) * 100) / 100,
+  };
+};
+
+// ============ ANALYTICS HANDLER ============
+
+const handleAnalytics = async (args, organizationId) => {
+  const { type } = args;
+
+  switch (type) {
+    case "forecast":
+      return await handleForecast(args, organizationId);
+    case "anomalies":
+      return await handleAnomalies(args, organizationId);
+    case "suggestions":
+      return await handleSuggestions(args, organizationId);
+    case "inventory_value":
+      return await handleInventoryValue(args, organizationId);
+    case "customer_analytics":
+      return await handleCustomerAnalytics(args, organizationId);
+    default:
+      return { message: `Unknown analytics type: ${type}` };
+  }
+};
+
+const handleForecast = async (args, organizationId) => {
+  const filter = { organizationId };
+
+  // Product filter
+  if (args.product) {
+    const product = await productModel.findOne({
+      organizationId,
+      $or: [{ name: new RegExp(args.product, "i") }, { sku: args.product }],
+    });
+    if (product) {
+      filter.productId = product._id;
+    } else {
+      return { message: `Product "${args.product}" not found` };
+    }
+  }
+
+  if (args.forecastPeriod) filter.forecastPeriod = args.forecastPeriod;
+  if (args.minConfidence) filter.confidence = { $gte: args.minConfidence };
+
+  let query = demandForecastModel
+    .find(filter)
+    .populate("productId", "name sku quantity sellingPrice")
+    .sort({ createdAt: -1 });
+
+  query = applyLimit(query, args.limit || 20);
+
+  const forecasts = await query;
+
+  // Calculate days until stockout
+  for (const f of forecasts) {
+    const product = f.productId;
+    const daysInPeriod =
+      {
+        "7_days": 7,
+        "30_days": 30,
+        "90_days": 90,
+      }[f.forecastPeriod] || 30;
+
+    const dailyDemand = f.predictedDemand / daysInPeriod;
+    f._doc.daysUntilStockout = Math.max(
+      0,
+      Math.floor(product.quantity / dailyDemand),
+    );
+    f._doc.status =
+      f._doc.daysUntilStockout < 7
+        ? "URGENT"
+        : f._doc.daysUntilStockout < 14
+          ? "WARNING"
+          : "OK";
+  }
+
+  return {
+    forecasts,
+    count: forecasts.length,
+    summary: {
+      urgent: forecasts.filter((f) => f._doc.daysUntilStockout < 7).length,
+      warning: forecasts.filter(
+        (f) => f._doc.daysUntilStockout >= 7 && f._doc.daysUntilStockout < 14,
+      ).length,
+      ok: forecasts.filter((f) => f._doc.daysUntilStockout >= 14).length,
+    },
+  };
+};
+
+const handleAnomalies = async (args, organizationId) => {
+  const filter = { organizationId, isResolved: false };
+
+  if (args.severity) filter.severity = args.severity;
+  if (args.anomalyType) filter.type = args.anomalyType;
+
+  // Product filter
+  if (args.product) {
+    const product = await productModel.findOne({
+      organizationId,
+      name: new RegExp(args.product, "i"),
+    });
+    if (product) filter.productId = product._id;
+  }
+
+  let query = anomalyModel
+    .find(filter)
+    .populate("productId", "name sku quantity sellingPrice imageUrl")
+    .sort({ severity: 1, createdAt: -1 });
+
+  query = applyLimit(query, args.limit || 20);
+
+  const anomalies = await query;
+
+  // Summary
+  const summary = {
+    total: anomalies.length,
+    bySeverity: {
+      high: anomalies.filter((a) => a.severity === "high").length,
+      medium: anomalies.filter((a) => a.severity === "medium").length,
+      low: anomalies.filter((a) => a.severity === "low").length,
+    },
+    byType: {},
+  };
+
+  for (const a of anomalies) {
+    summary.byType[a.type] = (summary.byType[a.type] || 0) + 1;
+  }
+
+  return { anomalies, summary };
+};
+
+const handleSuggestions = async (args, organizationId) => {
+  const filter = { organizationId, status: "pending" };
+
+  // Product filter
+  if (args.product) {
+    const product = await productModel.findOne({
+      organizationId,
+      name: new RegExp(args.product, "i"),
+    });
+    if (product) filter.productId = product._id;
+  }
+
+  let query = reorderSuggestionModel
+    .find(filter)
+    .populate("productId", "name sku quantity sellingPrice imageUrl")
+    .sort({ suggestedReorderDate: 1 });
+
+  query = applyLimit(query, args.limit || 20);
+
+  const suggestions = await query;
+
+  // Calculate urgency
+  const now = new Date();
+  for (const s of suggestions) {
+    const daysUntil = Math.ceil(
+      (s.suggestedReorderDate - now) / (1000 * 60 * 60 * 24),
+    );
+    s._doc.urgency =
+      daysUntil < 7 ? "URGENT" : daysUntil < 14 ? "SOON" : "NORMAL";
+  }
+
+  return {
+    suggestions,
+    count: suggestions.length,
+    urgentCount: suggestions.filter((s) => s._doc.urgency === "URGENT").length,
+  };
+};
+
+const handleInventoryValue = async (args, organizationId) => {
+  const products = await productModel
+    .find({
+      organizationId,
+      isActive: true,
+    })
+    .select("name quantity sellingPrice costPrice categoryId");
+
+  const total = {
+    sellingValue:
+      Math.round(
+        products.reduce((sum, p) => sum + p.quantity * p.sellingPrice, 0) * 100,
+      ) / 100,
+    costValue:
+      Math.round(
+        products.reduce((sum, p) => sum + p.quantity * p.costPrice, 0) * 100,
+      ) / 100,
+    profit:
+      Math.round(
+        products.reduce(
+          (sum, p) => sum + p.quantity * (p.sellingPrice - p.costPrice),
+          0,
+        ) * 100,
+      ) / 100,
+  };
+
+  // Group by category if requested
+  let byCategory = null;
+  if (args.category) {
+    const category = await findCategory(organizationId, args.category);
+    if (category) {
+      const catProducts = products.filter(
+        (p) => p.categoryId.toString() === category._id.toString(),
+      );
+      byCategory = {
+        category: category.name,
+        totalProducts: catProducts.length,
+        value:
+          Math.round(
+            catProducts.reduce(
+              (sum, p) => sum + p.quantity * p.sellingPrice,
+              0,
+            ) * 100,
+          ) / 100,
+      };
+    }
+  }
+
+  return {
+    inventoryValue: total,
+    productCount: products.length,
+    byCategory,
+  };
+};
+
+const handleCustomerAnalytics = async (args, organizationId) => {
+  if (!args.customer) {
+    return { message: "Please provide a customer name" };
+  }
+
+  const invoices = await invoiceModel
+    .find({
+      organizationId,
+      customerName: new RegExp(args.customer, "i"),
+      status: "paid",
+    })
+    .sort({ createdAt: -1 });
+
+  if (invoices.length === 0) {
+    return { message: `No purchase history found for "${args.customer}"` };
+  }
+
+  // Get product purchase details
+  const productMap = {};
+  for (const inv of invoices) {
+    const fullInvoice = await invoiceModel.findById(inv._id);
+    for (const p of fullInvoice.products) {
+      const key = p.productId.toString();
+      if (!productMap[key]) {
+        productMap[key] = { quantity: 0, revenue: 0 };
+      }
+      productMap[key].quantity += p.quantity;
+      productMap[key].revenue += p.subtotal;
+    }
+  }
+
+  const topProducts = Object.entries(productMap)
+    .sort((a, b) => b[1].quantity - a[1].quantity)
+    .slice(0, 5)
+    .map(async ([id, data]) => {
+      const product = await productModel.findById(id).select("name imageUrl");
+      return {
+        productName: product?.name || "Unknown",
+        imageUrl: product?.imageUrl,
+        quantity: data.quantity,
+        revenue: Math.round(data.revenue * 100) / 100,
+      };
+    });
+
+  const totalSpent = invoices.reduce((sum, inv) => sum + inv.total, 0);
+
+  return {
+    customerName: args.customer,
+    totalSpent: Math.round(totalSpent * 100) / 100,
+    totalOrders: invoices.length,
+    averageOrder:
+      invoices.length > 0
+        ? Math.round((totalSpent / invoices.length) * 100) / 100
+        : 0,
+    firstPurchase: invoices[invoices.length - 1]?.createdAt,
+    lastPurchase: invoices[0]?.createdAt,
+    topProducts: await Promise.all(topProducts),
+  };
+};
+
+// ============ TEAM HANDLER ============
+
+const handleTeam = async (args, organizationId) => {
+  const filter = { organizationId };
+
+  // Search
+  if (args.search) {
+    filter.$or = [
+      { name: new RegExp(args.search, "i") },
+      { email: new RegExp(args.search, "i") },
+    ];
+  }
+
+  // Role filter
+  if (args.role && args.role !== "all") {
+    filter.role = args.role;
+  }
+
+  // Active status
+  if (args.isActive !== undefined) {
+    filter.isActive = args.isActive;
+  }
+
+  let query = userModel
+    .find(filter)
+    .select("name email role isActive imageUrl createdAt");
+
+  query = applyLimit(query, args.limit || 50);
+
+  const users = await query;
+
+  // Get role stats
+  const stats = await userModel.aggregate([
+    { $match: { organizationId } },
+    {
+      $group: {
+        _id: "$role",
+        count: { $sum: 1 },
+        active: { $sum: { $cond: [{ $eq: ["$isActive", true] }, 1, 0] } },
+      },
+    },
+  ]);
+
+  const roleStats = stats.reduce(
+    (acc, s) => ({
+      ...acc,
+      [s._id]: { total: s.count, active: s.active },
+    }),
+    {},
+  );
+
+  // Get detailed info if requested
+  let details = null;
+  if (args.includeDetails && users.length === 1) {
+    const user = users[0];
+    const activity = await chatLogModel
+      .find({ organizationId, userId: user._id })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select("query createdAt");
+
+    details = { recentActivity: activity };
+  }
+
+  return {
+    users,
+    count: users.length,
+    stats: roleStats,
+    details,
+  };
+};
+
+// ============ INSIGHTS HANDLER ============
+
+const handleInsights = async (args, organizationId) => {
+  const filter = { organizationId };
+  if (args.period) filter.period = args.period;
+
+  if (args.type === "history") {
+    const insights = await aiInsightsModel
+      .find(filter)
+      .populate("keyMetrics.topSellingProductId", "name")
+      .populate("keyMetrics.decliningProductId", "name")
+      .sort({ createdAt: -1 })
+      .limit(args.limit || 10);
+
+    return { insights, count: insights.length };
+  }
+
+  // Latest insight
+  const insight = await aiInsightsModel
+    .findOne(filter)
+    .populate("keyMetrics.topSellingProductId", "name")
+    .populate("keyMetrics.decliningProductId", "name")
+    .sort({ createdAt: -1 });
+
+  if (!insight) {
+    return { message: `No ${args.period || "weekly"} insights available yet` };
+  }
+
+  return { insight };
+};
+
+// ============ DASHBOARD HANDLER ============
+
+const handleDashboard = async (args, organizationId) => {
+  const { startDate, endDate } = parseDateRange({
+    period: args.period || "this_month",
+  });
+
+  // Get all metrics in parallel
+  const [
+    totalProducts,
+    lowStock,
+    outOfStock,
+    totalSuppliers,
+    totalUsers,
+    pendingOrders,
+    anomalies,
+    suggestions,
+  ] = await Promise.all([
+    productModel.countDocuments({ organizationId, isActive: true }),
+    productModel.countDocuments({
+      organizationId,
+      isActive: true,
+      $expr: { $lte: ["$quantity", "$reorderThreshold"] },
+    }),
+    productModel.countDocuments({
+      organizationId,
+      isActive: true,
+      quantity: 0,
+    }),
+    supplierModel.countDocuments({ organizationId }),
+    userModel.countDocuments({ organizationId, isActive: true }),
+    purchaseOrderModel.countDocuments({ organizationId, status: "pending" }),
+    anomalyModel.countDocuments({ organizationId, isResolved: false }),
+    reorderSuggestionModel.countDocuments({
+      organizationId,
+      status: "pending",
+    }),
+  ]);
+
+  // Sales summary
+  const invoices = await invoiceModel.find({
+    organizationId,
+    status: "paid",
+    createdAt: { $gte: startDate, $lte: endDate },
+  });
+
+  const revenue = invoices.reduce((sum, inv) => sum + inv.total, 0);
+  const orders = invoices.length;
+
+  // Low stock products (top 5)
+  const lowStockProducts = await productModel
+    .find({
+      organizationId,
+      isActive: true,
+      $expr: { $lte: ["$quantity", "$reorderThreshold"] },
+    })
+    .select("name sku quantity sellingPrice")
+    .sort({ quantity: 1 })
+    .limit(5);
+
+  // Recent anomalies (top 3)
+  const recentAnomalies = await anomalyModel
+    .find({
+      organizationId,
+      isResolved: false,
+    })
+    .populate("productId", "name")
+    .sort({ severity: 1, createdAt: -1 })
+    .limit(3);
+
+  return {
+    period: args.period || "this_month",
+    dateRange: { startDate, endDate },
+    metrics: {
+      totalProducts,
+      lowStock,
+      outOfStock,
+      totalSuppliers,
+      totalUsers,
+      pendingOrders,
+      anomalies,
+      suggestions,
+      revenue: Math.round(revenue * 100) / 100,
+      orders,
+    },
+    alerts: {
+      lowStockProducts,
+      recentAnomalies,
+      urgentSuggestions: suggestions,
+    },
+  };
+};
+
+// ============ COMPREHENSIVE INFO HANDLER ============
+
+const handleComprehensive = async (args, organizationId) => {
+  const { name, type } = args;
+
+  if (!name || !type) {
+    return { message: "Please provide both name and type" };
+  }
+
+  switch (type) {
+    case "product": {
+      const product = await productModel
+        .findOne({
+          organizationId,
+          name: new RegExp(name, "i"),
+        })
+        .populate("categoryId", "name")
+        .populate("supplierId", "name contactPerson email phone leadTimeDays");
+
+      if (!product) {
+        return { message: `Product "${name}" not found` };
+      }
+
+      // Get sales data
+      const invoices = await invoiceModel.find({
+        organizationId,
+        "products.productId": product._id,
+        status: "paid",
+      });
+
+      const totalSold = invoices.reduce((sum, inv) => {
+        const item = inv.products.find(
+          (p) => p.productId.toString() === product._id.toString(),
+        );
+        return sum + (item ? item.quantity : 0);
+      }, 0);
+
+      const totalRevenue = invoices.reduce((sum, inv) => {
+        const item = inv.products.find(
+          (p) => p.productId.toString() === product._id.toString(),
+        );
+        return sum + (item ? item.subtotal : 0);
+      }, 0);
+
+      // Get forecast
+      const forecast = await demandForecastModel
+        .findOne({
+          organizationId,
+          productId: product._id,
+        })
+        .sort({ createdAt: -1 });
+
+      // Get stock history
+      const stockHistory = await stockLogModel
+        .find({
+          organizationId,
+          productId: product._id,
+        })
+        .populate("performedBy", "name")
+        .sort({ createdAt: -1 })
+        .limit(10);
+
+      // Get anomalies
+      const anomalies = await anomalyModel.find({
+        organizationId,
+        productId: product._id,
+        isResolved: false,
+      });
+
+      return {
+        product,
+        salesSummary: {
+          totalSold,
+          totalRevenue: Math.round(totalRevenue * 100) / 100,
+          transactionCount: invoices.length,
+        },
+        forecast,
+        stockHistory,
+        anomalies: {
+          count: anomalies.length,
+          list: anomalies,
+        },
+      };
+    }
+
+    case "supplier": {
+      const supplier = await supplierModel.findOne({
+        organizationId,
+        name: new RegExp(name, "i"),
+      });
+
+      if (!supplier) {
+        return { message: `Supplier "${name}" not found` };
+      }
+
+      const products = await productModel
+        .find({
+          organizationId,
+          supplierId: supplier._id,
+          isActive: true,
+        })
+        .select("name sku quantity sellingPrice");
+
+      const orders = await purchaseOrderModel
+        .find({
+          organizationId,
+          supplierId: supplier._id,
+        })
+        .sort({ createdAt: -1 })
+        .limit(10);
+
+      return {
+        supplier,
+        productCount: products.length,
+        products,
+        recentOrders: orders,
+      };
+    }
+
+    case "customer": {
+      const invoices = await invoiceModel
+        .find({
+          organizationId,
+          customerName: new RegExp(name, "i"),
+        })
+        .sort({ createdAt: -1 })
+        .limit(20);
+
+      if (invoices.length === 0) {
+        return { message: `Customer "${name}" not found` };
+      }
+
+      const totalSpent = invoices.reduce((sum, inv) => sum + inv.total, 0);
+
+      return {
+        customerName: name,
+        totalSpent: Math.round(totalSpent * 100) / 100,
+        totalOrders: invoices.length,
+        invoices: invoices.map((inv) => ({
+          invoiceNumber: inv.invoiceNumber,
+          total: inv.total,
+          status: inv.status,
+          date: inv.createdAt,
+        })),
+        recentTransactions: invoices.slice(0, 5),
+      };
+    }
+
+    default:
+      return { message: `Unknown entity type: ${type}` };
+  }
+};
+
+// ============ RESPONSE TYPE HELPER ============
+
+export const getResponseType = (toolName) => {
+  const productTools = ["query_products"];
+  const supplierTools = ["query_suppliers"];
+  const salesTools = ["query_sales"];
+  const orderTools = ["query_orders"];
+  const analyticsTools = ["query_analytics"];
+  const teamTools = ["query_team"];
+  const insightTools = ["query_insights"];
+  const dashboardTools = ["get_dashboard"];
+  const comprehensiveTools = ["get_comprehensive_info"];
+
+  if (dashboardTools.includes(toolName)) return "dashboard";
+  if (comprehensiveTools.includes(toolName)) return "comprehensive";
+  if (analyticsTools.includes(toolName)) return "analytics";
+  if (salesTools.includes(toolName) || orderTools.includes(toolName))
+    return "table";
+  if (productTools.includes(toolName)) return "product_list";
+  if (supplierTools.includes(toolName)) return "supplier_list";
+  if (teamTools.includes(toolName)) return "team_list";
+  if (insightTools.includes(toolName)) return "insight";
   return "text";
 };
 
+// ============ ROLE-BASED ACCESS ============
+
 export const getToolsForRole = (allTools, role) => {
-  const adminOnlyTools = ["get_team_members"];
+  const adminOnlyTools = ["query_team"];
   const managerAndAboveTools = [
-    "get_sales_summary",
-    "get_pending_purchase_orders",
-    "get_purchase_orders_by_status",
-    "get_demand_forecast",
-    "get_reorder_suggestions",
-    "get_unresolved_anomalies",
-    "get_latest_insight_summary",
-    "get_top_selling_products",
+    "query_sales",
+    "query_orders",
+    "query_analytics",
+    "query_insights",
+    "get_dashboard",
+    "get_comprehensive_info",
   ];
 
   if (role === "staff") {

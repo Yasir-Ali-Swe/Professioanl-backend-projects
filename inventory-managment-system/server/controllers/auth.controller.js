@@ -34,7 +34,7 @@ export const registerOrganization = async (req, res) => {
         .json({ success: false, message: "All fields are required" });
     }
     const existingUser = await userModel.findOne({ email: ownerEmail });
-    if (existingUser || existingUser.isVerified) {
+    if (existingUser && existingUser.isVerified) {
       return res.status(400).json({
         success: false,
         message:
@@ -151,18 +151,17 @@ export const loginUser = async (req, res) => {
 export const getLoginUser = async (req, res) => {
   try {
     const user = req.user;
+    const data= await user.populate({
+      path: "organizationId",
+      select: "-__v -createdAt -updatedAt",
+      populate: {
+        path: "subscriptionPlan",
+        select: "-__v -createdAt -updatedAt",
+      },
+    });
     res.status(200).json({
       success: true,
-      loginUser: {
-        _id: user._id,
-        organizationId: user.organizationId,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isActive: user.isActive,
-        tokenVersion: user.tokenVersion,
-        invitedBy: user.invitedBy,
-      },
+      loginUser:data,
     });
   } catch (error) {
     console.error("Error in getLoginUser controller:", error);
@@ -290,7 +289,7 @@ export const refreshAuth = async (req, res) => {
 export const verifyEmail = async (req, res) => {
   try {
     const token = req.params.token;
-    const user = getUserFromToken(token, "emailVerification");
+    const user = await getUserFromToken(token, "emailVerification");
     if (user.isVerified) {
       res
         .status(200)
@@ -298,7 +297,7 @@ export const verifyEmail = async (req, res) => {
     }
     user.isVerified = true;
     user.tokenVersion += 1;
-    await userModel.save();
+    await user.save();
     res
       .status(200)
       .json({ success: true, message: "Email verified Succesfully." });

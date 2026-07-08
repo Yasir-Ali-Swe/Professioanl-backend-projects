@@ -51,11 +51,11 @@ export const getUserFromToken = async (token, tokenPurpose = "auth") => {
       err.status = 400;
       throw err;
     }
-    if (!user.isVerified) {
-      const err = new Error("Please verify your email before logging in.");
-      err.status = 400;
-      throw err;
-    }
+    // if (!user.isVerified) {
+    //   const err = new Error("Please verify your email before logging in.");
+    //   err.status = 400;
+    //   throw err;
+    // }
     return user;
   } catch (error) {
     console.log("Error in getUserFromToken:", error.message);

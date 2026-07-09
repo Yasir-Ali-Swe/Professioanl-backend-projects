@@ -19,6 +19,7 @@ export const authMiddleware = async (req, res, next) => {
         message: "Please verify your email before accessing this resource.",
       });
     }
+    console.log("Authenticated user:", user);
     req.user = user;
     next();
   } catch (error) {

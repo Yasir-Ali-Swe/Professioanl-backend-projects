@@ -19,21 +19,22 @@ import { uploadOrganization } from "../config/cloudinary.config.js";
 import express from "express";
 
 const router = express.Router();
+
 router.get(
-  "organization-profile",
+  "/organization-profile",
   authMiddleware,
-  authorize("admin"),
+  authorize("admin manager staff"),
   getOrganizationProfile,
 );
 router.patch(
-  "organization-profile",
+  "/organization-profile",
   authMiddleware,
   authorize("admin"),
   updateOrganizationProfile,
 );
 
 router.post(
-  "/upload-organization-logo",
+  "/organization-logo",
   authMiddleware,
   authorize("admin"),
   uploadOrganization.single("image"),
@@ -41,63 +42,66 @@ router.post(
 );
 
 router.get(
-  "organization-admin-profile",
+  "/organization-admin-profile",
   authMiddleware,
   authorize("admin"),
   getOrganizationAdminProfile,
 );
 router.patch(
-  "organization-admin-profile",
+  "/organization-admin-profile",
   authMiddleware,
   authorize("admin"),
   updateOrganizationAdminProfile,
 );
+
 router.get(
-  "organization-invoice-details",
+  "/organization-invoice-details",
   authMiddleware,
-  authorize("admin"),
+  authorize("admin manager staff"),
   getOrganizationInvoiceDetails,
 );
 router.patch(
-  "organization-invoice-details",
+  "/organization-invoice-details",
   authMiddleware,
   authorize("admin"),
   updateOrganizationInvoiceDetails,
 );
+
 router.post(
-  "organization-invite-users",
+  "/organization-users/invite",
   authMiddleware,
-  authorize("admin"),
+  authorize("admin manager"),
   adminInviteOrganizationUsers,
 );
 router.get(
-  "organization-users",
+  "/organization-users",
   authMiddleware,
-  authorize("admin"),
+  authorize("admin manager"),
   getOrganizationUsers,
 );
 router.get(
-  "organization-users/:id",
+  "/organization-users/:id",
   authMiddleware,
-  authorize("admin"),
+  authorize("admin manager"),
   getOrganizationUserById,
 );
 router.patch(
-  "organization-users/:id",
+  "/organization-users/:id",
   authMiddleware,
-  authorize("admin"),
+  authorize("admin manager"),
   updateOrganizationUserById,
 );
 router.delete(
-  "organization-users/:id",
+  "/organization-users/:id",
   authMiddleware,
-  authorize("admin"),
+  authorize("admin manager"),
   deleteOrganizationUserById,
 );
+
 router.get(
-  "dashboard-stats",
+  "/organization-dashboard-stats",
   authMiddleware,
-  authorize("admin"),
+  authorize("admin manager"),
   getDashboardStats,
 );
 

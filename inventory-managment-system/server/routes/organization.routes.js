@@ -23,7 +23,7 @@ const router = express.Router();
 router.get(
   "/organization-profile",
   authMiddleware,
-  authorize("admin manager staff"),
+  authorize("admin", "manager", "staff"),
   getOrganizationProfile,
 );
 router.patch(
@@ -57,7 +57,7 @@ router.patch(
 router.get(
   "/organization-invoice-details",
   authMiddleware,
-  authorize("admin manager staff"),
+  authorize("admin", "manager", "staff"),
   getOrganizationInvoiceDetails,
 );
 router.patch(
@@ -70,38 +70,38 @@ router.patch(
 router.post(
   "/organization-users/invite",
   authMiddleware,
-  authorize("admin manager"),
+  authorize("admin", "manager"),
   adminInviteOrganizationUsers,
 );
 router.get(
   "/organization-users",
   authMiddleware,
-  authorize("admin manager"),
+  authorize("admin", "manager"),
   getOrganizationUsers,
 );
 router.get(
   "/organization-users/:id",
   authMiddleware,
-  authorize("admin manager"),
+  authorize("admin", "manager"),
   getOrganizationUserById,
 );
 router.patch(
   "/organization-users/:id",
   authMiddleware,
-  authorize("admin manager"),
+  authorize("admin", "manager"),
   updateOrganizationUserById,
 );
 router.delete(
   "/organization-users/:id",
   authMiddleware,
-  authorize("admin manager"),
+  authorize("admin", "manager"),
   deleteOrganizationUserById,
 );
 
 router.get(
   "/organization-dashboard-stats",
   authMiddleware,
-  authorize("admin manager"),
+  authorize("admin", "manager"),
   getDashboardStats,
 );
 

@@ -45,7 +45,7 @@ app.listen(PORT, () => {
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/super-admin", superAdminRoutes);
-app.use("/api/v1/organization-admin", organizationAdminRoutes);
+app.use("/api/v1/organization", organizationAdminRoutes);
 app.use("/api/v1/category", categoryRoutes);
 app.use("/api/v1/supplier", supplierRoutes);
 app.use("/api/v1/product", productRoutes);

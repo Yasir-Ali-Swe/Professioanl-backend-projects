@@ -28,6 +28,7 @@
     "node-cron": "^4.6.0",
     "nodemailer": "^8.0.7",
     "slugify": "^1.6.9",
+    "stripe": "^22.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

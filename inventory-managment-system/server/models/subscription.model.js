@@ -1,31 +1,38 @@
+// models/subscription.model.js
 import mongoose from "mongoose";
 
-const subscriptionSchema = new mongoose.Schema(
+const subscriptionRecordSchema = new mongoose.Schema(
   {
-    name: {
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+      unique: true,
+    },
+    subscriptionPlanId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SubscriptionPlan",
+      required: true,
+    },
+    stripeCustomerId: {
       type: String,
-      enum: ["free", "premium"],
-      default: "free",
+      default: null,
     },
-    price: {
-      type: Number,
-      default: 0,
-    },
-    billingCycle: {
+    stripeSubscriptionId: {
       type: String,
-      enum: ["monthly", "yearly"],
-      default: "monthly",
+      default: null,
     },
-    aiFeatures: {
-      type: Boolean,
-      default: false,
+    status: {
+      type: String,
+      enum: ["active", "past_due", "canceled", "incomplete"],
+      default: "incomplete",
+    },
+    currentPeriodEnd: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true },
 );
 
-const subscriptionModel = mongoose.model(
-  "SubscriptionPlan",
-  subscriptionSchema,
-);
-export default subscriptionModel;
+export default mongoose.model("Subscription", subscriptionRecordSchema);

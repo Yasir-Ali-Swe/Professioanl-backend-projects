@@ -205,7 +205,7 @@ body {
     </div>
 
     <div class="next-steps">
-      <p><strong>📋 Next Steps:</strong><br>1. Log in to your account using the credentials above<br>2. Update your profile information<br>3. Start exploring our features</p>
+      <p><strong>📋 Next Steps:</strong><br>1. Log in to your account using the credentials above<br>2. Update your credentials(email,password)<br>3. Start exploring our features</p>
     </div>
 
     <p class="info-text">

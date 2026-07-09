@@ -8,71 +8,6 @@ import supplierModel from "../models/supplier.model.js";
 import purchaseOrderModel from "../models/purchaseOrder.model.js";
 import { queueAccountCreatedEmail } from "../services/email.queue.service.js";
 
-// export const getOrganizationProfile = async (req, res) => {
-//   try {
-//     const userId = req.user._id;
-//     const organizationId = req.user.organizationId;
-//     const organization = await organizationModel
-//       .findById(organizationId)
-//       .select("-__v -updatedAt")
-//       .populate("subscriptionPlan", "-__v -updatedAt");
-//     if (!organization) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Organization not found",
-//       });
-//     }
-//     res.status(200).json({
-//       success: true,
-//       data: organization,
-//     });
-//   } catch (error) {
-//     console.error("Error in getOrganizationProfile:", error.message);
-//     res.status(error.status || 500).json({
-//       success: false,
-//       message: error.message || "Internal server error",
-//     });
-//   }
-// };
-
-// export const updateOrganizationProfile = async (req, res) => {
-//   try {
-//     const { name, contactEmail, address, phone } = req.body;
-//     const userId = req.user._id;
-//     const organizationId = req.user.organizationId;
-//     const updateData = {};
-
-//     if (name) updateData.name = name;
-//     if (contactEmail) updateData.contactEmail = contactEmail;
-//     if (address) updateData.address = address;
-//     if (phone) updateData.phone = phone;
-
-//     const updatedOrganization = await organizationModel
-//       .findByIdAndUpdate(organizationId, updateData, {
-//         new: true,
-//         runValidators: true,
-//       })
-//       .select("-__v -createdAt -updatedAt -invoiceSettings");
-//     if (!updatedOrganization) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Organization not found",
-//       });
-//     }
-//     res.status(200).json({
-//       success: true,
-//       data: updatedOrganization,
-//       message: "Organization profile updated successfully",
-//     });
-//   } catch (error) {
-//     console.error("Error in updateOrganizationProfile:", error.message);
-//     res.status(error.status || 500).json({
-//       success: false,
-//       message: error.message || "Internal server error",
-//     });
-//   }
-// };
-
 export const getOrganizationProfile = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -128,7 +63,6 @@ export const updateOrganizationProfile = async (req, res) => {
     }
     res.status(200).json({
       success: true,
-      data: updatedOrganization,
       message: "Organization profile updated successfully",
     });
   } catch (error) {
@@ -170,7 +104,6 @@ export const uploadOrganizationLogo = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Organization logo uploaded successfully",
-      data: organization,
     });
   } catch (error) {
     console.error("Error uploading organization logo:", error.message);
@@ -229,7 +162,6 @@ export const updateOrganizationAdminProfile = async (req, res) => {
     }
     res.status(200).json({
       success: true,
-      data: updatedUser,
       message: "Profile updated successfully",
     });
   } catch (error) {
@@ -332,6 +264,7 @@ export const adminInviteOrganizationUsers = async (req, res) => {
       password: hashedPassword,
       organizationId,
       invitedBy: userId,
+      isVerified: true,
     });
     await newUser.save();
     queueAccountCreatedEmail(email, name, password);
@@ -375,7 +308,7 @@ export const getOrganizationUsers = async (req, res) => {
     // Base query
     const query = {
       organizationId,
-      _id: { $ne: req.user._id }, // Exclude logged-in user
+      _id: { $ne: req.user._id },
     };
 
     // Search by name or email
@@ -452,10 +385,19 @@ export const getOrganizationUserById = async (req, res) => {
   try {
     const { id } = req.params;
     const organizationId = req.user.organizationId;
+    const loginUserId = req.user._id;
+
+    if (id === loginUserId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot view your own profile through this endpoint",
+      });
+    }
 
     const user = await userModel
       .findOne({ _id: id, organizationId })
-      .select("-password -tokenVersion -__v -updatedAt");
+      .select("-password -tokenVersion -__v -updatedAt")
+      .populate("invitedBy", "name email role");
 
     if (!user) {
       return res.status(404).json({
@@ -482,12 +424,20 @@ export const updateOrganizationUserById = async (req, res) => {
     const { id } = req.params;
     const organizationId = req.user.organizationId;
     const { role, isActive } = req.body;
+    const loginUserId = req.user._id;
     if (!id) {
       return res.status(400).json({
         success: false,
         message: "User ID is required",
       });
     }
+    if (id === loginUserId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot update your own profile through this endpoint",
+      });
+    }
+
     const updateData = {};
     if (role) updateData.role = role;
     if (isActive !== undefined) updateData.isActive = isActive;
@@ -505,7 +455,6 @@ export const updateOrganizationUserById = async (req, res) => {
     }
     res.status(200).json({
       success: true,
-      data: updatedUser,
       message: "User updated successfully",
     });
   } catch (error) {

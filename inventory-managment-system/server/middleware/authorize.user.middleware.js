@@ -14,7 +14,7 @@ export const authorize = (...allowedRoles) => {
         message: "You are not authorized to perform this action.",
       });
     }
-    req.user = user; // Attach the user object to the request for further use
+    req.user = user;
     req.organizationId = user.organizationId;
     next();
   };

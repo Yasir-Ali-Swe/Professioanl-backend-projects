@@ -19,7 +19,12 @@ export const authMiddleware = async (req, res, next) => {
         message: "Please verify your email before accessing this resource.",
       });
     }
-    console.log("Authenticated user:", user);
+    if(!user.isActive){
+      return res.status(403).json({
+        success: false,
+        message: "Your account is inactive. Please contact the administrator.",
+      });
+    }
     req.user = user;
     next();
   } catch (error) {

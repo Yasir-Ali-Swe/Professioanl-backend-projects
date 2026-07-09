@@ -20,37 +20,37 @@ router.get(
   getAllOrganizations,
 );
 router.get(
-  "/organizations/:id",
+  "/organization/:id",
   authMiddleware,
   authorize("super_admin"),
   getOrganizationById,
 );
 router.delete(
-  "/organizations/:id",
+  "/organization/:id",
   authMiddleware,
   authorize("super_admin"),
   deleteOrganization,
 );
 router.get(
-  "/analytics",
+  "/platform-analytics",
   authMiddleware,
   authorize("super_admin"),
   getAnalytics,
 );
 router.get(
-  "/organizations/:id/subscription",
+  "/organization/:id/subscription",
   authMiddleware,
   authorize("super_admin"),
   getOrganizationSubscriptionDetails,
 );
 router.patch(
-  "/organizations/:id/subscription",
+  "/organization/:id/subscription",
   authMiddleware,
   authorize("super_admin"),
   updateOrganizationSubscriptionPlan,
 );
 router.patch(
-  "/organizations/:id/status",
+  "/organization/:id/status",
   authMiddleware,
   authorize("super_admin"),
   updateOrganizationStatus,

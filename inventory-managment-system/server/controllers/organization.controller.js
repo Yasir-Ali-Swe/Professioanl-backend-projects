@@ -7,6 +7,7 @@ import categoryModel from "../models/category.model.js";
 import supplierModel from "../models/supplier.model.js";
 import purchaseOrderModel from "../models/purchaseOrder.model.js";
 import { queueAccountCreatedEmail } from "../services/email.queue.service.js";
+import mongoose from "mongoose";
 
 export const getOrganizationProfile = async (req, res) => {
   try {

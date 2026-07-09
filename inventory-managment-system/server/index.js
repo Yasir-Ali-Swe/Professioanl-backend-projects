@@ -18,12 +18,15 @@ import anomalyRoutes from "./routes/anomaly.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import insightsRoutes from "./routes/insights.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
+import billingRoutes from "./routes/billing.routes.js";
 import { scheduleForecastJob } from "./jobs/forecast.cron.js";
 import { scheduleAnomalyJob } from "./jobs/anomaly.cron.js";
 import { scheduleInsightsJob } from "./jobs/insights.cron.js";
 import morgan from "morgan";
 
 const app = express();
+
+app.use("/api/v1/billing", billingRoutes);
 
 app.use(morgan("dev"));
 app.use(cors());

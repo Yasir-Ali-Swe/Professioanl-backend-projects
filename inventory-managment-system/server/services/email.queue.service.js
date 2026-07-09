@@ -38,5 +38,5 @@ export const queueForgetPasswordEmail = (name, token, email) => {
 };
 
 export const queueAccountCreatedEmail = (email, name, password) => {
-  queueEmail(() => sendAccountCreatedEmail(email, name, password));
+  queueEmail(() => sendAccountCreatedEmail(name, email, password));
 };

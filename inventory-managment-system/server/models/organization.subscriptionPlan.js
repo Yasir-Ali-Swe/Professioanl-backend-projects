@@ -1,4 +1,4 @@
-//models/Organization.subscription.model.js
+//models/Organization.subscriptionPlan.model.js
 import mongoose from "mongoose";
 
 const subscriptionSchema = new mongoose.Schema(

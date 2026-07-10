@@ -1,6 +1,10 @@
+// routes/dashboard.routes.js
 import express from "express";
 import {
-  getDashboardSummary,
+  getSuperAdminDashboardStats,
+  getAdminDashboardStats,
+  getManagerDashboardStats,
+  getStaffDashboardStats,
   getSalesTrends,
   getStockLevelsReport,
   getFinancialReport,
@@ -10,32 +14,58 @@ import { authorize } from "../middleware/authorize.user.middleware.js";
 
 const router = express.Router();
 
+// Super Admin Dashboard
 router.get(
-  "/dashboard-summary",
+  "/super-admin-dashboard-stats",
   authMiddleware,
-  authorize("admin", "manager", "staff"),
-  getDashboardSummary,
+  authorize("super_admin"),
+  getSuperAdminDashboardStats
 );
 
+// Admin Dashboard
+router.get(
+  "/admin-dashboard-stats",
+  authMiddleware,
+  authorize("admin"),
+  getAdminDashboardStats
+);
+
+// Manager Dashboard
+router.get(
+  "/manager-dashboard-stats",
+  authMiddleware,
+  authorize("manager"),
+  getManagerDashboardStats
+);
+
+// Staff Dashboard
+router.get(
+  "/staff-dashboard-stats",
+  authMiddleware,
+  authorize("staff"),
+  getStaffDashboardStats
+);
+
+// Reports
 router.get(
   "/sales-trends",
   authMiddleware,
   authorize("admin", "manager"),
-  getSalesTrends,
+  getSalesTrends
 );
 
 router.get(
-  "/stock-levels",
+  "/stock-levels-report",
   authMiddleware,
-  authorize("admin", "manager", "staff"),
-  getStockLevelsReport,
+  authorize("admin", "manager"),
+  getStockLevelsReport
 );
 
 router.get(
   "/financial-report",
   authMiddleware,
   authorize("admin", "manager"),
-  getFinancialReport,
+  getFinancialReport
 );
 
 export default router;

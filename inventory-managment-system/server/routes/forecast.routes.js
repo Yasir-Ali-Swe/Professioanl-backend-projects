@@ -1,7 +1,9 @@
+// routes/forecast.routes.js
 import express from "express";
 import {
   getForecastForProduct,
   getAllForecasts,
+  generateReorderSuggestion, // NEW IMPORT
   getReorderSuggestions,
   approveReorderSuggestion,
   dismissReorderSuggestion,
@@ -25,11 +27,19 @@ router.get(
   getAllForecasts,
 );
 
+
 router.get(
   "/reorder-suggestions",
   authMiddleware,
   authorize("admin", "manager"),
   getReorderSuggestions,
+);
+
+router.post(
+  "/reorder-suggestions/generate/:id",
+  authMiddleware,
+  authorize("admin", "manager"),
+  generateReorderSuggestion,
 );
 
 router.patch(
@@ -38,6 +48,7 @@ router.patch(
   authorize("admin", "manager"),
   approveReorderSuggestion,
 );
+
 
 router.patch(
   "/reorder-suggestions/:id/dismiss",

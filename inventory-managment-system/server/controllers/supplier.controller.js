@@ -29,7 +29,6 @@ export const createSupplier = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Supplier created successfully",
-      data: supplier,
     });
   } catch (error) {
     console.error("Error creating supplier:", error.message);
@@ -54,11 +53,28 @@ export const getAllSuppliers = async (req, res) => {
     const suppliers = await supplierModel
       .find({ organizationId })
       .select("-__v -updatedAt")
+      .populate("createdBy", "name role")
       .lean();
+
+    // Format with createdBy as string
+    const formattedSuppliers = suppliers.map((supplier) => ({
+      _id: supplier._id,
+      organizationId: supplier.organizationId,
+      name: supplier.name,
+      contactPerson: supplier.contactPerson,
+      email: supplier.email,
+      phone: supplier.phone,
+      address: supplier.address,
+      leadTimeDays: supplier.leadTimeDays,
+      createdBy: supplier.createdBy
+        ? `${supplier.createdBy.name} (${supplier.createdBy.role})`
+        : null,
+      createdAt: supplier.createdAt,
+    }));
 
     res.status(200).json({
       success: true,
-      data: suppliers,
+      data: formattedSuppliers,
     });
   } catch (error) {
     console.error("Error fetching suppliers:", error.message);
@@ -84,6 +100,7 @@ export const getSupplierByIdWithProducts = async (req, res) => {
     const supplier = await supplierModel
       .findOne({ _id: supplierId, organizationId })
       .select("name contactPerson email phone address leadTimeDays createdAt")
+      .populate("createdBy", "name role")
       .lean();
 
     if (!supplier) {
@@ -95,15 +112,38 @@ export const getSupplierByIdWithProducts = async (req, res) => {
 
     const products = await productModel
       .find({ organizationId, supplierId })
-      .populate("categoryId", "categorySlug")
+      .populate("categoryId", "name categorySlug")
+      .populate("createdBy", "name role")
       .select(
         "name sku quantity reorderThreshold costPrice sellingPrice unit imageUrl isActive createdAt",
       )
       .lean();
 
+    // Format supplier with createdBy as string
+    const formattedSupplier = {
+      _id: supplier._id,
+      name: supplier.name,
+      contactPerson: supplier.contactPerson,
+      email: supplier.email,
+      phone: supplier.phone,
+      address: supplier.address,
+      leadTimeDays: supplier.leadTimeDays,
+      createdBy: supplier.createdBy
+        ? `${supplier.createdBy.name} (${supplier.createdBy.role})`
+        : null,
+      createdAt: supplier.createdAt,
+    };
+
     const formattedProducts = products.map((product) => ({
+      _id: product._id,
       name: product.name,
-      categorySlug: product.categoryId?.categorySlug || null,
+      category: product.categoryId
+        ? {
+            _id: product.categoryId._id,
+            name: product.categoryId.name,
+            categorySlug: product.categoryId.categorySlug,
+          }
+        : null,
       sku: product.sku,
       quantity: product.quantity,
       reorderThreshold: product.reorderThreshold,
@@ -112,13 +152,16 @@ export const getSupplierByIdWithProducts = async (req, res) => {
       unit: product.unit,
       imageUrl: product.imageUrl,
       isActive: product.isActive,
+      createdBy: product.createdBy
+        ? `${product.createdBy.name} (${product.createdBy.role})`
+        : null,
       createdAt: product.createdAt,
     }));
 
     res.status(200).json({
       success: true,
       data: {
-        supplier,
+        supplier: formattedSupplier,
         products: formattedProducts,
       },
     });
@@ -130,7 +173,6 @@ export const getSupplierByIdWithProducts = async (req, res) => {
     });
   }
 };
-
 export const deleteSupplier = async (req, res) => {
   try {
     const organizationId = req.organizationId;
@@ -143,17 +185,34 @@ export const deleteSupplier = async (req, res) => {
       });
     }
 
-    const deletedSupplier = await supplierModel.findOneAndDelete({
+    const supplier = await supplierModel.findOne({
       _id: supplierId,
       organizationId,
     });
 
-    if (!deletedSupplier) {
+    if (!supplier) {
       return res.status(404).json({
         success: false,
         message: "Supplier not found",
       });
     }
+
+    const productsCount = await productModel.countDocuments({
+      supplierId,
+      organizationId,
+    });
+
+    if (productsCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete supplier. ${productsCount} product(s) are associated with this supplier.`,
+      });
+    }
+
+    await supplierModel.findOneAndDelete({
+      _id: supplierId,
+      organizationId,
+    });
 
     res.status(200).json({
       success: true,
@@ -207,7 +266,6 @@ export const updateSupplier = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Supplier updated successfully",
-      data: updatedSupplier,
     });
   } catch (error) {
     console.error("Error updating supplier:", error.message);

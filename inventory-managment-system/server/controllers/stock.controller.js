@@ -1,3 +1,4 @@
+// controllers/stock.controller.js
 import stockLogModel from "../models/stockLog.model.js";
 import productModel from "../models/product.model.js";
 import { performStockIn, performStockOut } from "../services/stock.service.js";
@@ -22,11 +23,11 @@ export const stockIn = async (req, res) => {
       });
     }
 
-    if (!["adjustment", "return"].includes(reason)) {
+    if (!["purchase", "adjustment", "return"].includes(reason)) {
       return res.status(400).json({
         success: false,
         message:
-          "Reason must be either 'adjustment' or 'return' for manual stock-in",
+          "Reason must be either 'purchase', 'adjustment', or 'return' for manual stock-in",
       });
     }
 
@@ -40,12 +41,13 @@ export const stockIn = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Stock added successfully",
+      message: `Stock added successfully. ${quantity} units added. New quantity: ${result.product.quantity}`,
       data: result,
     });
   } catch (error) {
     console.error("Error in stockIn:", error.message);
-    res.status(error.status || 500).json({
+    const status = error.status || 500;
+    res.status(status).json({
       success: false,
       message: error.message || "Internal server error",
     });
@@ -72,11 +74,11 @@ export const stockOut = async (req, res) => {
       });
     }
 
-    if (!["adjustment", "damage"].includes(reason)) {
+    if (!["sale", "adjustment", "damage"].includes(reason)) {
       return res.status(400).json({
         success: false,
         message:
-          "Reason must be either 'adjustment' or 'damage' for manual stock-out",
+          "Reason must be either 'sale', 'adjustment', or 'damage' for manual stock-out",
       });
     }
 
@@ -90,12 +92,13 @@ export const stockOut = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Stock removed successfully",
+      message: `Stock removed successfully. ${quantity} units removed. New quantity: ${result.product.quantity}`,
       data: result,
     });
   } catch (error) {
     console.error("Error in stockOut:", error.message);
-    res.status(error.status || 500).json({
+    const status = error.status || 500;
+    res.status(status).json({
       success: false,
       message: error.message || "Internal server error",
     });
@@ -118,6 +121,7 @@ export const getStockHistory = async (req, res) => {
       _id: productId,
       organizationId,
     });
+
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -127,11 +131,30 @@ export const getStockHistory = async (req, res) => {
 
     const stockLogs = await stockLogModel
       .find({ organizationId, productId })
-      .populate("performedBy", "name email")
+      .populate("performedBy", "name email role")
       .populate("relatedPurchaseOrderId", "poNumber")
       .populate("relatedInvoiceId", "invoiceNumber")
       .sort({ createdAt: -1 })
       .lean();
+
+    // Format logs for cleaner response
+    const formattedLogs = stockLogs.map((log) => ({
+      _id: log._id,
+      type: log.type,
+      reason: log.reason,
+      quantity: log.quantity,
+      performedBy: log.performedBy
+        ? {
+            _id: log.performedBy._id,
+            name: log.performedBy.name,
+            email: log.performedBy.email,
+            role: log.performedBy.role,
+          }
+        : null,
+      relatedPurchaseOrder: log.relatedPurchaseOrderId || null,
+      relatedInvoice: log.relatedInvoiceId || null,
+      createdAt: log.createdAt,
+    }));
 
     res.status(200).json({
       success: true,
@@ -141,8 +164,11 @@ export const getStockHistory = async (req, res) => {
           name: product.name,
           sku: product.sku,
           quantity: product.quantity,
+          unit: product.unit,
+          reorderThreshold: product.reorderThreshold,
         },
-        logs: stockLogs,
+        logs: formattedLogs,
+        totalEntries: formattedLogs.length,
       },
     });
   } catch (error) {
@@ -165,19 +191,35 @@ export const getLowStockProducts = async (req, res) => {
           $lte: ["$quantity", "$reorderThreshold"],
         },
       })
-      .select("name sku quantity reorderThreshold unit isActive")
-      .populate("categoryId", "name")
-      .populate("supplierId", "name contactPerson phone")
+      .select("name sku quantity reorderThreshold unit isActive imageUrl")
+      .populate("categoryId", "name categorySlug")
+      .populate("supplierId", "name contactPerson email phone")
       .sort({ quantity: 1 })
       .lean();
 
     const lowStockCount = products.length;
 
+    // Format products for cleaner response
+    const formattedProducts = products.map((product) => ({
+      _id: product._id,
+      name: product.name,
+      sku: product.sku,
+      quantity: product.quantity,
+      reorderThreshold: product.reorderThreshold,
+      unit: product.unit,
+      isActive: product.isActive,
+      imageUrl: product.imageUrl,
+      category: product.categoryId || null,
+      supplier: product.supplierId || null,
+      stockStatus: product.quantity === 0 ? "Out of Stock" : "Low Stock",
+      shortage: product.reorderThreshold - product.quantity,
+    }));
+
     res.status(200).json({
       success: true,
       data: {
         totalLowStock: lowStockCount,
-        products,
+        products: formattedProducts,
       },
     });
   } catch (error) {

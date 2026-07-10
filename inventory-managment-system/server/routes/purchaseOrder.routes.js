@@ -53,11 +53,11 @@ router.patch(
   rejectPurchaseOrder,
 );
 
-// Fulfill PO (Admin, Manager - both can fulfill)
+// Fulfill PO (Admin and Manager - Admin and manager can fulfill)
 router.patch(
   "/fulfill-purchase-order/:id",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin","manager"), // FIXED: Admin and Manager can fulfill
   fulfillPurchaseOrder,
 );
 

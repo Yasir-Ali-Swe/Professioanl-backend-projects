@@ -6,6 +6,7 @@ import {
   clearContext 
 } from "../controllers/chat.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import chatLogModel from "../models/chatLog.model.js";
 
 const router = express.Router();
 

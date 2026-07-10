@@ -39,10 +39,11 @@ app.listen(PORT, () => {
 });
 
 // Background jobs
-// scheduleForecastJob();
-// scheduleAnomalyJob();
-// scheduleInsightsJob();
+scheduleForecastJob();
+scheduleAnomalyJob();
+scheduleInsightsJob();
 
+// Routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/super-admin", superAdminRoutes);
 app.use("/api/v1/organization", organizationAdminRoutes);

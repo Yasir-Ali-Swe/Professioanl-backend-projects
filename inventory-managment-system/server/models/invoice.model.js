@@ -55,7 +55,7 @@ const invoiceSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["paid", "unpaid", "void"],
-      default: "unpaid",
+      default: "paid",
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

@@ -1,3 +1,4 @@
+// routes/purchaseOrder.routes.js
 import express from "express";
 import {
   createPurchaseOrder,
@@ -12,6 +13,7 @@ import { authorize } from "../middleware/authorize.user.middleware.js";
 
 const router = express.Router();
 
+// Create PO (Admin auto-approves, Manager creates pending)
 router.post(
   "/create-purchase-order",
   authMiddleware,
@@ -19,6 +21,7 @@ router.post(
   createPurchaseOrder,
 );
 
+// Get all POs with filters (Admin, Manager)
 router.get(
   "/get-all-purchase-orders",
   authMiddleware,
@@ -26,6 +29,7 @@ router.get(
   getAllPurchaseOrders,
 );
 
+// Get PO by ID (Admin, Manager)
 router.get(
   "/get-purchase-order-by-id/:id",
   authMiddleware,
@@ -33,20 +37,23 @@ router.get(
   getPurchaseOrderById,
 );
 
+// Approve PO (Admin only - Manager cannot approve)
 router.patch(
   "/approve-purchase-order/:id",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"), // FIXED: Only Admin can approve
   approvePurchaseOrder,
 );
 
+// Reject PO (Admin only - Manager cannot reject)
 router.patch(
   "/reject-purchase-order/:id",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"), // FIXED: Only Admin can reject
   rejectPurchaseOrder,
 );
 
+// Fulfill PO (Admin, Manager - both can fulfill)
 router.patch(
   "/fulfill-purchase-order/:id",
   authMiddleware,

@@ -1,3 +1,4 @@
+// routes/invoice.routes.js
 import express from "express";
 import {
   createInvoice,
@@ -11,6 +12,7 @@ import { authorize } from "../middleware/authorize.user.middleware.js";
 
 const router = express.Router();
 
+// Create invoice (Admin, Manager, Staff)
 router.post(
   "/create-invoice",
   authMiddleware,
@@ -18,6 +20,7 @@ router.post(
   createInvoice,
 );
 
+// Get all invoices with filters & pagination (Admin, Manager)
 router.get(
   "/get-all-invoices",
   authMiddleware,
@@ -25,13 +28,15 @@ router.get(
   getAllInvoices,
 );
 
+// Get my invoices with filters & pagination (Staff)
 router.get(
   "/get-my-invoices",
   authMiddleware,
-  authorize("staff"),
+  // authorize("staff"),
   getMyInvoices,
 );
 
+// Get invoice by ID (All roles with permissions)
 router.get(
   "/get-invoice-by-id/:id",
   authMiddleware,
@@ -39,6 +44,7 @@ router.get(
   getInvoiceById,
 );
 
+// Void invoice (Admin, Manager)
 router.patch(
   "/void-invoice/:id",
   authMiddleware,

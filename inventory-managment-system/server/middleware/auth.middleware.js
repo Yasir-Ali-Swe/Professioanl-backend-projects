@@ -26,6 +26,8 @@ export const authMiddleware = async (req, res, next) => {
       });
     }
     req.user = user;
+    req.organizationId = user.organizationId;
+    
     next();
   } catch (error) {
     console.error("Error in authMiddleware:", error.message);

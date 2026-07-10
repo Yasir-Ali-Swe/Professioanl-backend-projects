@@ -1,3 +1,4 @@
+// models/insights.model.js
 import mongoose from "mongoose";
 
 const aiInsightsSchema = new mongoose.Schema(

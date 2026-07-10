@@ -134,14 +134,13 @@ export const createProduct = async (req, res) => {
       costPrice,
       sellingPrice,
       unit,
-      imageUrl: imageUrl || null,  // Add this
+      imageUrl: imageUrl || null, // Add this
       createdBy,
     });
 
     res.status(201).json({
       success: true,
       message: "Product created successfully",
-      data: product,
     });
   } catch (error) {
     console.error("Error creating product:", error.message);
@@ -200,7 +199,8 @@ export const getAllProducts = async (req, res) => {
     let products = await productModel
       .find(query)
       .populate("categoryId", "name categorySlug")
-      .populate("supplierId", "name contactPerson phone")
+      .populate("supplierId", "name contactPerson phone email address")
+      .populate("createdBy", "name role")
       .select("-__v -updatedAt")
       .sort({
         [sortBy]: order === "asc" ? 1 : -1,
@@ -232,14 +232,7 @@ export const getAllProducts = async (req, res) => {
     const formattedProducts = products.map((product) => ({
       _id: product._id,
       organizationId: product.organizationId,
-      categoryId: product.categoryId?._id || null,
-      supplierId: product.supplierId?._id || null,
       name: product.name,
-      categoryName: product.categoryId?.name || null,
-      categorySlug: product.categoryId?.categorySlug || null,
-      supplierName: product.supplierId?.name || null,
-      supplierContact: product.supplierId?.contactPerson || null,
-      supplierPhone: product.supplierId?.phone || null,
       sku: product.sku,
       quantity: product.quantity,
       reorderThreshold: product.reorderThreshold,
@@ -248,8 +241,30 @@ export const getAllProducts = async (req, res) => {
       unit: product.unit,
       imageUrl: product.imageUrl,
       isActive: product.isActive,
-      createdBy: product.createdBy,
       createdAt: product.createdAt,
+      // Category details
+      category: product.categoryId
+        ? {
+            _id: product.categoryId._id,
+            name: product.categoryId.name,
+            categorySlug: product.categoryId.categorySlug,
+          }
+        : null,
+      // Supplier details
+      supplier: product.supplierId
+        ? {
+            _id: product.supplierId._id,
+            name: product.supplierId.name,
+            contactPerson: product.supplierId.contactPerson,
+            phone: product.supplierId.phone,
+            email: product.supplierId.email || null,
+            address: product.supplierId.address || null,
+          }
+        : null,
+      // Created by details (as string)
+      createdBy: product.createdBy
+        ? `${product.createdBy.name} (${product.createdBy.role})`
+        : null,
     }));
 
     const filteredTotal = formattedProducts.length;
@@ -270,7 +285,6 @@ export const getAllProducts = async (req, res) => {
     });
   }
 };
-
 export const updateProduct = async (req, res) => {
   try {
     const organizationId = req.organizationId;
@@ -321,7 +335,6 @@ export const updateProduct = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Product updated successfully",
-      data: updatedProduct,
     });
   } catch (error) {
     console.error("Error updating product:", error.message);
@@ -347,8 +360,12 @@ export const getProductById = async (req, res) => {
     const product = await productModel
       .findOne({ _id: productId, organizationId })
       .populate("categoryId", "name categorySlug")
-      .populate("supplierId", "name contactPerson phone")
-      .select("-__v -updatedAt")
+      .populate(
+        "supplierId",
+        "name contactPerson email phone address leadTimeDays",
+      )
+      .populate("createdBy", "name email role")
+      .select("-__v")
       .lean();
 
     if (!product) {
@@ -358,27 +375,59 @@ export const getProductById = async (req, res) => {
       });
     }
 
+    const totalInventoryValue = product.quantity * product.costPrice;
+    const totalSalesValue = product.quantity * product.sellingPrice;
+    const profitMargin = product.sellingPrice - product.costPrice;
+    const profitMarginPercentage =
+      product.costPrice > 0
+        ? (
+            ((product.sellingPrice - product.costPrice) / product.costPrice) *
+            100
+          ).toFixed(2)
+        : 0;
+
+    const needsReorder = product.quantity <= product.reorderThreshold;
+
     const formattedProduct = {
       _id: product._id,
       organizationId: product.organizationId,
-      categoryId: product.categoryId?._id || null,
-      supplierId: product.supplierId?._id || null,
       name: product.name,
-      categoryName: product.categoryId?.name || null,
-      categorySlug: product.categoryId?.categorySlug || null,
-      supplierName: product.supplierId?.name || null,
-      supplierContact: product.supplierId?.contactPerson || null,
-      supplierPhone: product.supplierId?.phone || null,
       sku: product.sku,
+      unit: product.unit,
       quantity: product.quantity,
       reorderThreshold: product.reorderThreshold,
+      needsReorder: needsReorder,
       costPrice: product.costPrice,
       sellingPrice: product.sellingPrice,
-      unit: product.unit,
+      profitMargin: profitMargin,
+      profitMarginPercentage: parseFloat(profitMarginPercentage),
+      totalInventoryValue: totalInventoryValue,
+      totalSalesValue: totalSalesValue,
       imageUrl: product.imageUrl,
       isActive: product.isActive,
-      createdBy: product.createdBy,
       createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+      category: product.categoryId
+        ? {
+            _id: product.categoryId._id,
+            name: product.categoryId.name,
+            categorySlug: product.categoryId.categorySlug,
+          }
+        : null,
+      supplier: product.supplierId
+        ? {
+            _id: product.supplierId._id,
+            name: product.supplierId.name,
+            contactPerson: product.supplierId.contactPerson,
+            email: product.supplierId.email || null,
+            phone: product.supplierId.phone,
+            address: product.supplierId.address || null,
+            leadTimeDays: product.supplierId.leadTimeDays || null,
+          }
+        : null,
+      createdBy: product.createdBy
+        ? `${product.createdBy.name} (${product.createdBy.role})`
+        : null,
     };
 
     res.status(200).json({
@@ -393,7 +442,6 @@ export const getProductById = async (req, res) => {
     });
   }
 };
-
 export const toggleProductActive = async (req, res) => {
   try {
     const organizationId = req.organizationId;
@@ -407,17 +455,23 @@ export const toggleProductActive = async (req, res) => {
       });
     }
 
-    if (isActive === undefined) {
+    if (isActive === undefined || isActive === null) {
       return res.status(400).json({
         success: false,
         message: "isActive field is required",
       });
     }
 
+    // Convert string to boolean if needed
+    let activeStatus = isActive;
+    if (typeof isActive === "string") {
+      activeStatus = isActive.toLowerCase() === "true";
+    }
+
     const updatedProduct = await productModel
       .findOneAndUpdate(
         { _id: productId, organizationId },
-        { isActive },
+        { isActive: activeStatus },
         { new: true, runValidators: true },
       )
       .select("-__v -updatedAt");
@@ -431,8 +485,7 @@ export const toggleProductActive = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Product ${isActive ? "activated" : "deactivated"} successfully`,
-      data: updatedProduct,
+      message: `Product ${activeStatus ? "activated" : "deactivated"} successfully`,
     });
   } catch (error) {
     console.error("Error toggling product active status:", error.message);

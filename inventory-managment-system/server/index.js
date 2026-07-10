@@ -22,6 +22,7 @@ import billingRoutes from "./routes/billing.routes.js";
 import { scheduleForecastJob } from "./jobs/forecast.cron.js";
 import { scheduleAnomalyJob } from "./jobs/anomaly.cron.js";
 import { scheduleInsightsJob } from "./jobs/insights.cron.js";
+import { scheduleReorderSuggestionJob } from "./jobs/reorderSuggestion.cron.js";
 import morgan from "morgan";
 
 const app = express();
@@ -40,6 +41,7 @@ app.listen(PORT, () => {
 
 // Background jobs
 scheduleForecastJob();
+scheduleReorderSuggestionJob();
 scheduleAnomalyJob();
 scheduleInsightsJob();
 
@@ -54,7 +56,7 @@ app.use("/api/v1/stock", stockRoutes);
 app.use("/api/v1/invoice", invoiceRoutes);
 app.use("/api/v1/purchase", purchaseRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
-app.use("/api/v1/forecasts", forecastRoutes);
+app.use("/api/v1/forecast", forecastRoutes);
 app.use("/api/v1/anomaly", anomalyRoutes);
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/ai", insightsRoutes);

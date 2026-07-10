@@ -122,11 +122,12 @@ const detectSuspiciousAdjustments = async (organizationId) => {
       });
 
       if (!existing) {
+        const product = await productModel.findById(log.productId);
         await anomalyModel.create({
           organizationId,
           type: "suspicious_adjustment",
           productId: log.productId,
-          description: `A manual adjustment of ${log.quantity} units was made for product — larger than usual, worth reviewing.`,
+          description: `A manual adjustment of ${log.quantity} units was made for ${product?.name || 'product'} — larger than usual, worth reviewing.`,
           severity: "high",
         });
       }
@@ -154,15 +155,29 @@ const detectUnusualReturns = async (organizationId) => {
       });
 
       if (!existing) {
+        const product = await productModel.findById(log.productId);
         await anomalyModel.create({
           organizationId,
           type: "unusual_return",
           productId: log.productId,
-          description: `A return of ${log.quantity} units was recorded — larger than usual, worth reviewing.`,
+          description: `A return of ${log.quantity} units was recorded for ${product?.name || 'product'} — larger than usual, worth reviewing.`,
           severity: "medium",
         });
       }
     }
+  }
+};
+
+
+export const runAnomalyDetectionForOrg = async (organizationId) => {
+  try {
+    await detectDeadStock(organizationId);
+    await detectSalesSpikes(organizationId);
+    await detectSuspiciousAdjustments(organizationId);
+    await detectUnusualReturns(organizationId);
+  } catch (error) {
+    console.error(`Anomaly detection failed for org ${organizationId}:`, error.message);
+    throw error;
   }
 };
 
@@ -171,10 +186,7 @@ export const runAnomalyDetectionForAllOrgs = async () => {
 
   for (const org of organizations) {
     try {
-      await detectDeadStock(org._id);
-      await detectSalesSpikes(org._id);
-      await detectSuspiciousAdjustments(org._id);
-      await detectUnusualReturns(org._id);
+      await runAnomalyDetectionForOrg(org._id);
     } catch (error) {
       console.error(
         `Anomaly detection failed for org ${org._id}:`,

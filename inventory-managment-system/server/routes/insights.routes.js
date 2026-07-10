@@ -1,14 +1,15 @@
-// routes/insights.routes.js
 import express from "express";
 import {
   getLatestInsight,
   getInsightsHistory,
   generateInsightNow,
+  generateInsightStream, 
 } from "../controllers/insights.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
 
 const router = express.Router();
+
 
 router.get(
   "/insights/summary",
@@ -29,6 +30,13 @@ router.post(
   authMiddleware,
   authorize("admin", "manager"),
   generateInsightNow,
+);
+
+router.post(
+  "/insights/generate/stream",
+  authMiddleware,
+  authorize("admin", "manager"),
+  generateInsightStream,
 );
 
 export default router;

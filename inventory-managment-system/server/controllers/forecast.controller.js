@@ -1,4 +1,6 @@
+// controllers/forecast.controller.js
 import { generateForecastForProduct } from "../services/forecast.service.js";
+import { generateReorderSuggestionForProduct } from "../services/reorderSuggestion.service.js"; // ADD THIS IMPORT
 import demandForecastModel from "../models/product.forcast.model.js";
 import reorderSuggestionModel from "../models/reorder.suggestion.model.js";
 import stockLogModel from "../models/stockLog.model.js";
@@ -69,6 +71,52 @@ export const getAllForecasts = async (req, res) => {
   }
 };
 
+// ============ NEW FUNCTIONS TO ADD ============
+
+// POST /api/ai/reorder-suggestions/generate/:id
+export const generateReorderSuggestion = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+    const productId = req.params.id;
+
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required",
+      });
+    }
+
+    // First, generate forecast if it doesn't exist
+    await generateForecastForProduct(organizationId, productId);
+
+    const suggestion = await generateReorderSuggestionForProduct(
+      organizationId,
+      productId,
+    );
+
+    if (!suggestion) {
+      return res.status(200).json({
+        success: true,
+        message: "No reorder needed at this time",
+        data: null,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Reorder suggestion generated successfully",
+      data: suggestion,
+    });
+  } catch (error) {
+    console.error("Error in generateReorderSuggestion:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// GET /api/ai/reorder-suggestions
 export const getReorderSuggestions = async (req, res) => {
   try {
     const organizationId = req.organizationId;
@@ -95,6 +143,7 @@ export const getReorderSuggestions = async (req, res) => {
   }
 };
 
+// PATCH /api/ai/reorder-suggestions/:id/approve
 export const approveReorderSuggestion = async (req, res) => {
   try {
     const organizationId = req.organizationId;
@@ -194,6 +243,7 @@ export const approveReorderSuggestion = async (req, res) => {
   }
 };
 
+// PATCH /api/ai/reorder-suggestions/:id/dismiss
 export const dismissReorderSuggestion = async (req, res) => {
   try {
     const organizationId = req.organizationId;

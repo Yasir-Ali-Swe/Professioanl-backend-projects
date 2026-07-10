@@ -7,7 +7,7 @@ import {
   getToolsForRole,
 } from "../services/chatTools.service.js";
 import chatLogModel from "../models/chatLog.model.js";
-import { GEMINI_API_KEY } from "../config/env.js";
+import { GEMINI_API_KEY ,GEMINI_MODEL} from "../config/env.js";
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
@@ -64,7 +64,7 @@ export const chatWithAI = async (req, res) => {
 
     // Initialize Gemini
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: GEMINI_MODEL,
       tools: [{ functionDeclarations: tools }],
     });
 

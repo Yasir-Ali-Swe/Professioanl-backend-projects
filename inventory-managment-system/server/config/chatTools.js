@@ -262,6 +262,33 @@ export const chatTools = [
         },
       },
       {
+        name: "generate_report",
+        description: `Generate a comprehensive business report for any period.
+    Creates a detailed summary including revenue, top products, anomalies, and key metrics.
+    
+    Examples:
+    - "Create a summary report of my business for this week"
+    - "Generate monthly report"
+    - "Give me a weekly business summary"
+    - "Create a report for last month"`,
+        parameters: {
+          type: "object",
+          properties: {
+            period: {
+              type: "string",
+              enum: [
+                "today",
+                "this_week",
+                "this_month",
+                "last_week",
+                "last_month",
+              ],
+              description: "Time period for the report",
+            },
+          },
+        },
+      },
+      {
         name: "query_team",
         description: `Get team member data with ANY filter.
           Supports: search by name/email, role, active status, and limiting results.
@@ -363,6 +390,44 @@ export const chatTools = [
             },
           },
           required: ["name", "type"],
+        },
+      },
+      {
+        name: "get_full_overview",
+        description: `Get a complete overview of the organization including:
+          - All products with their details (name, SKU, quantity, price)
+          - All categories with their details
+          - All suppliers with their details
+          - Key statistics (total products, total categories, total suppliers, total users, revenue, etc.)
+          
+          Use this tool when the user asks for a comprehensive summary or "everything" about their organization.
+          
+          Examples:
+          - "Tell me about all products, categories, suppliers and stats"
+          - "Give me a complete overview of my organization"
+          - "Show me everything about my business"
+          - "What's the full picture of my organization?"`,
+        parameters: {
+          type: "object",
+          properties: {
+            includeProducts: {
+              type: "boolean",
+              description:
+                "Whether to include detailed product list (default: true)",
+            },
+            includeCategories: {
+              type: "boolean",
+              description: "Whether to include category list (default: true)",
+            },
+            includeSuppliers: {
+              type: "boolean",
+              description: "Whether to include supplier list (default: true)",
+            },
+            limit: {
+              type: "number",
+              description: "Maximum number of items per list (default: 20)",
+            },
+          },
         },
       },
     ],

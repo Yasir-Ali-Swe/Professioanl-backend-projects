@@ -27,25 +27,15 @@ import morgan from "morgan";
 
 const app = express();
 
-app.use("/api/v1/billing", billingRoutes);
-
 app.use(morgan("dev"));
 app.use(cors());
 app.use(cookieParser());
+
+app.use("/api/v1/billing", billingRoutes);
+
 app.use(express.json());
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  connectDB();
-});
-
-// Background jobs
-scheduleForecastJob();
-scheduleReorderSuggestionJob();
-scheduleAnomalyJob();
-scheduleInsightsJob();
-
-// Routes
+// ============ ROUTES ============
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/super-admin", superAdminRoutes);
 app.use("/api/v1/organization", organizationAdminRoutes);
@@ -61,3 +51,15 @@ app.use("/api/v1/anomaly", anomalyRoutes);
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/ai", insightsRoutes);
 app.use("/api/v1/ai", chatRoutes);
+
+// ============ START SERVER ============
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  connectDB();
+});
+
+// ============ BACKGROUND JOBS ============
+scheduleForecastJob();
+scheduleReorderSuggestionJob();
+scheduleAnomalyJob();
+scheduleInsightsJob();

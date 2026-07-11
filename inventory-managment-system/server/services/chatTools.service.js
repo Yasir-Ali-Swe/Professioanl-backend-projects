@@ -159,6 +159,10 @@ export const executeTool = async (toolName, args, organizationId) => {
         return await handleDashboard(args, organizationId);
       case "get_comprehensive_info":
         return await handleComprehensive(args, organizationId);
+      case "get_full_overview": // <-- ADD THIS
+        return await handleFullOverview(args, organizationId);
+      case "generate_report":
+        return await generateReport(args, organizationId);
       default:
         return { message: "I don't understand that request. Please rephrase." };
     }
@@ -170,6 +174,34 @@ export const executeTool = async (toolName, args, organizationId) => {
       details: error.message,
     };
   }
+};
+
+// ============ REPORT GENERATOR ============
+
+const generateReport = async (args, organizationId) => {
+  // Reuse the enhanced dashboard logic
+  const dashboardData = await handleDashboard(args, organizationId);
+
+  // Format as a structured report
+  return {
+    report: {
+      generated: new Date().toISOString(),
+      period: dashboardData.periodLabel,
+      dateRange: dashboardData.dateRange,
+      executiveSummary: {
+        revenue: dashboardData.metrics.revenue,
+        orders: dashboardData.metrics.orders,
+        products: dashboardData.metrics.totalProducts,
+        anomalies: dashboardData.metrics.anomalies,
+      },
+      keyMetrics: dashboardData.metrics,
+      topProducts: dashboardData.topProducts,
+      anomalies: dashboardData.anomalies,
+      recentOrders: dashboardData.recentOrders,
+    },
+    summary: dashboardData.metrics,
+    ...dashboardData,
+  };
 };
 
 // ============ PRODUCT HANDLER ============
@@ -480,6 +512,121 @@ const handleOrders = async (args, organizationId) => {
     totalCost:
       Math.round(orders.reduce((sum, o) => sum + o.totalCost, 0) * 100) / 100,
   };
+};
+
+// ============ FULL OVERVIEW HANDLER ============
+
+const handleFullOverview = async (args, organizationId) => {
+  const limit = args.limit || 20;
+  const includeProducts = args.includeProducts !== false;
+  const includeCategories = args.includeCategories !== false;
+  const includeSuppliers = args.includeSuppliers !== false;
+
+  // Get all data in parallel for performance
+  const [
+    products,
+    categories,
+    suppliers,
+    totalUsers,
+    totalProductsCount,
+    totalCategoriesCount,
+    totalSuppliersCount,
+    lowStockCount,
+    outOfStockCount,
+    pendingOrders,
+    anomalies,
+    suggestions,
+  ] = await Promise.all([
+    // Products (with limit)
+    includeProducts
+      ? productModel
+          .find({ organizationId, isActive: true })
+          .populate("categoryId", "name")
+          .populate("supplierId", "name contactPerson")
+          .select("name sku quantity sellingPrice unit")
+          .limit(limit)
+          .lean()
+      : [],
+    // Categories
+    includeCategories
+      ? categoryModel
+          .find({ organizationId })
+          .select("name categorySlug")
+          .limit(limit)
+          .lean()
+      : [],
+    // Suppliers
+    includeSuppliers
+      ? supplierModel
+          .find({ organizationId })
+          .select("name contactPerson email phone leadTimeDays")
+          .limit(limit)
+          .lean()
+      : [],
+    // Counts
+    userModel.countDocuments({ organizationId, isActive: true }),
+    productModel.countDocuments({ organizationId, isActive: true }),
+    categoryModel.countDocuments({ organizationId }),
+    supplierModel.countDocuments({ organizationId }),
+    productModel.countDocuments({
+      organizationId,
+      isActive: true,
+      $expr: { $lte: ["$quantity", "$reorderThreshold"] },
+    }),
+    productModel.countDocuments({
+      organizationId,
+      isActive: true,
+      quantity: 0,
+    }),
+    purchaseOrderModel.countDocuments({ organizationId, status: "pending" }),
+    anomalyModel.countDocuments({ organizationId, isResolved: false }),
+    reorderSuggestionModel.countDocuments({
+      organizationId,
+      status: "pending",
+    }),
+  ]);
+
+  // Calculate revenue
+  const invoices = await invoiceModel.find({
+    organizationId,
+    status: "paid",
+  });
+  const totalRevenue = invoices.reduce((sum, inv) => sum + inv.total, 0);
+  const totalOrders = invoices.length;
+
+  // Build the response
+  const result = {
+    summary: {
+      totalProducts: totalProductsCount,
+      totalCategories: totalCategoriesCount,
+      totalSuppliers: totalSuppliersCount,
+      totalUsers,
+      lowStock: lowStockCount,
+      outOfStock: outOfStockCount,
+      pendingOrders,
+      anomalies,
+      reorderSuggestions: suggestions,
+      revenue: Math.round(totalRevenue * 100) / 100,
+      orders: totalOrders,
+    },
+  };
+
+  if (includeProducts) {
+    result.products = products;
+    result.productCount = products.length;
+  }
+
+  if (includeCategories) {
+    result.categories = categories;
+    result.categoryCount = categories.length;
+  }
+
+  if (includeSuppliers) {
+    result.suppliers = suppliers;
+    result.supplierCount = suppliers.length;
+  }
+
+  return result;
 };
 
 // ============ ANALYTICS HANDLER ============
@@ -867,6 +1014,99 @@ const handleInsights = async (args, organizationId) => {
 
 // ============ DASHBOARD HANDLER ============
 
+// const handleDashboard = async (args, organizationId) => {
+//   const { startDate, endDate } = parseDateRange({
+//     period: args.period || "this_month",
+//   });
+
+//   // Get all metrics in parallel
+//   const [
+//     totalProducts,
+//     lowStock,
+//     outOfStock,
+//     totalSuppliers,
+//     totalUsers,
+//     pendingOrders,
+//     anomalies,
+//     suggestions,
+//   ] = await Promise.all([
+//     productModel.countDocuments({ organizationId, isActive: true }),
+//     productModel.countDocuments({
+//       organizationId,
+//       isActive: true,
+//       $expr: { $lte: ["$quantity", "$reorderThreshold"] },
+//     }),
+//     productModel.countDocuments({
+//       organizationId,
+//       isActive: true,
+//       quantity: 0,
+//     }),
+//     supplierModel.countDocuments({ organizationId }),
+//     userModel.countDocuments({ organizationId, isActive: true }),
+//     purchaseOrderModel.countDocuments({ organizationId, status: "pending" }),
+//     anomalyModel.countDocuments({ organizationId, isResolved: false }),
+//     reorderSuggestionModel.countDocuments({
+//       organizationId,
+//       status: "pending",
+//     }),
+//   ]);
+
+//   // Sales summary
+//   const invoices = await invoiceModel.find({
+//     organizationId,
+//     status: "paid",
+//     createdAt: { $gte: startDate, $lte: endDate },
+//   });
+
+//   const revenue = invoices.reduce((sum, inv) => sum + inv.total, 0);
+//   const orders = invoices.length;
+
+//   // Low stock products (top 5)
+//   const lowStockProducts = await productModel
+//     .find({
+//       organizationId,
+//       isActive: true,
+//       $expr: { $lte: ["$quantity", "$reorderThreshold"] },
+//     })
+//     .select("name sku quantity sellingPrice")
+//     .sort({ quantity: 1 })
+//     .limit(5);
+
+//   // Recent anomalies (top 3)
+//   const recentAnomalies = await anomalyModel
+//     .find({
+//       organizationId,
+//       isResolved: false,
+//     })
+//     .populate("productId", "name")
+//     .sort({ severity: 1, createdAt: -1 })
+//     .limit(3);
+
+//   return {
+//     period: args.period || "this_month",
+//     dateRange: { startDate, endDate },
+//     metrics: {
+//       totalProducts,
+//       lowStock,
+//       outOfStock,
+//       totalSuppliers,
+//       totalUsers,
+//       pendingOrders,
+//       anomalies,
+//       suggestions,
+//       revenue: Math.round(revenue * 100) / 100,
+//       orders,
+//     },
+//     alerts: {
+//       lowStockProducts,
+//       recentAnomalies,
+//       urgentSuggestions: suggestions,
+//     },
+//   };
+// };
+
+// ============ DASHBOARD HANDLER (ENHANCED) ============
+
 const handleDashboard = async (args, organizationId) => {
   const { startDate, endDate } = parseDateRange({
     period: args.period || "this_month",
@@ -882,6 +1122,10 @@ const handleDashboard = async (args, organizationId) => {
     pendingOrders,
     anomalies,
     suggestions,
+    allProducts,
+    allInvoices,
+    allAnomalies,
+    allPurchaseOrders,
   ] = await Promise.all([
     productModel.countDocuments({ organizationId, isActive: true }),
     productModel.countDocuments({
@@ -902,41 +1146,113 @@ const handleDashboard = async (args, organizationId) => {
       organizationId,
       status: "pending",
     }),
+    // Get actual data for reports
+    productModel
+      .find({ organizationId, isActive: true })
+      .select("name sku quantity sellingPrice")
+      .lean(),
+    invoiceModel
+      .find({
+        organizationId,
+        status: "paid",
+        createdAt: { $gte: startDate, $lte: endDate },
+      })
+      .populate("products.productId"),
+    anomalyModel
+      .find({
+        organizationId,
+        isResolved: false,
+      })
+      .populate("productId", "name sku"),
+    purchaseOrderModel
+      .find({
+        organizationId,
+        createdAt: { $gte: startDate, $lte: endDate },
+      })
+      .populate("supplierId", "name"),
   ]);
 
-  // Sales summary
-  const invoices = await invoiceModel.find({
+  // Calculate revenue
+  const revenue = allInvoices.reduce((sum, inv) => sum + inv.total, 0);
+  const orders = allInvoices.length;
+
+  // Calculate period label
+  const periodLabel =
+    args.period === "this_week"
+      ? "Weekly"
+      : args.period === "this_month"
+        ? "Monthly"
+        : args.period === "today"
+          ? "Daily"
+          : "Period";
+
+  // Calculate product sales data
+  const productSales = {};
+  for (const inv of allInvoices) {
+    for (const item of inv.products) {
+      const productId = item.productId?._id || item.productId;
+      if (productId) {
+        if (!productSales[productId]) {
+          productSales[productId] = { quantity: 0, revenue: 0 };
+        }
+        productSales[productId].quantity += item.quantity;
+        productSales[productId].revenue += item.subtotal || 0;
+      }
+    }
+  }
+
+  // Find top selling products
+  const sortedProducts = Object.entries(productSales)
+    .sort((a, b) => b[1].quantity - a[1].quantity)
+    .slice(0, 5);
+
+  const topProducts = await Promise.all(
+    sortedProducts.map(async ([productId, data]) => {
+      const product = await productModel
+        .findById(productId)
+        .select("name sku sellingPrice quantity");
+      return {
+        name: product?.name || "Unknown",
+        sku: product?.sku || "N/A",
+        quantitySold: data.quantity,
+        revenue: Math.round(data.revenue * 100) / 100,
+        currentStock: product?.quantity || 0,
+      };
+    }),
+  );
+
+  // Find products with no sales
+  const productIdsWithSales = new Set(Object.keys(productSales));
+  const productsWithNoSales = allProducts
+    .filter((p) => !productIdsWithSales.has(p._id.toString()))
+    .map((p) => ({ name: p.name, sku: p.sku, quantity: p.quantity }))
+    .slice(0, 5);
+
+  // Calculate growth (compare to previous period)
+  const prevStartDate = new Date(startDate);
+  if (args.period === "this_week") {
+    prevStartDate.setDate(prevStartDate.getDate() - 7);
+  } else if (args.period === "this_month") {
+    prevStartDate.setMonth(prevStartDate.getMonth() - 1);
+  } else {
+    prevStartDate.setDate(prevStartDate.getDate() - 30);
+  }
+
+  const prevInvoices = await invoiceModel.find({
     organizationId,
     status: "paid",
-    createdAt: { $gte: startDate, $lte: endDate },
+    createdAt: { $gte: prevStartDate, $lt: startDate },
   });
+  const prevRevenue = prevInvoices.reduce((sum, inv) => sum + inv.total, 0);
+  const revenueGrowth =
+    prevRevenue > 0
+      ? (((revenue - prevRevenue) / prevRevenue) * 100).toFixed(1)
+      : 0;
 
-  const revenue = invoices.reduce((sum, inv) => sum + inv.total, 0);
-  const orders = invoices.length;
-
-  // Low stock products (top 5)
-  const lowStockProducts = await productModel
-    .find({
-      organizationId,
-      isActive: true,
-      $expr: { $lte: ["$quantity", "$reorderThreshold"] },
-    })
-    .select("name sku quantity sellingPrice")
-    .sort({ quantity: 1 })
-    .limit(5);
-
-  // Recent anomalies (top 3)
-  const recentAnomalies = await anomalyModel
-    .find({
-      organizationId,
-      isResolved: false,
-    })
-    .populate("productId", "name")
-    .sort({ severity: 1, createdAt: -1 })
-    .limit(3);
-
+  // Build comprehensive response
   return {
     period: args.period || "this_month",
+    periodLabel,
     dateRange: { startDate, endDate },
     metrics: {
       totalProducts,
@@ -945,19 +1261,35 @@ const handleDashboard = async (args, organizationId) => {
       totalSuppliers,
       totalUsers,
       pendingOrders,
-      anomalies,
-      suggestions,
+      anomalies: anomalies.length,
+      suggestions: suggestions || 0,
       revenue: Math.round(revenue * 100) / 100,
       orders,
+      revenueGrowth: parseFloat(revenueGrowth),
     },
-    alerts: {
-      lowStockProducts,
-      recentAnomalies,
-      urgentSuggestions: suggestions,
+    topProducts,
+    productsWithNoSales,
+    anomalies: allAnomalies.slice(0, 5).map((a) => ({
+      type: a.type,
+      severity: a.severity,
+      product: a.productId?.name || "Unknown",
+      description: a.description,
+    })),
+    recentOrders: allPurchaseOrders.slice(0, 5).map((po) => ({
+      poNumber: po.poNumber,
+      supplier: po.supplierId?.name || "Unknown",
+      totalCost: po.totalCost,
+      status: po.status,
+    })),
+    // Raw data for frontend
+    raw: {
+      products: allProducts,
+      invoices: allInvoices,
+      anomalies: allAnomalies,
+      purchaseOrders: allPurchaseOrders,
     },
   };
 };
-
 // ============ COMPREHENSIVE INFO HANDLER ============
 
 const handleComprehensive = async (args, organizationId) => {
@@ -1121,7 +1453,9 @@ export const getResponseType = (toolName) => {
   const analyticsTools = ["query_analytics"];
   const teamTools = ["query_team"];
   const insightTools = ["query_insights"];
-  const dashboardTools = ["get_dashboard"];
+  // const dashboardTools = ["get_dashboard"];
+  // const comprehensiveTools = ["get_comprehensive_info"];
+  const dashboardTools = ["get_dashboard", "get_full_overview"];
   const comprehensiveTools = ["get_comprehensive_info"];
 
   if (dashboardTools.includes(toolName)) return "dashboard";
@@ -1147,6 +1481,8 @@ export const getToolsForRole = (allTools, role) => {
     "query_insights",
     "get_dashboard",
     "get_comprehensive_info",
+    "get_full_overview",
+    "generate_report",
   ];
 
   if (role === "staff") {

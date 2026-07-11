@@ -25,7 +25,7 @@ const organizationSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["active", "suspended", "trial"],
-      default: "trial",
+      default: "active",
     },
     invoiceSettings: {
       taxRate: {

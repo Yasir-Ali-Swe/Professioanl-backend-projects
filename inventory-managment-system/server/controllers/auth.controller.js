@@ -1,5 +1,6 @@
 import userModel from "../models/user.model.js";
 import organizationModel from "../models/organization.model.js";
+import subscriptionPlanModel from "../models/organization.subscriptionPlan.js";
 import { hashPassword, comparePassword } from "../helpers/password.helper.js";
 import { NODE_ENV } from "../config/env.js";
 import { generateToken, getUserFromToken } from "../helpers/jwt.helper.js";
@@ -151,24 +152,71 @@ export const loginUser = async (req, res) => {
 export const getLoginUser = async (req, res) => {
   try {
     const user = req.user;
-    const data= await user.populate({
-      path: "organizationId",
-      select: "-__v -createdAt -updatedAt",
-      populate: {
-        path: "subscriptionPlan",
-        select: "-__v -createdAt -updatedAt",
-      },
-    });
+
+    // Get the organization with populated subscription plan
+    const organization = await organizationModel
+      .findById(user.organizationId)
+      .select("-__v -createdAt -updatedAt")
+      .populate("subscriptionPlan", "-__v -createdAt -updatedAt")
+      .lean();
+
+    // If organization has no subscription plan, get the free plan
+    let subscriptionPlan = organization?.subscriptionPlan || null;
+
+    if (!subscriptionPlan) {
+      // Fetch the free plan from the database
+      const freePlan = await subscriptionPlanModel
+        .findOne({ name: "free" })
+        .select("-__v -createdAt -updatedAt")
+        .lean();
+
+      subscriptionPlan = freePlan || {
+        name: "free",
+        price: 0,
+        billingCycle: "monthly",
+        aiFeatures: false,
+        stripePriceId: null,
+      };
+    }
+
+    // Build the response object
+    const responseData = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      isVerified: user.isVerified,
+      imageUrl: user.imageUrl,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      organization: organization
+        ? {
+            _id: organization._id,
+            name: organization.name,
+            contactEmail: organization.contactEmail,
+            address: organization.address,
+            phone: organization.phone,
+            logoUrl: organization.logoUrl,
+            status: organization.status,
+            invoiceSettings: organization.invoiceSettings,
+            subscriptionPlan: subscriptionPlan,
+          }
+        : null,
+    };
+
     res.status(200).json({
       success: true,
-      loginUser:data,
+      loginUser: responseData,
     });
   } catch (error) {
     console.error("Error in getLoginUser controller:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
   }
 };
-
 export const logoutUser = async (req, res) => {
   try {
     const user = await getUserFromToken(req.cookies.refreshToken, "refresh");

@@ -29,7 +29,7 @@ const SkeletonTable = ({
     widths[(row * columns + col) % widths.length];
 
   return (
-    <div className="space-y-6 w-2xl">
+    <div className="space-y-6 w-full">
       {/* Toolbar */}
       {showToolbar && (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

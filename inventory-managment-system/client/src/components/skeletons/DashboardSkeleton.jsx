@@ -14,12 +14,12 @@ const DashboardSkeleton = () => {
                     <Card key={index}>
                         <CardHeader className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <Skeleton className="h-4 w-24" />
-                                <Skeleton className="size-10 rounded-lg" />
+                                <Skeleton className="h-4 w-24 bg-chart-1" />
+                                <Skeleton className="size-10 rounded-lg bg-chart-1" />
                             </div>
 
-                            <Skeleton className="h-8 w-20" />
-                            <Skeleton className="h-3 w-28" />
+                            <Skeleton className="h-8 w-20 bg-chart-1" />
+                            <Skeleton className="h-3 w-28 bg-chart-1" />
                         </CardHeader>
                     </Card>
                 ))}
@@ -30,30 +30,30 @@ const DashboardSkeleton = () => {
                 {/* Large Chart */}
                 <Card className="lg:col-span-2">
                     <CardHeader className="space-y-3">
-                        <Skeleton className="h-5 w-40" />
-                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-5 w-40 bg-chart-1" />
+                        <Skeleton className="h-4 w-32 bg-chart-1" />
                     </CardHeader>
 
                     <CardContent>
-                        <Skeleton className="h-96 w-full rounded-lg" />
+                        <Skeleton className="h-96 w-full rounded-lg bg-chart-1" />
                     </CardContent>
                 </Card>
 
                 {/* Pie Chart */}
                 <Card>
                     <CardHeader className="space-y-3">
-                        <Skeleton className="h-5 w-32" />
-                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-5 w-32 bg-chart-1" />
+                        <Skeleton className="h-4 w-24 bg-chart-1" />
                     </CardHeader>
 
                     <CardContent className="flex flex-col items-center gap-6">
-                        <Skeleton className="size-56 rounded-full" />
+                        <Skeleton className="size-56 rounded-full bg-chart-1" />
 
                         <div className="w-full space-y-3">
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-5/6" />
-                            <Skeleton className="h-4 w-4/6" />
-                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-4 w-full bg-chart-1" />
+                            <Skeleton className="h-4 w-5/6 bg-chart-1" />
+                            <Skeleton className="h-4 w-4/6 bg-chart-1" />
+                            <Skeleton className="h-4 w-3/4 bg-chart-1" />
                         </div>
                     </CardContent>
                 </Card>

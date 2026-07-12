@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 const NotFoundPage = () => {
+    const loadingText = "Loading";
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -125,24 +126,50 @@ const NotFoundPage = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.6 }}
-                    className="mt-8 flex justify-center gap-1"
+                    className="mt-8 flex flex-col items-center justify-center gap-2"
                 >
-                    {[0, 1, 2, 3, 4].map((dot) => (
-                        <motion.div
-                            key={dot}
-                            className="h-2 w-2 rounded-full bg-primary/30"
-                            animate={{
-                                scale: [1, 1.5, 1],
-                                opacity: [0.3, 0.8, 0.3]
-                            }}
-                            transition={{
-                                duration: 1.5,
-                                delay: dot * 0.2,
-                                repeat: Infinity,
-                                ease: "easeInOut"
-                            }}
-                        />
-                    ))}
+                    {/* Loading Text */}
+                    <p className="text-md font-medium text-muted-foreground">
+                        {loadingText.split("").map((char, index) => (
+                            <motion.span
+                                key={index}
+                                className="inline-block"
+                                animate={{
+                                    y: [0, -4, 0],
+                                    opacity: [0.4, 1, 0.4],
+                                }}
+                                transition={{
+                                    duration: 0.6,
+                                    delay: index * 0.08,
+                                    repeat: Infinity,
+                                    repeatDelay: 0.2,
+                                    ease: "easeInOut",
+                                }}
+                            >
+                                {char === " " ? "\u00A0" : char}
+                            </motion.span>
+                        ))}
+                    </p>
+
+                    {/* Animated Dots */}
+                    <div className="flex gap-1">
+                        {loadingText.split("").map((_, index) => (
+                            <motion.div
+                                key={index}
+                                className="h-2 w-2 rounded-full bg-primary/30"
+                                animate={{
+                                    scale: [1, 1.5, 1],
+                                    opacity: [0.3, 0.8, 0.3],
+                                }}
+                                transition={{
+                                    duration: 1.5,
+                                    delay: index * 0.2,
+                                    repeat: Infinity,
+                                    ease: "easeInOut",
+                                }}
+                            />
+                        ))}
+                    </div>
                 </motion.div>
             </div>
         </motion.div>

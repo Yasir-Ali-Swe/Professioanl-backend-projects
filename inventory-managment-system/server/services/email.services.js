@@ -26,7 +26,7 @@ export const sendVerificationEmail = async (userName, token, email) => {
   const url = `${CLIENT_URL}/verify-email?token=${token}`;
   return sendEmail({
     to: email,
-    subject: "Verify Your Email",
+    subject: `${APP_NAME} Verify Your Email`,
     html: verifyEmailTemplate(userName, url),
   });
 };
@@ -35,7 +35,7 @@ export const sendForgetPasswordEmail = async (userName, token, email) => {
   const url = `${CLIENT_URL}/reset-password?token=${token}`;
   return sendEmail({
     to: email,
-    subject: "Reset Your Password",
+    subject: `${APP_NAME} Password Reset Request`,
     html: forgetPasswordEmailTemplate(userName, url),
   });
 };

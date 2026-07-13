@@ -13,7 +13,7 @@ export const DashboardLayout = () => {
 
     return (
         <SidebarProvider>
-            <div className="flex h-screen w-full">
+            <div className="flex h-screen w-full overflow-hidden">
                 <Sidebar routes={routes} />
                 <div className="flex flex-1 flex-col overflow-hidden">
                     <Navbar routes={routes} />

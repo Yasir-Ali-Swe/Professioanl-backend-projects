@@ -66,9 +66,9 @@ export const RegisterForm = () => {
     };
 
     return (
-        <div className={`flex flex-col justify-center items-center px-4 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6 lg:py-8 h-screen`}>
+        <div className={`flex flex-col justify-center items-center px-4 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6 lg:py-8 `}>
             {/* Registration Form - No border, no rounded corners, no shadow */}
-            <div className="w-full max-w-3xl mx-auto h-full flex flex-col justify-center">
+            < div className="w-full max-w-3xl mx-auto h-full flex flex-col justify-center">
                 {/* Header - Centered */}
                 <div className="text-center mb-4 lg:mb-6">
                     <div className="flex items-center justify-center gap-3 mb-1">
@@ -270,6 +270,6 @@ export const RegisterForm = () => {
                     </FieldGroup>
                 </form>
             </div>
-        </div>
+        </div >
     );
 };

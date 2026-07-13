@@ -74,7 +74,7 @@ export const ResetPasswordForm = () => {
                 {/* Header - Centered */}
                 <div className="text-center mb-6 lg:mb-8">
                     <div className="flex items-center justify-center gap-3 mb-1">
-                        <Boxes className="size-8 sm:size-9" />
+                        <Boxes className="size-8 sm:size-9 text-primary" />
                         <h1 className="text-xl sm:text-2xl font-bold">StockPilot</h1>
                     </div>
                     <p className="text-sm sm:text-base text-muted-foreground font-medium">
@@ -96,7 +96,7 @@ export const ResetPasswordForm = () => {
                                         id="newPassword"
                                         type={showNewPassword ? "text" : "password"}
                                         placeholder="••••••"
-                                        className="h-9 sm:h-10 pr-10 text-sm rounded-none"
+                                        className="h-9 sm:h-10 pr-10 text-sm"
                                         {...register("newPassword")}
                                         aria-invalid={errors.newPassword ? "true" : "false"}
                                     />
@@ -133,7 +133,7 @@ export const ResetPasswordForm = () => {
                                         id="confirmPassword"
                                         type={showConfirmPassword ? "text" : "password"}
                                         placeholder="••••••"
-                                        className="h-9 sm:h-10 pr-10 text-sm rounded-none"
+                                        className="h-9 sm:h-10 pr-10 text-sm"
                                         {...register("confirmPassword")}
                                         aria-invalid={errors.confirmPassword ? "true" : "false"}
                                     />
@@ -186,7 +186,7 @@ export const ResetPasswordForm = () => {
                         {/* Submit Button */}
                         <Button
                             type="submit"
-                            className="w-full h-9 sm:h-10 text-sm mt-1 rounded-none"
+                            className="w-full h-9 sm:h-10 text-sm mt-1"
                             disabled={isLoading}
                         >
                             {isLoading ? (

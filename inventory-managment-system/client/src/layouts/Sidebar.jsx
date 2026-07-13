@@ -22,7 +22,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
 import { selectUser } from '@/store/slices/authSlice';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -69,11 +68,11 @@ export const Sidebar = ({ routes }) => {
     return (
         <SidebarContainer collapsible="icon" variant="sidebar">
             {/* Header - Logo */}
-            <SidebarHeader className="border-b">
+            <SidebarHeader className="border-b border-sidebar-border">
                 <div className="flex items-center gap-2 px-2 py-1">
-                    <Boxes className="h-6 w-6" />
+                    <Boxes className="h-6 w-6 text-primary" />
                     {!isCollapsed && (
-                        <span className="text-lg font-semibold">StockPilot</span>
+                        <span className="text-lg font-semibold text-sidebar-foreground">StockPilot</span>
                     )}
                 </div>
             </SidebarHeader>
@@ -83,7 +82,7 @@ export const Sidebar = ({ routes }) => {
                 {/* Main Group */}
                 <SidebarGroup>
                     {!isCollapsed && (
-                        <SidebarGroupLabel>Main</SidebarGroupLabel>
+                        <SidebarGroupLabel className="text-muted-foreground uppercase tracking-wider text-xs">Main</SidebarGroupLabel>
                     )}
                     <SidebarGroupContent>
                         <SidebarMenu className="gap-1.5">
@@ -113,7 +112,7 @@ export const Sidebar = ({ routes }) => {
                 {userRoutes.length > 0 && (
                     <SidebarGroup>
                         {!isCollapsed && (
-                            <SidebarGroupLabel>Account</SidebarGroupLabel>
+                            <SidebarGroupLabel className="text-muted-foreground uppercase tracking-wider text-xs">Account</SidebarGroupLabel>
                         )}
                         <SidebarGroupContent>
                             <SidebarMenu className="gap-1.5">
@@ -141,7 +140,7 @@ export const Sidebar = ({ routes }) => {
             </SidebarContent>
 
             {/* Footer - User Info */}
-            <SidebarFooter className="border-t">
+            <SidebarFooter className="border-t border-sidebar-border">
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <DropdownMenu>
@@ -149,7 +148,7 @@ export const Sidebar = ({ routes }) => {
                                 render={
                                     <SidebarMenuButton
                                         size="lg"
-                                        className="data-[popup-open]:bg-sidebar-accent data-[popup-open]:text-sidebar-accent-foreground"
+                                        className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
                                     />
                                 }
                             >
@@ -188,7 +187,7 @@ export const Sidebar = ({ routes }) => {
                                     </DropdownMenuItem>
                                 </DropdownMenuGroup>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
                                     <LogOutIcon />
                                     Sign Out
                                 </DropdownMenuItem>

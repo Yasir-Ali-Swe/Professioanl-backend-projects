@@ -76,7 +76,7 @@ export const ForgotPasswordForm = () => {
                                     id="email"
                                     type="email"
                                     placeholder="email@example.com"
-                                    className="h-9 sm:h-10 text-sm rounded-none"
+                                    className="h-9 sm:h-10 text-sm"
                                     {...register("email")}
                                     aria-invalid={errors.email ? "true" : "false"}
                                 />
@@ -94,7 +94,7 @@ export const ForgotPasswordForm = () => {
                         {/* Submit Button */}
                         <Button
                             type="submit"
-                            className="w-full h-9 sm:h-10 text-sm mt-1 rounded-none"
+                            className="w-full h-9 sm:h-10 text-sm mt-1"
                             disabled={isLoading}
                         >
                             {isLoading ? (

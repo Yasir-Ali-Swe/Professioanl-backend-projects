@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
 const features = [
-  { icon: <PackageSearch size={20} className="text-blue-500" />, text: "Track products and stock in real time" },
-  { icon: <ReceiptText size={20} className="text-blue-500" />, text: "Generate invoices instantly" },
-  { icon: <TrendingUp size={20} className="text-blue-500" />, text: "AI-powered demand forecasting" },
-  { icon: <BellRing size={20} className="text-blue-500" />, text: "Smart reorder & anomaly alerts" },
-  { icon: <Bot size={20} className="text-blue-500" />, text: "Ask your data with the AI chatbot" },
-  { icon: <Users size={20} className="text-blue-500" />, text: "Manage your team with role-based access" },
+  { icon: <PackageSearch size={20} className="text-primary" />, text: "Track products and stock in real time" },
+  { icon: <ReceiptText size={20} className="text-primary" />, text: "Generate invoices instantly" },
+  { icon: <TrendingUp size={20} className="text-primary" />, text: "AI-powered demand forecasting" },
+  { icon: <BellRing size={20} className="text-primary" />, text: "Smart reorder & anomaly alerts" },
+  { icon: <Bot size={20} className="text-primary" />, text: "Ask your data with the AI chatbot" },
+  { icon: <Users size={20} className="text-primary" />, text: "Manage your team with role-based access" },
 ];
 
 export const AuthLeftSection = () => {
@@ -18,7 +18,7 @@ export const AuthLeftSection = () => {
     <div className={`hidden lg:flex lg:flex-col justify-center bg-foreground px-6 xl:px-8 h-full `}>
       <div>
         <Button
-          className="mb-3 h-8 text-sm rounded-none"
+          className="mb-3 h-8 text-sm"
           onClick={() => navigate(-1)}
         >
           <span className="flex items-center gap-1">
@@ -27,7 +27,7 @@ export const AuthLeftSection = () => {
           </span>
         </Button>
         <h1 className="text-xl lg:text-2xl font-bold text-background flex items-center gap-3">
-          <Boxes className="size-8 lg:size-9" />
+          <Boxes className="size-8 lg:size-9 text-primary" />
           StockPilot
         </h1>
         <p className="text-sm lg:text-base text-muted-foreground font-light mt-1 mb-2">

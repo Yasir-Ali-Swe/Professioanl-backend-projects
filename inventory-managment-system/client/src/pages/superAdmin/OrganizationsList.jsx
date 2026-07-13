@@ -9,9 +9,7 @@ import { Button } from '@/components/ui/button';
 import {
     Table,
     TableBody,
-    TableCaption,
     TableCell,
-    TableFooter,
     TableHead,
     TableHeader,
     TableRow,
@@ -46,7 +44,6 @@ import {
     MoreVertical,
     CheckCircle,
     XCircle,
-    Edit,
     Ban,
     ArrowUpDown,
 } from 'lucide-react';
@@ -519,10 +516,6 @@ const OrganizationsList = () => {
                                                                     </Link>
                                                                 }
                                                             />
-                                                            <DropdownMenuItem className="cursor-pointer">
-                                                                <Edit className="mr-2 h-3.5 w-3.5" />
-                                                                Edit
-                                                            </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             {org.status === 'active' ? (
                                                                 <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">

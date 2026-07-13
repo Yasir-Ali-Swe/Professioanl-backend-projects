@@ -59,8 +59,8 @@ export const LoginForm = () => {
         {/* Header - Centered */}
         <div className="text-center mb-6 lg:mb-8">
           <div className="flex items-center justify-center gap-3 mb-1">
-            <Boxes className="size-8 sm:size-9" />
-            <h1 className="text-xl sm:text-2xl font-bold">StockPilot</h1>
+            <Boxes className="size-8 sm:size-9 text-primary" />
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">StockPilot</h1>
           </div>
           <p className="text-sm sm:text-base text-muted-foreground font-medium">
             AI-powered inventory management, built for growing businesses.
@@ -80,7 +80,7 @@ export const LoginForm = () => {
                   id="email"
                   type="email"
                   placeholder="email@example.com"
-                  className="h-9 sm:h-10 text-sm rounded-none"
+                  className="h-9 sm:h-10 text-sm"
                   {...register("email")}
                   aria-invalid={errors.email ? "true" : "false"}
                 />
@@ -101,7 +101,7 @@ export const LoginForm = () => {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••"
-                    className="h-9 sm:h-10 pr-10 text-sm rounded-none"
+                    className="h-9 sm:h-10 pr-10 text-sm"
                     {...register("password")}
                     aria-invalid={errors.password ? "true" : "false"}
                   />
@@ -112,7 +112,7 @@ export const LoginForm = () => {
                     className="absolute right-2 top-1/2 -translate-y-1/2 
                              min-h-8 min-w-8 flex items-center justify-center
                              text-muted-foreground hover:text-foreground transition-colors
-                             focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-none"
+                             focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   >
                     {showPassword ? (
                       <EyeOff size={18} className="sm:size-5" />
@@ -140,7 +140,7 @@ export const LoginForm = () => {
             {/* Submit Button */}
             <Button
               type="submit"
-              className="w-full h-9 sm:h-10 text-sm mt-1 rounded-none"
+              className="w-full h-9 sm:h-10 text-sm mt-1"
               disabled={isLoading}
             >
               {isLoading ? (

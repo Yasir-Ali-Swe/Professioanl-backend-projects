@@ -72,7 +72,7 @@ export const RegisterForm = () => {
                 {/* Header - Centered */}
                 <div className="text-center mb-4 lg:mb-6">
                     <div className="flex items-center justify-center gap-3 mb-1">
-                        <Boxes className="size-8 sm:size-9" />
+                        <Boxes className="size-8 sm:size-9 text-primary" />
                         <h1 className="text-xl sm:text-2xl font-bold">StockPilot</h1>
                     </div>
                     <p className="text-sm sm:text-base text-muted-foreground font-medium">
@@ -94,7 +94,7 @@ export const RegisterForm = () => {
                                         id="companyName"
                                         type="text"
                                         placeholder="Acme Inc."
-                                        className="h-9 sm:h-10 text-sm rounded-none"
+                                        className="h-9 sm:h-10 text-sm"
                                         {...register("companyName")}
                                         aria-invalid={errors.companyName ? "true" : "false"}
                                     />
@@ -113,7 +113,7 @@ export const RegisterForm = () => {
                                         id="companyEmail"
                                         type="email"
                                         placeholder="company@example.com"
-                                        className="h-9 sm:h-10 text-sm rounded-none"
+                                        className="h-9 sm:h-10 text-sm"
                                         {...register("companyEmail")}
                                         aria-invalid={errors.companyEmail ? "true" : "false"}
                                     />
@@ -135,7 +135,7 @@ export const RegisterForm = () => {
                                         id="companyPhone"
                                         type="tel"
                                         placeholder="+1 234 567 8900"
-                                        className="h-9 sm:h-10 text-sm rounded-none"
+                                        className="h-9 sm:h-10 text-sm"
                                         {...register("companyPhone")}
                                         aria-invalid={errors.companyPhone ? "true" : "false"}
                                     />
@@ -154,7 +154,7 @@ export const RegisterForm = () => {
                                         id="ownerName"
                                         type="text"
                                         placeholder="John Doe"
-                                        className="h-9 sm:h-10 text-sm rounded-none"
+                                        className="h-9 sm:h-10 text-sm"
                                         {...register("ownerName")}
                                         aria-invalid={errors.ownerName ? "true" : "false"}
                                     />
@@ -176,7 +176,7 @@ export const RegisterForm = () => {
                                         id="ownerEmail"
                                         type="email"
                                         placeholder="owner@example.com"
-                                        className="h-9 sm:h-10 text-sm rounded-none"
+                                        className="h-9 sm:h-10 text-sm"
                                         {...register("ownerEmail")}
                                         aria-invalid={errors.ownerEmail ? "true" : "false"}
                                     />
@@ -196,7 +196,7 @@ export const RegisterForm = () => {
                                             id="ownerPassword"
                                             type={showPassword ? "text" : "password"}
                                             placeholder="••••••"
-                                            className="h-9 sm:h-10 pr-10 text-sm rounded-none"
+                                            className="h-9 sm:h-10 pr-10 text-sm"
                                             {...register("ownerPassword")}
                                             aria-invalid={errors.ownerPassword ? "true" : "false"}
                                         />
@@ -207,7 +207,7 @@ export const RegisterForm = () => {
                                             className="absolute right-2 top-1/2 -translate-y-1/2 
                                                      min-h-8 min-w-8 flex items-center justify-center
                                                      text-muted-foreground hover:text-foreground transition-colors
-                                                     focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-none"
+                                                     focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                         >
                                             {showPassword ? (
                                                 <EyeOff size={18} className="sm:size-5" />
@@ -232,7 +232,7 @@ export const RegisterForm = () => {
                                 <Textarea
                                     id="companyAddress"
                                     placeholder="123 Business St, City, State, ZIP"
-                                    className="min-h-15 sm:min-h-17.5 text-sm rounded-none resize-none"
+                                    className="min-h-15 sm:min-h-17.5 text-sm resize-none"
                                     {...register("companyAddress")}
                                     aria-invalid={errors.companyAddress ? "true" : "false"}
                                 />
@@ -245,7 +245,7 @@ export const RegisterForm = () => {
                         {/* Submit Button */}
                         <Button
                             type="submit"
-                            className="w-full h-9 sm:h-10 text-sm mt-1 rounded-none"
+                            className="w-full h-9 sm:h-10 text-sm mt-1"
                             disabled={isLoading}
                         >
                             {isLoading ? (

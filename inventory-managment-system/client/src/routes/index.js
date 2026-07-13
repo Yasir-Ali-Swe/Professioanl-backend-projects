@@ -6,9 +6,7 @@ export const ROLES = {
   STAFF: "staff",
 };
 
-// Super Admin Routes - All routes with labels and icons
 export const getDashboardRoutes = (role) => {
-  // Super Admin specific routes
   const superAdminRoutes = [
     {
       path: "/dashboard",

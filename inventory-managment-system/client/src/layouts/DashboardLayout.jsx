@@ -12,7 +12,7 @@ export const DashboardLayout = () => {
     const routes = getDashboardRoutes(user?.role);
 
     return (
-        <SidebarProvider defaultOpen={true}>
+        <SidebarProvider>
             <div className="flex h-screen w-full">
                 <Sidebar routes={routes} />
                 <div className="flex flex-1 flex-col overflow-hidden">

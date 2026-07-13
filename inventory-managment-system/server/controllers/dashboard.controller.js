@@ -80,7 +80,7 @@ export const getSuperAdminDashboardStats = async (req, res) => {
     // Get all products for cost calculation
     const allProducts = await Product.find().select("costPrice");
     const productCostMap = {};
-    allProducts.forEach(p => {
+    allProducts.forEach((p) => {
       productCostMap[p._id.toString()] = p.costPrice || 0;
     });
 
@@ -115,7 +115,10 @@ export const getSuperAdminDashboardStats = async (req, res) => {
       const monthRevenue = monthPremiumCount * (premiumPlan?.price || 0);
 
       monthlyRevenueTrend.push({
-        month: month.toLocaleString("default", { month: "short", year: "numeric" }),
+        month: month.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        }),
         revenue: monthRevenue,
         premiumCount: monthPremiumCount,
       });
@@ -137,8 +140,14 @@ export const getSuperAdminDashboardStats = async (req, res) => {
 
     const growthPercentage =
       organizationsLastMonth > 0
-        ? ((organizationsThisMonth - organizationsLastMonth) / organizationsLastMonth * 100).toFixed(2)
-        : organizationsThisMonth > 0 ? 100 : 0;
+        ? (
+            ((organizationsThisMonth - organizationsLastMonth) /
+              organizationsLastMonth) *
+            100
+          ).toFixed(2)
+        : organizationsThisMonth > 0
+          ? 100
+          : 0;
 
     const switchedToPremiumThisMonth = await Subscription.countDocuments({
       status: "active",
@@ -175,11 +184,17 @@ export const getSuperAdminDashboardStats = async (req, res) => {
           revenue: platformRevenue,
           cost: platformCost,
           profit: platformProfit,
-          profitMargin: platformRevenue > 0 ? ((platformProfit / platformRevenue) * 100).toFixed(2) : 0,
+          profitMargin:
+            platformRevenue > 0
+              ? ((platformProfit / platformRevenue) * 100).toFixed(2)
+              : 0,
           invoiceRevenue: totalInvoiceRevenue,
           invoiceCost: totalInvoiceCost,
           invoiceProfit: totalInvoiceProfit,
-          invoiceProfitMargin: totalInvoiceRevenue > 0 ? ((totalInvoiceProfit / totalInvoiceRevenue) * 100).toFixed(2) : 0,
+          invoiceProfitMargin:
+            totalInvoiceRevenue > 0
+              ? ((totalInvoiceProfit / totalInvoiceRevenue) * 100).toFixed(2)
+              : 0,
         },
         recentOrganizations: allOrganizations
           .sort((a, b) => b.createdAt - a.createdAt)
@@ -228,7 +243,9 @@ export const getSalesTrends = async (req, res) => {
     } else if (period === "yearly") {
       dateFormat = { $year: "$createdAt" };
     } else {
-      dateFormat = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+      dateFormat = {
+        $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+      };
     }
 
     const trends = await Invoice.aggregate([
@@ -252,9 +269,11 @@ export const getSalesTrends = async (req, res) => {
     const summary = {
       totalSales: trends.reduce((sum, t) => sum + t.totalSales, 0),
       totalOrders: trends.reduce((sum, t) => sum + t.orderCount, 0),
-      averageOrderValue: trends.length > 0 
-        ? trends.reduce((sum, t) => sum + t.averageOrderValue, 0) / trends.length
-        : 0,
+      averageOrderValue:
+        trends.length > 0
+          ? trends.reduce((sum, t) => sum + t.averageOrderValue, 0) /
+            trends.length
+          : 0,
     };
 
     res.status(200).json({
@@ -295,18 +314,28 @@ export const getStockLevelsReport = async (req, res) => {
     }
 
     const products = await Product.find(matchStage)
-      .select("name sku quantity reorderThreshold unit costPrice sellingPrice isActive imageUrl")
+      .select(
+        "name sku quantity reorderThreshold unit costPrice sellingPrice isActive imageUrl",
+      )
       .populate("categoryId", "name categorySlug")
       .populate("supplierId", "name contactPerson phone email")
       .sort({ quantity: 1 })
       .lean();
 
     // Calculate summary statistics
-    const totalValue = products.reduce((sum, p) => sum + (p.quantity * p.costPrice || 0), 0);
-    const totalPotentialRevenue = products.reduce((sum, p) => sum + (p.quantity * p.sellingPrice || 0), 0);
-    const lowStockCount = products.filter(p => p.quantity <= p.reorderThreshold).length;
-    const outOfStockCount = products.filter(p => p.quantity === 0).length;
-    const activeCount = products.filter(p => p.isActive).length;
+    const totalValue = products.reduce(
+      (sum, p) => sum + (p.quantity * p.costPrice || 0),
+      0,
+    );
+    const totalPotentialRevenue = products.reduce(
+      (sum, p) => sum + (p.quantity * p.sellingPrice || 0),
+      0,
+    );
+    const lowStockCount = products.filter(
+      (p) => p.quantity <= p.reorderThreshold,
+    ).length;
+    const outOfStockCount = products.filter((p) => p.quantity === 0).length;
+    const activeCount = products.filter((p) => p.isActive).length;
 
     res.status(200).json({
       success: true,
@@ -343,7 +372,7 @@ export const getFinancialReport = async (req, res) => {
 
     const invoiceFilter = { organizationId, status: "paid" };
     const poFilter = { organizationId, status: "fulfilled" };
-    
+
     if (startDate || endDate) {
       invoiceFilter.createdAt = dateFilter;
       poFilter.createdAt = dateFilter;
@@ -357,7 +386,7 @@ export const getFinancialReport = async (req, res) => {
 
     // Create product cost map
     const productCostMap = {};
-    allProducts.forEach(p => {
+    allProducts.forEach((p) => {
       productCostMap[p._id.toString()] = p.costPrice || 0;
     });
 
@@ -371,7 +400,7 @@ export const getFinancialReport = async (req, res) => {
       totalRevenue += invoice.total || 0;
       totalTax += invoice.tax || 0;
       totalDiscount += invoice.discount || 0;
-      
+
       for (const item of invoice.products) {
         if (item.productId) {
           const productId = item.productId._id || item.productId;
@@ -382,23 +411,36 @@ export const getFinancialReport = async (req, res) => {
     }
 
     const grossProfit = totalRevenue - totalCost;
-    const totalPurchaseCost = purchaseOrders.reduce((sum, po) => sum + (po.totalCost || 0), 0);
+    const totalPurchaseCost = purchaseOrders.reduce(
+      (sum, po) => sum + (po.totalCost || 0),
+      0,
+    );
     const netProfit = grossProfit - totalPurchaseCost;
 
     // Calculate monthly breakdown
     const monthlyBreakdown = [];
     if (invoices.length > 0) {
       const months = new Set();
-      invoices.forEach(inv => {
-        const month = inv.createdAt.toLocaleString("default", { month: "short", year: "numeric" });
+      invoices.forEach((inv) => {
+        const month = inv.createdAt.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        });
         months.add(month);
       });
 
       for (const month of months) {
-        const monthInvoices = invoices.filter(inv => 
-          inv.createdAt.toLocaleString("default", { month: "short", year: "numeric" }) === month
+        const monthInvoices = invoices.filter(
+          (inv) =>
+            inv.createdAt.toLocaleString("default", {
+              month: "short",
+              year: "numeric",
+            }) === month,
         );
-        const monthRevenue = monthInvoices.reduce((sum, inv) => sum + inv.total, 0);
+        const monthRevenue = monthInvoices.reduce(
+          (sum, inv) => sum + inv.total,
+          0,
+        );
         let monthCost = 0;
         for (const inv of monthInvoices) {
           for (const item of inv.products) {
@@ -426,10 +468,16 @@ export const getFinancialReport = async (req, res) => {
           totalRevenue,
           totalCost,
           grossProfit,
-          profitMargin: totalRevenue > 0 ? (grossProfit / totalRevenue * 100).toFixed(2) : 0,
+          profitMargin:
+            totalRevenue > 0
+              ? ((grossProfit / totalRevenue) * 100).toFixed(2)
+              : 0,
           totalPurchaseCost,
           netProfit,
-          netProfitMargin: totalRevenue > 0 ? (netProfit / totalRevenue * 100).toFixed(2) : 0,
+          netProfitMargin:
+            totalRevenue > 0
+              ? ((netProfit / totalRevenue) * 100).toFixed(2)
+              : 0,
           totalTax,
           totalDiscount,
           totalInvoices: invoices.length,
@@ -504,16 +552,20 @@ export const getAdminDashboardStats = async (req, res) => {
       Invoice.countDocuments({ organizationId, status: "paid" }),
       Invoice.countDocuments({ organizationId, status: "void" }),
       Invoice.countDocuments({ organizationId, status: "unpaid" }),
-      Invoice.find({ organizationId, status: "paid" }).populate("products.productId"),
+      Invoice.find({ organizationId, status: "paid" }).populate(
+        "products.productId",
+      ),
       PurchaseOrder.find({ organizationId, status: "fulfilled" }),
       PurchaseOrder.find({ organizationId }),
       Product.find({ organizationId }).select("costPrice quantity"),
-      User.find({ organizationId }).select("name email role isActive createdAt"),
+      User.find({ organizationId }).select(
+        "name email role isActive createdAt",
+      ),
     ]);
 
     // Calculate product cost map
     const productCostMap = {};
-    allProducts.forEach(p => {
+    allProducts.forEach((p) => {
       productCostMap[p._id.toString()] = p.costPrice || 0;
     });
 
@@ -527,7 +579,7 @@ export const getAdminDashboardStats = async (req, res) => {
       totalRevenue += invoice.total || 0;
       totalTax += invoice.tax || 0;
       totalDiscount += invoice.discount || 0;
-      
+
       for (const item of invoice.products) {
         if (item.productId) {
           const productId = item.productId._id || item.productId;
@@ -538,7 +590,10 @@ export const getAdminDashboardStats = async (req, res) => {
     }
 
     const grossProfit = totalRevenue - totalCost;
-    const totalPurchaseCost = fulfilledPurchaseOrders.reduce((sum, po) => sum + (po.totalCost || 0), 0);
+    const totalPurchaseCost = fulfilledPurchaseOrders.reduce(
+      (sum, po) => sum + (po.totalCost || 0),
+      0,
+    );
     const netProfit = grossProfit - totalPurchaseCost;
 
     // Calculate total inventory value
@@ -561,10 +616,16 @@ export const getAdminDashboardStats = async (req, res) => {
         createdAt: { $gte: monthStart, $lte: monthEnd },
       });
 
-      const monthRevenue = monthInvoices.reduce((sum, inv) => sum + inv.total, 0);
+      const monthRevenue = monthInvoices.reduce(
+        (sum, inv) => sum + inv.total,
+        0,
+      );
 
       monthlyRevenueTrend.push({
-        month: month.toLocaleString("default", { month: "short", year: "numeric" }),
+        month: month.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        }),
         revenue: monthRevenue,
         invoiceCount: monthInvoices.length,
       });
@@ -599,7 +660,10 @@ export const getAdminDashboardStats = async (req, res) => {
       }
 
       monthlyProfitTrend.push({
-        month: month.toLocaleString("default", { month: "short", year: "numeric" }),
+        month: month.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        }),
         revenue: monthRevenue,
         cost: monthCost,
         profit: monthRevenue - monthCost,
@@ -626,7 +690,9 @@ export const getAdminDashboardStats = async (req, res) => {
         .sort((a, b) => b[1].revenue - a[1].revenue)
         .slice(0, 5)
         .map(async ([productId, data]) => {
-          const product = await Product.findById(productId).select("name sku sellingPrice");
+          const product = await Product.findById(productId).select(
+            "name sku sellingPrice",
+          );
           return {
             _id: productId,
             name: product?.name || "Unknown",
@@ -634,7 +700,7 @@ export const getAdminDashboardStats = async (req, res) => {
             quantitySold: data.quantity,
             revenue: data.revenue,
           };
-        })
+        }),
     );
 
     // Team distribution
@@ -676,7 +742,8 @@ export const getAdminDashboardStats = async (req, res) => {
           approvedPOs,
           rejectedPOs,
           fulfilledPOs,
-          completionRate: totalPOs > 0 ? ((fulfilledPOs / totalPOs) * 100).toFixed(2) : 0,
+          completionRate:
+            totalPOs > 0 ? ((fulfilledPOs / totalPOs) * 100).toFixed(2) : 0,
         },
         invoices: {
           total: totalInvoices,
@@ -688,10 +755,16 @@ export const getAdminDashboardStats = async (req, res) => {
           totalRevenue,
           totalCost,
           grossProfit,
-          profitMargin: totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(2) : 0,
+          profitMargin:
+            totalRevenue > 0
+              ? ((grossProfit / totalRevenue) * 100).toFixed(2)
+              : 0,
           totalPurchaseCost,
           netProfit,
-          netProfitMargin: totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(2) : 0,
+          netProfitMargin:
+            totalRevenue > 0
+              ? ((netProfit / totalRevenue) * 100).toFixed(2)
+              : 0,
           totalTax,
           totalDiscount,
           monthlyTrend: monthlyRevenueTrend,
@@ -798,7 +871,8 @@ export const getManagerDashboardStats = async (req, res) => {
     ]);
 
     const completedPOs = fulfilledPOs + rejectedPOs;
-    const completionRate = totalPOs > 0 ? ((completedPOs / totalPOs) * 100).toFixed(2) : 0;
+    const completionRate =
+      totalPOs > 0 ? ((completedPOs / totalPOs) * 100).toFixed(2) : 0;
 
     const lowStockAlertProducts = await Product.find({
       organizationId,
@@ -843,7 +917,10 @@ export const getManagerDashboardStats = async (req, res) => {
       const totalValue = monthPOs.reduce((sum, po) => sum + po.totalCost, 0);
 
       poValueTrend.push({
-        month: month.toLocaleString("default", { month: "short", year: "numeric" }),
+        month: month.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        }),
         totalValue,
         count: monthPOs.length,
       });
@@ -1021,10 +1098,16 @@ export const getStaffDashboardStats = async (req, res) => {
         createdAt: { $gte: monthStart, $lte: monthEnd },
       });
 
-      const monthRevenue = monthInvoices.reduce((sum, inv) => sum + inv.total, 0);
+      const monthRevenue = monthInvoices.reduce(
+        (sum, inv) => sum + inv.total,
+        0,
+      );
 
       monthlyPerformance.push({
-        month: month.toLocaleString("default", { month: "short", year: "numeric" }),
+        month: month.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        }),
         invoices: monthInvoices.length,
         revenue: monthRevenue,
         stockActions: monthStockActions,

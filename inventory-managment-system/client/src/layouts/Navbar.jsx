@@ -82,10 +82,10 @@ export const Navbar = ({ routes }) => {
                                                 </BreadcrumbPage>
                                             ) : (
                                                 <BreadcrumbLink
-                                                    asChild
+                                                    render={<Link to={item.path} />}
                                                     className="text-muted-foreground hover:text-foreground transition-colors"
                                                 >
-                                                    <Link to={item.path}>{item.label}</Link>
+                                                    {item.label}
                                                 </BreadcrumbLink>
                                             )}
                                         </BreadcrumbItem>

@@ -4,9 +4,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
+    CardDescription,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -186,86 +186,97 @@ const OrganizationDetail = () => {
                 </div>
             </div>
 
-            {/* Stats Cards - 6 Cards in 3 Columns */}
-            <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-3">
+            {/* Stats Cards - Row 1 */}
+            <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
                 {/* Users Card */}
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Users</p>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Total Users</CardTitle>
                         <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-2xl font-bold">{organizationUsersCount}</p>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold">{organizationUsersCount}</div>
                         <p className="text-[10px] sm:text-xs text-muted-foreground">Total users</p>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
 
                 {/* Products Card */}
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Products</p>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Total Products</CardTitle>
                         <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-2xl font-bold">{organizationProductsCount}</p>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold">{organizationProductsCount}</div>
                         <p className="text-[10px] sm:text-xs text-muted-foreground">Total products</p>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
 
                 {/* Suppliers Card */}
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Suppliers</p>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Total Suppliers</CardTitle>
                         <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-2xl font-bold">{organizationSuppliersCount}</p>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold">{organizationSuppliersCount}</div>
                         <p className="text-[10px] sm:text-xs text-muted-foreground">Total suppliers</p>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
 
                 {/* Categories Card */}
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Categories</p>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Total Categories</CardTitle>
                         <Tags className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-2xl font-bold">{organizationCategoriesCount}</p>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold">{organizationCategoriesCount}</div>
                         <p className="text-[10px] sm:text-xs text-muted-foreground">Total categories</p>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
+            </div>
 
+            {/* Stats Cards - Row 2 */}
+            <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
                 {/* Subscription Card */}
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Subscription</p>
-                        <Crown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-2xl font-bold capitalize">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Subscription</CardTitle>
+                        <Crown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold text-yellow-500 capitalize">
                             {subscription.subscriptionPlan?.name || 'Free'}
-                        </p>
+                        </div>
                         <Badge
                             variant={subscription.subscriptionRecord ? getSubscriptionStatusBadge(subscription.subscriptionRecord.status) : 'secondary'}
-                            className="text-[10px] sm:text-xs mt-1"
+                            className="text-[10px] sm:text-xs"
                         >
                             {subscription.subscriptionRecord ? subscription.subscriptionRecord.status : 'Inactive'}
                         </Badge>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
 
                 {/* Admin Card */}
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Admin</p>
-                        <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-xl font-bold truncate">{adminUser?.name || 'No Admin'}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{adminUser?.email || ''}</p>
-                    </div>
-                </div>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Admin</CardTitle>
+                        <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-xl font-bold text-blue-500 truncate">
+                            {adminUser?.name || 'No Admin'}
+                        </div>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                            {adminUser?.email || ''}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* Placeholder for balance - 2 empty cards to maintain grid */}
+                <Card className="invisible hidden lg:block" />
+                <Card className="invisible hidden lg:block" />
             </div>
 
             {/* Organization Info & Subscription Details - Side by Side */}
@@ -357,7 +368,7 @@ const OrganizationDetail = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                    <div className="min-w-120 sm:min-w-0">
+                    <div className="min-w-[480px] sm:min-w-0">
                         <Table>
                             <TableHeader>
                                 <TableRow>

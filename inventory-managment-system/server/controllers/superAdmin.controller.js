@@ -103,6 +103,68 @@ export const getAllOrganizations = async (req, res) => {
   }
 };
 
+// export const getOrganizationById = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const organization = await organizationModel
+//       .findById(id)
+//       .select("-__v -updatedAt")
+//       .populate("subscriptionPlan", "-__v -updatedAt")
+//       .lean();
+
+//     if (!organization) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Organization not found",
+//       });
+//     }
+
+//     const adminUser = await userModel
+//       .findOne({ organizationId: id, role: "admin" })
+//       .select("name email role isActive imageUrl")
+//       .lean();
+
+//     const allUsers = await userModel
+//       .find({ organizationId: id })
+//       .select("name email role isActive imageUrl")
+//       .lean();
+
+//     const userCount = allUsers.length;
+
+//     const productCount = await productModel.countDocuments({
+//       organizationId: id,
+//     });
+
+//     const supplierCount = await supplierModel.countDocuments({
+//       organizationId: id,
+//     });
+
+//     const categoryCount = await categoryModel.countDocuments({
+//       organizationId: id,
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       data: {
+//         organizationData: organization,
+//         adminUser: adminUser || null,
+//         allUsers: allUsers || [],
+//         organizationUsersCount: userCount,
+//         organizationProductsCount: productCount,
+//         organizationSuppliersCount: supplierCount,
+//         organizationCategoriesCount: categoryCount,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error in getOrganizationById:", error.message);
+//     res.status(error.status || 500).json({
+//       success: false,
+//       message: error.message || "Internal server error",
+//     });
+//   }
+// };
+
 export const getOrganizationById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -144,6 +206,73 @@ export const getOrganizationById = async (req, res) => {
       organizationId: id,
     });
 
+    // Get subscription data
+    const subscription = await mongoose
+      .model("Subscription")
+      .findOne({ organizationId: id })
+      .populate("subscriptionPlanId", "-__v -updatedAt")
+      .lean();
+
+    // Prepare subscription data
+    let subscriptionData = null;
+    if (subscription) {
+      subscriptionData = {
+        subscriptionRecord: {
+          id: subscription._id,
+          stripeCustomerId: subscription.stripeCustomerId,
+          stripeSubscriptionId: subscription.stripeSubscriptionId,
+          status: subscription.status,
+          currentPeriodEnd: subscription.currentPeriodEnd,
+          createdAt: subscription.createdAt,
+          updatedAt: subscription.updatedAt,
+        },
+        subscriptionPlan: subscription.subscriptionPlanId
+          ? {
+              id: subscription.subscriptionPlanId._id,
+              name: subscription.subscriptionPlanId.name,
+              price: subscription.subscriptionPlanId.price,
+              billingCycle: subscription.subscriptionPlanId.billingCycle,
+              aiFeatures: subscription.subscriptionPlanId.aiFeatures,
+              stripePriceId: subscription.subscriptionPlanId.stripePriceId,
+            }
+          : null,
+        // Additional subscription metadata
+        subscriptionDetails: {
+          isActive: subscription.status === "active",
+          isPastDue: subscription.status === "past_due",
+          isCanceled: subscription.status === "canceled",
+          isIncomplete: subscription.status === "incomplete",
+          daysUntilExpiry: subscription.currentPeriodEnd
+            ? Math.ceil(
+                (new Date(subscription.currentPeriodEnd) - new Date()) /
+                  (1000 * 60 * 60 * 24),
+              )
+            : null,
+          isExpiringSoon: subscription.currentPeriodEnd
+            ? Math.ceil(
+                (new Date(subscription.currentPeriodEnd) - new Date()) /
+                  (1000 * 60 * 60 * 24),
+              ) <= 7
+            : false,
+        },
+      };
+    } else {
+      // If no subscription record exists, check if organization has a subscriptionPlan
+      subscriptionData = {
+        subscriptionRecord: null,
+        subscriptionPlan: organization.subscriptionPlan || null,
+        subscriptionDetails: {
+          isActive: false,
+          isPastDue: false,
+          isCanceled: false,
+          isIncomplete: false,
+          daysUntilExpiry: null,
+          isExpiringSoon: false,
+          hasNoSubscription: true,
+        },
+      };
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -154,6 +283,7 @@ export const getOrganizationById = async (req, res) => {
         organizationProductsCount: productCount,
         organizationSuppliersCount: supplierCount,
         organizationCategoriesCount: categoryCount,
+        subscription: subscriptionData,
       },
     });
   } catch (error) {

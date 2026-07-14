@@ -20,6 +20,7 @@ import OrganizationsListPage from "@/pages/superAdmin/OrganizationsList";
 import OrganizationDetailPage from "@/pages/superAdmin/OrganizationDetail";
 import SuperAdminAnalyticsPage from "@/pages/superAdmin/SuperAdminAnalytics";
 import SubscriptionsPage from "@/pages/superAdmin/Subscriptions";
+import SubscriptionDetailPage from "@/pages/superAdmin/SubscriptionDetail";
 
 import ProfilePage from "@/pages/Profile";
 import SettingsPage from "@/pages/Settings";
@@ -44,6 +45,7 @@ const App = () => {
           <Route path="/super-admin/organizations/:id" element={<OrganizationDetailPage />} />
           <Route path="/super-admin/analytics" element={<SuperAdminAnalyticsPage />} />
           <Route path="/super-admin/subscriptions" element={<SubscriptionsPage />} />
+          <Route path="/super-admin/subscriptions/:id" element={<SubscriptionDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>

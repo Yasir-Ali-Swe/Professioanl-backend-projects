@@ -103,68 +103,6 @@ export const getAllOrganizations = async (req, res) => {
   }
 };
 
-// export const getOrganizationById = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-
-//     const organization = await organizationModel
-//       .findById(id)
-//       .select("-__v -updatedAt")
-//       .populate("subscriptionPlan", "-__v -updatedAt")
-//       .lean();
-
-//     if (!organization) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Organization not found",
-//       });
-//     }
-
-//     const adminUser = await userModel
-//       .findOne({ organizationId: id, role: "admin" })
-//       .select("name email role isActive imageUrl")
-//       .lean();
-
-//     const allUsers = await userModel
-//       .find({ organizationId: id })
-//       .select("name email role isActive imageUrl")
-//       .lean();
-
-//     const userCount = allUsers.length;
-
-//     const productCount = await productModel.countDocuments({
-//       organizationId: id,
-//     });
-
-//     const supplierCount = await supplierModel.countDocuments({
-//       organizationId: id,
-//     });
-
-//     const categoryCount = await categoryModel.countDocuments({
-//       organizationId: id,
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       data: {
-//         organizationData: organization,
-//         adminUser: adminUser || null,
-//         allUsers: allUsers || [],
-//         organizationUsersCount: userCount,
-//         organizationProductsCount: productCount,
-//         organizationSuppliersCount: supplierCount,
-//         organizationCategoriesCount: categoryCount,
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Error in getOrganizationById:", error.message);
-//     res.status(error.status || 500).json({
-//       success: false,
-//       message: error.message || "Internal server error",
-//     });
-//   }
-// };
-
 export const getOrganizationById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -363,40 +301,297 @@ export const deleteOrganization = async (req, res) => {
 export const getAnalytics = async (req, res) => {
   try {
     const userId = req.user._id;
-    const totalOrganizations = await organizationModel.countDocuments();
-    const activeOrganizations = await organizationModel.countDocuments({
-      status: "active",
-    });
-    const suspendedOrganizations = await organizationModel.countDocuments({
-      status: "suspended",
-    });
-    const trialOrganizations = await organizationModel.countDocuments({
-      status: "trial",
-    });
-    const totalProducts = await productModel.countDocuments();
-    const totalUsers = await userModel.countDocuments();
-    const userByRole = await userModel.aggregate([
-      { $group: { _id: "$role", count: { $sum: 1 } } },
-    ]);
     const thisMonthStart = new Date(
       new Date().getFullYear(),
       new Date().getMonth(),
       1,
     );
-    const newSignupsThisMonth = await organizationModel.countDocuments({
-      createdAt: { $gte: thisMonthStart },
+
+    // Run all queries in parallel for better performance
+    const [
+      totalOrganizations,
+      activeOrganizations,
+      suspendedOrganizations,
+      trialOrganizations,
+      totalProducts,
+      totalUsers,
+      userByRole,
+      newSignupsThisMonth,
+      organizationGrowthTrend,
+      subscriptionDistribution,
+      premiumSwitchesThisMonth,
+      revenueTrend,
+      canceledThisMonth,
+      suspendedThisMonth,
+      totalCategories,
+      totalSuppliers,
+      topOrganizations,
+    ] = await Promise.all([
+      // Existing queries
+      organizationModel.countDocuments(),
+      organizationModel.countDocuments({ status: "active" }),
+      organizationModel.countDocuments({ status: "suspended" }),
+      organizationModel.countDocuments({ status: "trial" }),
+      productModel.countDocuments(),
+      userModel.countDocuments(),
+      userModel.aggregate([{ $group: { _id: "$role", count: { $sum: 1 } } }]),
+      organizationModel.countDocuments({
+        createdAt: { $gte: thisMonthStart },
+      }),
+
+      // 1. Organization Growth Trend - Last 12 months
+      organizationModel.aggregate([
+        {
+          $match: {
+            createdAt: {
+              $gte: new Date(new Date().setMonth(new Date().getMonth() - 11)),
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { "_id.year": 1, "_id.month": 1 },
+        },
+        {
+          $project: {
+            month: {
+              $concat: [
+                { $toString: "$_id.year" },
+                "-",
+                {
+                  $cond: {
+                    if: { $lt: ["$_id.month", 10] },
+                    then: { $concat: ["0", { $toString: "$_id.month" }] },
+                    else: { $toString: "$_id.month" },
+                  },
+                },
+              ],
+            },
+            count: 1,
+            _id: 0,
+          },
+        },
+      ]),
+
+      // 2. Subscription Plan Distribution
+      subscriptionModel.aggregate([
+        { $match: { status: "active" } },
+        {
+          $lookup: {
+            from: "subscriptionplans",
+            localField: "subscriptionPlanId",
+            foreignField: "_id",
+            as: "plan",
+          },
+        },
+        { $unwind: "$plan" },
+        {
+          $group: {
+            _id: "$plan.name",
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // Premium switches this month (organizations that switched to premium in current month)
+      subscriptionModel.aggregate([
+        {
+          $match: {
+            status: "active",
+            updatedAt: { $gte: thisMonthStart },
+          },
+        },
+        {
+          $lookup: {
+            from: "subscriptionplans",
+            localField: "subscriptionPlanId",
+            foreignField: "_id",
+            as: "plan",
+          },
+        },
+        { $unwind: "$plan" },
+        { $match: { "plan.name": "premium" } },
+        { $count: "count" },
+      ]),
+
+      // 3. Platform Revenue Trend - Last 12 months
+      // Note: This approximates revenue based on active subscriptions at month end
+      // For accurate historical revenue, you would need to store monthly snapshots
+      subscriptionModel.aggregate([
+        {
+          $match: {
+            status: "active",
+            createdAt: {
+              $gte: new Date(new Date().setMonth(new Date().getMonth() - 11)),
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "subscriptionplans",
+            localField: "subscriptionPlanId",
+            foreignField: "_id",
+            as: "plan",
+          },
+        },
+        { $unwind: "$plan" },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" },
+            },
+            activeSubscriptions: { $sum: 1 },
+            planPrice: { $first: "$plan.price" },
+          },
+        },
+        {
+          $sort: { "_id.year": 1, "_id.month": 1 },
+        },
+        {
+          $project: {
+            month: {
+              $concat: [
+                { $toString: "$_id.year" },
+                "-",
+                {
+                  $cond: {
+                    if: { $lt: ["$_id.month", 10] },
+                    then: { $concat: ["0", { $toString: "$_id.month" }] },
+                    else: { $toString: "$_id.month" },
+                  },
+                },
+              ],
+            },
+            revenue: { $multiply: ["$activeSubscriptions", "$planPrice"] },
+            _id: 0,
+          },
+        },
+      ]),
+
+      // 4. Churn / Downgrade Data - This month
+      // Canceled this month
+      subscriptionModel.countDocuments({
+        status: "canceled",
+        updatedAt: { $gte: thisMonthStart },
+      }),
+
+      // Suspended this month (using updatedAt as there's no dedicated suspendedAt field)
+      organizationModel.countDocuments({
+        status: "suspended",
+        updatedAt: { $gte: thisMonthStart },
+      }),
+
+      // 5. Platform Totals
+      categoryModel.countDocuments(),
+      supplierModel.countDocuments(),
+
+      // 7. Top Organizations by Activity - Top 5 by product count
+      productModel.aggregate([
+        {
+          $group: {
+            _id: "$organizationId",
+            productCount: { $sum: 1 },
+          },
+        },
+        { $sort: { productCount: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: "organizations",
+            localField: "_id",
+            foreignField: "_id",
+            as: "organization",
+          },
+        },
+        { $unwind: "$organization" },
+        {
+          $project: {
+            organizationId: "$_id",
+            organizationName: "$organization.name",
+            productCount: 1,
+            _id: 0,
+          },
+        },
+      ]),
+    ]);
+
+    // 6. Average Organization Size
+    const avgProductsPerOrg =
+      totalOrganizations > 0
+        ? Math.round((totalProducts / totalOrganizations) * 100) / 100
+        : 0;
+
+    const avgUsersPerOrg =
+      totalOrganizations > 0
+        ? Math.round((totalUsers / totalOrganizations) * 100) / 100
+        : 0;
+
+    // Format subscription distribution
+    const subscriptionDistributionMap = {};
+    subscriptionDistribution.forEach((item) => {
+      subscriptionDistributionMap[item._id] = item.count;
     });
+
+    const premiumSwitchesCount =
+      premiumSwitchesThisMonth.length > 0
+        ? premiumSwitchesThisMonth[0].count
+        : 0;
+
     res.status(200).json({
       success: true,
       data: {
-        totalOrganizations: totalOrganizations,
-        activeOrganizations: activeOrganizations,
-        suspendedOrganizations: suspendedOrganizations,
-        trialOrganizations: trialOrganizations,
-        totalProducts: totalProducts,
-        totalUsers: totalUsers,
-        userByRole: userByRole,
-        newSignupsThisMonth: newSignupsThisMonth,
+        // Existing fields
+        totalOrganizations,
+        activeOrganizations,
+        suspendedOrganizations,
+        trialOrganizations,
+        totalProducts,
+        totalUsers,
+        userByRole,
+        newSignupsThisMonth,
+
+        // 1. Organization Growth Trend
+        organizationGrowthTrend,
+
+        // 2. Subscription Plan Distribution
+        subscriptionDistribution: {
+          free: subscriptionDistributionMap.free || 0,
+          premium: subscriptionDistributionMap.premium || 0,
+          premiumSwitchesThisMonth: premiumSwitchesCount,
+        },
+
+        // 3. Platform Revenue Trend
+        revenueTrend,
+
+        // 4. Churn / Downgrade Data (this month)
+        churnData: {
+          canceledThisMonth,
+          suspendedThisMonth,
+        },
+
+        // 5. Platform Totals (secondary stats)
+        platformTotals: {
+          totalCategories,
+          totalSuppliers,
+        },
+
+        // 6. Average Organization Size
+        averageOrganizationSize: {
+          avgProductsPerOrg,
+          avgUsersPerOrg,
+        },
+
+        // 7. Top Organizations by Activity
+        topOrganizations,
       },
     });
   } catch (error) {
@@ -407,7 +602,6 @@ export const getAnalytics = async (req, res) => {
     });
   }
 };
-
 export const getOrganizationSubscriptionDetails = async (req, res) => {
   try {
     const { id } = req.params;

@@ -7,6 +7,7 @@ import {
   getAnalytics,
   getOrganizationSubscriptionDetails,
   updateOrganizationSubscriptionPlan,
+  getAllOrganizationSubscriptions,
 } from "../controllers/superAdmin.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
@@ -38,17 +39,26 @@ router.get(
   getAnalytics,
 );
 router.get(
-  "/organization/:id/subscription",
+  "/organizations/subscriptions",
+  authMiddleware,
+  authorize("super_admin"),
+  getAllOrganizationSubscriptions,
+);
+
+router.get(
+  "/organizations/:id/subscription",
   authMiddleware,
   authorize("super_admin"),
   getOrganizationSubscriptionDetails,
 );
+
 router.patch(
-  "/organization/:id/subscription",
+  "/organizations/:id/subscription",
   authMiddleware,
   authorize("super_admin"),
   updateOrganizationSubscriptionPlan,
 );
+
 router.patch(
   "/organization/:id/status",
   authMiddleware,

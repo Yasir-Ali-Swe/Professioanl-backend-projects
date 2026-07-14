@@ -602,13 +602,214 @@ export const getAnalytics = async (req, res) => {
     });
   }
 };
+export const getAllOrganizationSubscriptions = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      plan,
+      sortBy = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    const query = {};
+    if (status) {
+      query.status = status;
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const totalOrganizations = await organizationModel.countDocuments(query);
+
+    const organizations = await organizationModel
+      .find(query)
+      .select(
+        "_id name contactEmail phone status logoUrl createdAt subscriptionPlan",
+      )
+      .sort({
+        [sortBy]: order === "asc" ? 1 : -1,
+      })
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+
+    const organizationIds = organizations.map((org) => org._id);
+
+    // Get subscription records for these organizations
+    const subscriptions = await subscriptionModel
+      .find({
+        organizationId: { $in: organizationIds },
+      })
+      .populate("subscriptionPlanId", "name price billingCycle aiFeatures")
+      .lean();
+
+    // Get all subscription plans for reference
+    const allPlans = await subscriptionPlanModel.find().lean();
+    const planMap = {};
+    allPlans.forEach((p) => {
+      planMap[p._id.toString()] = p.name;
+    });
+
+    // Get ALL subscriptions for summary (not just paginated ones)
+    const allSubscriptions = await subscriptionModel
+      .find({
+        organizationId: { $in: organizationIds },
+      })
+      .populate("subscriptionPlanId", "name price")
+      .lean();
+
+    // Create a map of organizationId -> subscription
+    const subscriptionMap = {};
+    subscriptions.forEach((sub) => {
+      const orgId = sub.organizationId.toString();
+      subscriptionMap[orgId] = sub;
+    });
+
+    // Build response with left join style
+    let results = organizations.map((org) => {
+      const orgId = org._id.toString();
+      const sub = subscriptionMap[orgId];
+
+      let planName = "free";
+      let subscriptionStatus = "inactive";
+      let currentPeriodEnd = null;
+      let subscriptionPlanDetails = null;
+
+      if (sub) {
+        subscriptionStatus = sub.status;
+        currentPeriodEnd = sub.currentPeriodEnd;
+        subscriptionPlanDetails = sub.subscriptionPlanId;
+
+        if (sub.subscriptionPlanId) {
+          planName = sub.subscriptionPlanId.name;
+        }
+      } else {
+        // If no subscription record, check if organization has a plan directly
+        if (org.subscriptionPlan) {
+          const planId = org.subscriptionPlan.toString();
+          planName = planMap[planId] || "free";
+        }
+      }
+
+      return {
+        organizationId: org._id,
+        organizationName: org.name,
+        contactEmail: org.contactEmail,
+        phone: org.phone,
+        organizationStatus: org.status,
+        logoUrl: org.logoUrl,
+        planName,
+        subscriptionStatus,
+        currentPeriodEnd,
+        subscriptionPlanDetails,
+        createdAt: org.createdAt,
+      };
+    });
+
+    // Filter by plan if provided
+    if (plan) {
+      results = results.filter((item) => item.planName === plan);
+    }
+
+    const totalResults = results.length;
+
+    // Calculate summary statistics
+    // Get all organizations for summary (not just paginated)
+    const allOrgs = await organizationModel
+      .find()
+      .select("_id status subscriptionPlan")
+      .lean();
+    const allOrgIds = allOrgs.map((org) => org._id);
+
+    const allSubs = await subscriptionModel
+      .find({
+        organizationId: { $in: allOrgIds },
+      })
+      .populate("subscriptionPlanId", "name price")
+      .lean();
+
+    const allPlansMap = {};
+    allPlans.forEach((p) => {
+      allPlansMap[p._id.toString()] = p;
+    });
+
+    let freeCount = 0;
+    let premiumCount = 0;
+    let activeSubscriptions = 0;
+    let pastDueSubscriptions = 0;
+    let platformRevenue = 0;
+
+    // Create subscription map for all orgs
+    const allSubMap = {};
+    allSubs.forEach((sub) => {
+      const orgId = sub.organizationId.toString();
+      allSubMap[orgId] = sub;
+    });
+
+    allOrgs.forEach((org) => {
+      const orgId = org._id.toString();
+      const sub = allSubMap[orgId];
+
+      let planName = "free";
+
+      if (sub && sub.subscriptionPlanId) {
+        planName = sub.subscriptionPlanId.name;
+
+        // Count subscription statuses
+        if (sub.status === "active") {
+          activeSubscriptions++;
+          // Calculate revenue for active premium subscriptions
+          if (planName === "premium" && sub.subscriptionPlanId.price) {
+            platformRevenue += sub.subscriptionPlanId.price;
+          }
+        } else if (sub.status === "past_due") {
+          pastDueSubscriptions++;
+        }
+      } else if (org.subscriptionPlan) {
+        const planId = org.subscriptionPlan.toString();
+        planName = allPlansMap[planId]?.name || "free";
+      }
+
+      if (planName === "free") {
+        freeCount++;
+      } else if (planName === "premium") {
+        premiumCount++;
+      }
+    });
+
+    const summary = {
+      totalOrganizations: allOrgs.length,
+      freeCount,
+      premiumCount,
+      activeSubscriptions,
+      pastDueSubscriptions,
+      platformRevenue: Math.round(platformRevenue * 100) / 100,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: results,
+      summary,
+      total: totalResults,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(totalResults / Number(limit)),
+    });
+  } catch (error) {
+    console.error("Error in getAllOrganizationSubscriptions:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
 export const getOrganizationSubscriptionDetails = async (req, res) => {
   try {
     const { id } = req.params;
 
     const organization = await organizationModel
       .findById(id)
-      .select("name contactEmail phone status")
+      .select("name contactEmail phone status logoUrl invoiceSettings")
       .lean();
 
     if (!organization) {
@@ -620,28 +821,46 @@ export const getOrganizationSubscriptionDetails = async (req, res) => {
 
     const currentPlan = await subscriptionPlanModel
       .findById(organization.subscriptionPlan)
-      .select("name price billingCycle aiFeatures")
+      .select("name price billingCycle aiFeatures stripePriceId")
       .lean();
 
     const subscriptionRecord = await subscriptionModel
       .findOne({ organizationId: id })
-      .populate("subscriptionPlanId", "name price billingCycle aiFeatures")
+      .populate(
+        "subscriptionPlanId",
+        "name price billingCycle aiFeatures stripePriceId",
+      )
+      .lean();
+
+    // Get all available plans for the dropdown
+    const availablePlans = await subscriptionPlanModel
+      .find()
+      .select("_id name price billingCycle aiFeatures")
       .lean();
 
     const response = {
-      organizationId: organization._id,
-      organizationName: organization.name,
-      organizationEmail: organization.contactEmail,
-      organizationPhone: organization.phone,
-      organizationStatus: organization.status,
+      organization: {
+        _id: organization._id,
+        name: organization.name,
+        contactEmail: organization.contactEmail,
+        phone: organization.phone,
+        status: organization.status,
+        logoUrl: organization.logoUrl,
+        invoiceSettings: organization.invoiceSettings,
+      },
       currentPlan: currentPlan || null,
-      subscriptionStatus: subscriptionRecord?.status || "inactive",
-      currentPeriodEnd: subscriptionRecord?.currentPeriodEnd || null,
-      subscriptionPlanDetails: subscriptionRecord?.subscriptionPlanId || null,
-      stripeCustomerId: subscriptionRecord?.stripeCustomerId || null,
-      stripeSubscriptionId: subscriptionRecord?.stripeSubscriptionId || null,
-      createdAt: subscriptionRecord?.createdAt || null,
-      updatedAt: subscriptionRecord?.updatedAt || null,
+      subscription: subscriptionRecord
+        ? {
+            subscriptionPlanId: subscriptionRecord.subscriptionPlanId,
+            stripeCustomerId: subscriptionRecord.stripeCustomerId,
+            stripeSubscriptionId: subscriptionRecord.stripeSubscriptionId,
+            status: subscriptionRecord.status,
+            currentPeriodEnd: subscriptionRecord.currentPeriodEnd,
+            createdAt: subscriptionRecord.createdAt,
+            updatedAt: subscriptionRecord.updatedAt,
+          }
+        : null,
+      availablePlans,
     };
 
     res.status(200).json({
@@ -662,25 +881,74 @@ export const getOrganizationSubscriptionDetails = async (req, res) => {
 
 export const updateOrganizationSubscriptionPlan = async (req, res) => {
   try {
-    const { organizationId } = req.params;
+    const { id } = req.params;
     const { subscriptionPlanId } = req.body;
-    const organization = await organizationModel
-      .findByIdAndUpdate(
-        organizationId,
-        { subscriptionPlan: subscriptionPlanId },
-        { new: true },
-      )
-      .select("-__v -updatedAt")
-      .populate("subscriptionPlan", "-__v -updatedAt");
+
+    if (!subscriptionPlanId) {
+      return res.status(400).json({
+        success: false,
+        message: "subscriptionPlanId is required",
+      });
+    }
+
+    // Verify the plan exists
+    const plan = await subscriptionPlanModel.findById(subscriptionPlanId);
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "Subscription plan not found",
+      });
+    }
+
+    // Verify the organization exists
+    const organization = await organizationModel.findById(id);
     if (!organization) {
       return res.status(404).json({
         success: false,
         message: "Organization not found",
       });
     }
+
+    // Update Organization.subscriptionPlan
+    const updatedOrganization = await organizationModel
+      .findByIdAndUpdate(
+        id,
+        { subscriptionPlan: subscriptionPlanId },
+        { new: true },
+      )
+      .populate("subscriptionPlan", "name price billingCycle aiFeatures")
+      .lean();
+
+    // Upsert Subscription record
+    const subscriptionRecord = await subscriptionModel
+      .findOneAndUpdate(
+        { organizationId: id },
+        {
+          organizationId: id,
+          subscriptionPlanId: subscriptionPlanId,
+          status: "active",
+          // Keep existing Stripe IDs if they exist
+          $setOnInsert: {
+            stripeCustomerId: null,
+            stripeSubscriptionId: null,
+            currentPeriodEnd: null,
+          },
+        },
+        {
+          new: true,
+          upsert: true,
+          setDefaultsOnInsert: true,
+        },
+      )
+      .populate("subscriptionPlanId", "name price billingCycle aiFeatures");
+
     res.status(200).json({
       success: true,
-      data: organization,
+      message: "Organization subscription updated successfully",
+      data: {
+        organization: updatedOrganization,
+        subscription: subscriptionRecord,
+      },
     });
   } catch (error) {
     console.error(

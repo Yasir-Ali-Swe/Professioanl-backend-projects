@@ -7,6 +7,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
     Table,
     TableBody,
     TableCell,
@@ -46,8 +52,10 @@ import {
     XCircle,
     Ban,
     ArrowUpDown,
+    TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
 const dummyOrganizations = {
     data: [
         {
@@ -131,10 +139,18 @@ const dummyOrganizations = {
     // Platform-wide totals (would come from the backend's aggregate/summary endpoint)
     aggregateStats: {
         totalOrganizations: 247,
-        activeOrganizations: 231,
-        premiumOrganizations: 98,
-        freeOrganizations: 149,
-        totalUsers: 1042,
+        activeOrganizations: 198,
+        suspendedOrganizations: 32,
+        premiumOrganizations: 89,
+        freeOrganizations: 158,
+        totalUsers: 3452,
+        // Growth metrics
+        totalGrowth: 12.5,
+        activeGrowth: 8.3,
+        premiumGrowth: 15.7,
+        freeGrowth: 4.2,
+        activeThisMonth: 18,
+        activePercentage: 80,
     },
     totalNumberOfOrganizations: 247,
     page: 1,
@@ -154,12 +170,19 @@ const OrganizationsList = () => {
     const subscriptionPlan = searchParams.get('subscriptionPlan') || 'all';
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
-    const { totalOrganizations, activeOrganizations, premiumOrganizations, freeOrganizations, totalUsers } =
-        organizations.aggregateStats;
-
-    const activePercentage = totalOrganizations > 0
-        ? Math.round((activeOrganizations / totalOrganizations) * 100)
-        : 0;
+    const {
+        totalOrganizations,
+        activeOrganizations,
+        premiumOrganizations,
+        freeOrganizations,
+        totalUsers,
+        totalGrowth,
+        activeGrowth,
+        premiumGrowth,
+        freeGrowth,
+        activeThisMonth,
+        activePercentage,
+    } = organizations.aggregateStats;
 
     // Update URL params
     const updateFilter = (key, value) => {
@@ -242,56 +265,90 @@ const OrganizationsList = () => {
                 </div>
             </div>
 
-            {/* Stats Cards - No Card wrapper, just divs */}
+            {/* Stats Cards - Row 1 */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total Organizations</p>
+                {/* Total Organizations Card */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Total Organizations</CardTitle>
                         <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-2xl font-bold">{totalOrganizations}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">All organizations</p>
-                    </div>
-                </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold">{totalOrganizations}</div>
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                            <Badge variant="outline" className="text-[10px] sm:text-xs text-green-500 border-green-500/30">
+                                <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                                +{totalGrowth}% growth
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] sm:text-xs">
+                                +{activeThisMonth} this month
+                            </Badge>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Active</p>
+                {/* Active Organizations Card */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Active</CardTitle>
                         <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-2xl font-bold text-primary">{activeOrganizations}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">
-                            {activePercentage}% of total
-                        </p>
-                    </div>
-                </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold text-primary">{activeOrganizations}</div>
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                            <Badge variant="outline" className="text-[10px] sm:text-xs text-primary border-primary/30">
+                                <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                                +{activeGrowth}% growth
+                            </Badge>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground">
+                                {activePercentage}% of total
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Premium</p>
-                        <Crown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-2xl font-bold text-primary">{premiumOrganizations}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">Paid subscriptions</p>
-                    </div>
-                </div>
+                {/* Premium Organizations Card */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Premium</CardTitle>
+                        <Crown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold text-yellow-500">{premiumOrganizations}</div>
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                            <Badge variant="outline" className="text-[10px] sm:text-xs text-yellow-500 border-yellow-500/30">
+                                <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                                +{premiumGrowth}% growth
+                            </Badge>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground">
+                                {Math.round((premiumOrganizations / totalOrganizations) * 100)}% of total
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                <div className="rounded-xl border bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Free</p>
-                        <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                    </div>
-                    <div className="mt-1.5 sm:mt-2">
-                        <p className="text-lg sm:text-2xl font-bold text-muted-foreground">{freeOrganizations}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">Free plan users</p>
-                    </div>
-                </div>
+                {/* Free Organizations Card */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium">Free</CardTitle>
+                        <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold text-blue-500">{freeOrganizations}</div>
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                            <Badge variant="outline" className="text-[10px] sm:text-xs text-blue-500 border-blue-500/30">
+                                <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                                +{freeGrowth}% growth
+                            </Badge>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground">
+                                {Math.round((freeOrganizations / totalOrganizations) * 100)}% of total
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
-            {/* Filters - No Card wrapper */}
+            {/* Filters */}
             <div className="">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
                     {/* Search */}
@@ -351,11 +408,11 @@ const OrganizationsList = () => {
                                     All
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => updateFilter('subscriptionPlan', 'free')}>
-                                    <Sparkles className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                                    <Sparkles className="mr-2 h-3.5 w-3.5 text-blue-500" />
                                     Free
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => updateFilter('subscriptionPlan', 'premium')}>
-                                    <Crown className="mr-2 h-3.5 w-3.5 text-primary" />
+                                    <Crown className="mr-2 h-3.5 w-3.5 text-yellow-500" />
                                     Premium
                                 </DropdownMenuItem>
                             </DropdownMenuGroup>
@@ -431,6 +488,8 @@ const OrganizationsList = () => {
                     )}
                 </div>
             </div>
+
+            {/* Table */}
             <div className="rounded-md border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
@@ -539,7 +598,7 @@ const OrganizationsList = () => {
                         </TableBody>
                     </Table>
                 </div>
-                {/* Footer: count + pagination, outside the table itself */}
+                {/* Footer: count + pagination */}
                 <div className="flex items-center justify-between gap-3 border-t px-3 py-3 sm:px-4">
                     <div className="whitespace-nowrap text-xs sm:text-sm text-muted-foreground">
                         Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to{' '}

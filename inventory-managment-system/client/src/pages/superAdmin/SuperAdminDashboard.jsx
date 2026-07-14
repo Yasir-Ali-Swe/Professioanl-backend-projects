@@ -300,7 +300,6 @@ const SuperAdminDashboard = () => {
                         <div className="h-50 sm:h-62.5 lg:h-75 w-full">
                             <ChartContainer config={revenueConfig} className="h-full w-full">
                                 <AreaChart data={subscriptions.monthlyRevenueTrend}>
-                                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                                     <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
                                     <YAxis className="text-[10px] sm:text-xs" />
                                     <ChartTooltip content={<ChartTooltipContent />} />
@@ -370,7 +369,6 @@ const SuperAdminDashboard = () => {
                         <div className="h-50 sm:h-62.5 lg:h-75 w-full">
                             <ChartContainer config={profitConfig} className="h-full w-full">
                                 <BarChart data={profitData}>
-                                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                                     <XAxis dataKey="name" className="text-[10px] sm:text-xs" />
                                     <YAxis className="text-[10px] sm:text-xs" />
                                     <ChartTooltip content={<ChartTooltipContent />} />

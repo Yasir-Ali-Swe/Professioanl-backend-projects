@@ -277,3 +277,13 @@ html, body, #root {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+
+.hide-scrollbar {
+    /* Firefox */
+  scrollbar-width: none;
+}
+    /* Chrome, Safari, Edge, Opera */
+&::-webkit-scrollbar {
+  display: none;
+}

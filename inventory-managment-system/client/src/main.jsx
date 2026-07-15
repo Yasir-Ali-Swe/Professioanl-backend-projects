@@ -4,7 +4,6 @@ import App from './App.jsx'
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { BrowserRouter } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
-import ReactDOM from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { store } from "./store/index.js";
 import { ThemeProvider } from "@/components/ThemeProvider.jsx";

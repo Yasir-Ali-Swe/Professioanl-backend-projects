@@ -12,7 +12,7 @@ import { ThemeProvider } from "@/components/ThemeProvider.jsx";
 createRoot(document.getElementById('root')).render(
   <TooltipProvider>
     <BrowserRouter>
-      <Toaster richColors position="top-right" />
+      <Toaster richColors position="bottom-right" />
       <Provider store={store}>
         <ThemeProvider defaultTheme="light" storageKey="stockpilot-theme">
           <App />

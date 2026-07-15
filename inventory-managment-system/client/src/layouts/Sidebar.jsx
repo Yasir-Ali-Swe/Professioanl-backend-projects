@@ -1,4 +1,4 @@
-// layouts/Sidebar.jsx
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
@@ -13,6 +13,17 @@ import {
     BellIcon,
     CreditCardIcon,
     LogOutIcon,
+    Bot,
+    Package,
+    Tags,
+    Truck,
+    Warehouse,
+    Receipt,
+    ShoppingCart,
+    Users,
+    FileText,
+    ChevronDown,
+    ChevronUp,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -22,6 +33,11 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { selectUser } from '@/store/slices/authSlice';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -33,21 +49,35 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
     SidebarFooter,
     SidebarHeader,
     SidebarRail,
     useSidebar,
 } from '@/components/ui/sidebar';
 
-// Icon mapping
-const iconMap = {
-    LayoutDashboard: LayoutDashboard,
-    Building2: Building2,
-    BarChart3: BarChart3,
-    CreditCard: CreditCard,
-    User: User,
-    Settings: Settings,
+const ICONS = {
+    LayoutDashboard,
+    Building2,
+    BarChart3,
+    CreditCard,
+    User,
+    Settings,
+    Bot,
+    Package,
+    Tags,
+    Truck,
+    Warehouse,
+    Receipt,
+    ShoppingCart,
+    Users,
+    FileText,
 };
+
+const isUserRoute = (route) => route.section === 'account';
+const isMainRoute = (route) => !isUserRoute(route);
 
 export const Sidebar = ({ routes }) => {
     const location = useLocation();
@@ -55,19 +85,100 @@ export const Sidebar = ({ routes }) => {
     const { state } = useSidebar();
     const isCollapsed = state === 'collapsed';
 
-    // Super Admin Main Routes
-    const mainRoutes = routes.filter(r =>
-        ['/dashboard', '/super-admin/organizations', '/super-admin/analytics', '/super-admin/subscriptions'].includes(r.path)
-    );
+    const mainRoutes = routes.filter(isMainRoute);
+    const userRoutes = routes.filter(isUserRoute);
 
-    // User Routes (Profile & Settings)
-    const userRoutes = routes.filter(r =>
-        ['/profile', '/settings'].includes(r.path)
-    );
+    const isPathActive = (path) =>
+        location.pathname === path || location.pathname.startsWith(path + '/');
+
+    const [openDropdown, setOpenDropdown] = useState(() => {
+        const activeParent = routes.find(
+            (route) =>
+                route.children?.length > 1 &&
+                route.children.some((child) => isPathActive(child.path))
+        );
+        return activeParent?.path ?? null;
+    });
+    useEffect(() => {
+        if (!openDropdown) return;
+
+        const openRoute = routes.find((route) => route.path === openDropdown);
+        const stillInsideOpenDropdown = openRoute?.children?.some((child) =>
+            isPathActive(child.path)
+        );
+
+        if (!stillInsideOpenDropdown) {
+            setOpenDropdown(null);
+        }
+    }, [location.pathname]);
+
+    const renderRouteItem = (route) => {
+        const Icon = ICONS[route.icon] || LayoutDashboard;
+        const hasSubItems = route.children && route.children.length > 1;
+
+        if (hasSubItems) {
+            const isGroupActive = route.children.some((child) => isPathActive(child.path));
+            const isOpen = openDropdown === route.path;
+
+            return (
+                <Collapsible
+                    key={route.path}
+                    open={isOpen}
+                    onOpenChange={(open) => setOpenDropdown(open ? route.path : null)}
+                    className="group/collapsible"
+                >
+                    <SidebarMenuItem>
+                        <CollapsibleTrigger
+                            render={
+                                <SidebarMenuButton
+                                    isActive={isGroupActive}
+                                    tooltip={isCollapsed ? route.label : ''}
+                                />
+                            }
+                        >
+                            <Icon className="h-4 w-4" />
+                            <span>{route.label}</span>
+                            {isOpen ? (
+                                <ChevronUp className="ml-auto h-4 w-4" />
+                            ) : (
+                                <ChevronDown className="ml-auto h-4 w-4" />
+                            )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                            <SidebarMenuSub>
+                                {route.children.map((child) => (
+                                    <SidebarMenuSubItem key={child.path}>
+                                        <SidebarMenuSubButton
+                                            render={<Link to={child.path} />}
+                                            isActive={location.pathname === child.path}
+                                        >
+                                            <span>{child.label}</span>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                ))}
+                            </SidebarMenuSub>
+                        </CollapsibleContent>
+                    </SidebarMenuItem>
+                </Collapsible>
+            );
+        }
+
+        return (
+            <SidebarMenuItem key={route.path}>
+                <SidebarMenuButton
+                    render={<Link to={route.path} />}
+                    isActive={isPathActive(route.path)}
+                    tooltip={isCollapsed ? route.label : ''}
+                >
+                    <Icon className="h-4 w-4" />
+                    <span>{route.label}</span>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+        );
+    };
 
     return (
         <SidebarContainer collapsible="icon" variant="sidebar">
-            {/* Header - Logo */}
             <SidebarHeader className="border-b border-sidebar-border">
                 <div className="flex items-center gap-2 px-2 py-1">
                     <Boxes className="h-6 w-6 text-primary" />
@@ -77,69 +188,36 @@ export const Sidebar = ({ routes }) => {
                 </div>
             </SidebarHeader>
 
-            {/* Content - Navigation */}
             <SidebarContent>
-                {/* Main Group */}
                 <SidebarGroup>
                     {!isCollapsed && (
-                        <SidebarGroupLabel className="text-muted-foreground uppercase tracking-wider text-xs">Main</SidebarGroupLabel>
+                        <SidebarGroupLabel className="text-muted-foreground uppercase tracking-wider text-xs">
+                            Main
+                        </SidebarGroupLabel>
                     )}
                     <SidebarGroupContent>
                         <SidebarMenu className="gap-1.5">
-                            {mainRoutes.map((route) => {
-                                const Icon = iconMap[route.icon] || LayoutDashboard;
-                                const isActive = location.pathname === route.path ||
-                                    location.pathname.startsWith(route.path + '/');
-
-                                return (
-                                    <SidebarMenuItem key={route.path}>
-                                        <SidebarMenuButton
-                                            render={<Link to={route.path} />}
-                                            isActive={isActive}
-                                            tooltip={isCollapsed ? route.label : ''}
-                                        >
-                                            <Icon className="h-4 w-4" />
-                                            <span>{route.label}</span>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                );
-                            })}
+                            {mainRoutes.map(renderRouteItem)}
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </SidebarGroup>
 
-                {/* User Group - Profile & Settings */}
                 {userRoutes.length > 0 && (
                     <SidebarGroup>
                         {!isCollapsed && (
-                            <SidebarGroupLabel className="text-muted-foreground uppercase tracking-wider text-xs">Account</SidebarGroupLabel>
+                            <SidebarGroupLabel className="text-muted-foreground uppercase tracking-wider text-xs">
+                                Account
+                            </SidebarGroupLabel>
                         )}
                         <SidebarGroupContent>
                             <SidebarMenu className="gap-1.5">
-                                {userRoutes.map((route) => {
-                                    const Icon = iconMap[route.icon] || Settings;
-                                    const isActive = location.pathname === route.path;
-
-                                    return (
-                                        <SidebarMenuItem key={route.path}>
-                                            <SidebarMenuButton
-                                                render={<Link to={route.path} />}
-                                                isActive={isActive}
-                                                tooltip={isCollapsed ? route.label : ''}
-                                            >
-                                                <Icon className="h-4 w-4" />
-                                                <span>{route.label}</span>
-                                            </SidebarMenuButton>
-                                        </SidebarMenuItem>
-                                    );
-                                })}
+                                {userRoutes.map(renderRouteItem)}
                             </SidebarMenu>
                         </SidebarGroupContent>
                     </SidebarGroup>
                 )}
             </SidebarContent>
 
-            {/* Footer - User Info */}
             <SidebarFooter className="border-t border-sidebar-border">
                 <SidebarMenu>
                     <SidebarMenuItem>

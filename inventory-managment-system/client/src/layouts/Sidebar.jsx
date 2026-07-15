@@ -188,7 +188,7 @@ export const Sidebar = ({ routes }) => {
                 </div>
             </SidebarHeader>
 
-            <SidebarContent>
+            <SidebarContent className="hide-scrollbar">
                 <SidebarGroup>
                     {!isCollapsed && (
                         <SidebarGroupLabel className="text-muted-foreground uppercase tracking-wider text-xs">

@@ -1,4 +1,3 @@
-// routes/index.js
 export const ROLES = {
   SUPER_ADMIN: "super_admin",
   ADMIN: "admin",
@@ -6,97 +5,145 @@ export const ROLES = {
   STAFF: "staff",
 };
 
-export const getDashboardRoutes = (role) => {
-  const superAdminRoutes = [
-    {
-      path: "/dashboard",
-      label: "Dashboard",
-      icon: "LayoutDashboard",
-    },
-    {
-      path: "/super-admin/organizations",
-      label: "Organizations",
-      icon: "Building2",
-    },
-    {
-      path: "/super-admin/analytics",
-      label: "Analytics",
-      icon: "BarChart3",
-    },
-    {
-      path: "/super-admin/subscriptions",
-      label: "Subscriptions",
-      icon: "CreditCard",
-    },
-  ];
-
-  // Profile & Settings - Separate from main
-  const userRoutes = [
-    {
-      path: "/profile",
-      label: "Profile",
-      icon: "User",
-    },
-    {
-      path: "/settings",
-      label: "Settings",
-      icon: "Settings",
-    },
-  ];
-
-  switch (role) {
-    case ROLES.SUPER_ADMIN:
-      return [...superAdminRoutes, ...userRoutes];
-    case ROLES.ADMIN:
-      return [
-        { path: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
-        { path: "/admin/products", label: "Products", icon: "Package" },
-        { path: "/admin/categories", label: "Categories", icon: "Tags" },
-        { path: "/admin/suppliers", label: "Suppliers", icon: "Truck" },
-        { path: "/admin/stock", label: "Stock", icon: "Warehouse" },
-        { path: "/admin/invoices", label: "Invoices", icon: "Receipt" },
-        {
-          path: "/admin/purchase-orders",
-          label: "Purchase Orders",
-          icon: "ShoppingCart",
-        },
-        { path: "/admin/team", label: "Team", icon: "Users" },
-        { path: "/admin/chatbot", label: "AI Chatbot", icon: "Bot" },
-        ...userRoutes,
-      ];
-    case ROLES.MANAGER:
-      return [
-        { path: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
-        { path: "/manager/products", label: "Products", icon: "Package" },
-        { path: "/manager/categories", label: "Categories", icon: "Tags" },
-        { path: "/manager/suppliers", label: "Suppliers", icon: "Truck" },
-        { path: "/manager/stock", label: "Stock", icon: "Warehouse" },
-        { path: "/manager/invoices", label: "Invoices", icon: "Receipt" },
-        {
-          path: "/manager/purchase-orders",
-          label: "Purchase Orders",
-          icon: "ShoppingCart",
-        },
-        { path: "/manager/team", label: "Team", icon: "Users" },
-        { path: "/manager/chatbot", label: "AI Chatbot", icon: "Bot" },
-        ...userRoutes,
-      ];
-    case ROLES.STAFF:
-      return [
-        { path: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
-        { path: "/staff/products", label: "Products", icon: "Package" },
-        { path: "/staff/categories", label: "Categories", icon: "Tags" },
-        { path: "/staff/suppliers", label: "Suppliers", icon: "Truck" },
-        { path: "/staff/stock", label: "Stock", icon: "Warehouse" },
-        { path: "/staff/invoices", label: "My Invoices", icon: "Receipt" },
-        { path: "/staff/chatbot", label: "AI Chatbot", icon: "Bot" },
-        ...userRoutes,
-      ];
-    default:
-      return superAdminRoutes;
-  }
+const ROLE_PREFIX = {
+  [ROLES.SUPER_ADMIN]: "super-admin",
+  [ROLES.ADMIN]: "admin",
+  [ROLES.MANAGER]: "manager",
+  [ROLES.STAFF]: "staff",
 };
 
-export const getDefaultDashboardPath = (role) => {
-  return "/dashboard";
+const SIDEBAR_CONFIG = [
+  { label: "Dashboard", icon: "LayoutDashboard", path: "dashboard" }, // visible to all roles
+
+  // --- Super Admin only ---
+  {
+    label: "Organizations",
+    icon: "Building2",
+    path: "organizations",
+    roles: [ROLES.SUPER_ADMIN],
+  },
+  {
+    label: "Analytics",
+    icon: "BarChart3",
+    path: "analytics",
+    roles: [ROLES.SUPER_ADMIN],
+  },
+  {
+    label: "Subscriptions",
+    icon: "CreditCard",
+    path: "subscriptions",
+    roles: [ROLES.SUPER_ADMIN],
+  },
+
+  // --- Inventory-style pages (Admin / Manager / Staff) ---
+  {
+    label: "Products",
+    icon: "Package",
+    path: "products",
+    roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF],
+  },
+  {
+    label: "Categories",
+    icon: "Tags",
+    path: "categories",
+    roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF],
+  },
+  {
+    label: "Suppliers",
+    icon: "Truck",
+    path: "suppliers",
+    roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF],
+  },
+  {
+    label: "Stock",
+    icon: "Warehouse",
+    path: "stock",
+    roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF],
+  },
+  {
+    label: "Invoices",
+    icon: "Receipt",
+    path: "invoices",
+    roles: [ROLES.ADMIN, ROLES.MANAGER],
+  },
+  {
+    label: "My Invoices",
+    icon: "Receipt",
+    path: "invoices",
+    roles: [ROLES.STAFF],
+  },
+  {
+    label: "Purchase Orders",
+    icon: "ShoppingCart",
+    path: "purchase-orders",
+    roles: [ROLES.ADMIN, ROLES.MANAGER],
+  },
+  {
+    label: "Team",
+    icon: "Users",
+    path: "team",
+    roles: [ROLES.ADMIN, ROLES.MANAGER],
+  },
+
+  { label: "AI Chatbot", icon: "Bot", path: "chatbot" }, // visible to all roles
+
+  // --- Account section ---
+  {
+    label: "Profile",
+    icon: "User",
+    path: "profile",
+    section: "account",
+    children: [
+      { label: "My Profile", icon: "User", path: "profile" }, // every role
+      {
+        label: "Organization Profile",
+        icon: "Building2",
+        path: "organization-profile",
+        roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF], // not super_admin
+      },
+    ],
+  },
+  {
+    label: "Invoice Settings",
+    icon: "FileText",
+    path: "invoice-settings",
+    section: "account",
+    roles: [ROLES.ADMIN, ROLES.MANAGER],
+  },
+];
+
+const withPrefix = (role, path) => `/${ROLE_PREFIX[role]}/${path}`;
+
+// An entry is visible to a role if it has no "roles" restriction,
+// or the role is explicitly listed.
+const isVisibleToRole = (entry, role) =>
+  !entry.roles || entry.roles.includes(role);
+
+export const getDashboardPath = (role) => withPrefix(role, "dashboard");
+
+export const getDefaultDashboardPath = (role) => getDashboardPath(role);
+
+export const getDashboardRoutes = (role) => {
+  return SIDEBAR_CONFIG.filter((route) => isVisibleToRole(route, role)).map(
+    (route) => {
+      const builtRoute = {
+        path: withPrefix(role, route.path),
+        label: route.label,
+        icon: route.icon,
+        ...(route.section && { section: route.section }),
+      };
+
+      if (route.children) {
+        builtRoute.children = route.children
+          .filter((child) => isVisibleToRole(child, role))
+          .map((child) => ({
+            path: withPrefix(role, child.path),
+            label: child.label,
+            icon: child.icon,
+          }));
+      }
+
+      return builtRoute;
+    },
+  );
 };

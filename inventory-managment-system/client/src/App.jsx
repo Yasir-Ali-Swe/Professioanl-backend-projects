@@ -50,6 +50,7 @@ import StockOutPage from "@/pages/stock/StockOut";
 // Invoice Pages
 import GenerateInvoicePage from "@/pages/invoices/GenerateInvoice";
 import AllInvoicesPage from "@/pages/invoices/AllInvoices";
+import InvoiceSettingsPage from "@/pages/invoices/InvoiceSettings";
 
 // Purchase Order Pages
 import CreatePurchaseOrderPage from "@/pages/purchaseOrders/CreatePurchaseOrder";
@@ -62,7 +63,6 @@ import InviteUserPage from "@/pages/team/InviteUser";
 // Common Pages
 import ProfilePage from "@/pages/Profile";
 import OrganizationProfilePage from "@/pages/admin/OrganizationProfile";
-import InvoiceSettingsPage from "@/pages/admin/InvoiceSettings";
 import ChatbotPage from "@/pages/Chatbot";
 
 const App = () => {
@@ -96,6 +96,7 @@ const App = () => {
           {/* Invoice Routes */}
           <Route path="/admin/invoices/generate" element={<GenerateInvoicePage />} />
           <Route path="/admin/invoices" element={<AllInvoicesPage />} />
+          <Route path="/admin/invoice-settings" element={<InvoiceSettingsPage />} />
 
           {/* Purchase Order Routes - ORDER MATTERS! */}
           <Route path="/admin/purchase-orders/create" element={<CreatePurchaseOrderPage />} />
@@ -135,7 +136,6 @@ const App = () => {
           <Route path="/admin/chatbot" element={<ChatbotPage />} />
           <Route path="/admin/profile" element={<ProfilePage />} />
           <Route path="/admin/organization-profile" element={<OrganizationProfilePage />} />
-          <Route path="/admin/invoice-settings" element={<InvoiceSettingsPage />} />
 
           {/* Manager Routes - Commented out */}
           {/* <Route path="/manager/dashboard" element={<ManagerDashboardPage />} /> */}

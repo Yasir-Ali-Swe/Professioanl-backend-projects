@@ -23,33 +23,30 @@ import SubscriptionDetailPage from "@/pages/superAdmin/SubscriptionDetail";
 
 // Admin Pages
 import AdminDashboardPage from "@/pages/admin/AdminDashboard";
-import AdminProductsPage from "@/pages/admin/Products";
-import AdminCategoriesPage from "@/pages/admin/Categories";
+import AdminProductsPage from "@/pages/admin/ProductsList";
 import AdminSuppliersPage from "@/pages/admin/Suppliers";
 import AdminStockPage from "@/pages/admin/Stock";
 import AdminInvoicesPage from "@/pages/admin/Invoices";
 import AdminPurchaseOrdersPage from "@/pages/admin/PurchaseOrders";
 import AdminTeamPage from "@/pages/admin/Team";
+import AdminProductDetailsPage from "@/pages/admin/ProductDetails";
+import AdminAddProductPage from "@/pages/admin/ProductAdd";
+import AdminEditProductPage from "@/pages/admin/ProductEdit";
 
-// Manager Pages
-// import ManagerDashboardPage from "@/pages/manager/ManagerDashboard";
-// import ManagerProductsPage from "@/pages/manager/Products";
-// import ManagerCategoriesPage from "@/pages/manager/Categories";
-// import ManagerSuppliersPage from "@/pages/manager/Suppliers";
-// import ManagerStockPage from "@/pages/manager/Stock";
-// import ManagerInvoicesPage from "@/pages/manager/Invoices";
-// import ManagerPurchaseOrdersPage from "@/pages/manager/PurchaseOrders";
-// import ManagerTeamPage from "@/pages/manager/Team";
+// Category Pages
+import CategoryAddPage from "@/pages/categories/CategoryAdd";
+import CategoryEditPage from "@/pages/categories/CategoryEdit";
+import CategoryListPage from "@/pages/categories/CategoriesList";
+import CategoryDetailsPage from "@/pages/categories/CategoryDetail";
 
-// Staff Pages
-// import StaffDashboardPage from "@/pages/staff/StaffDashboard";
-// import StaffProductsPage from "@/pages/staff/Products";
-// import StaffCategoriesPage from "@/pages/staff/Categories";
-// import StaffSuppliersPage from "@/pages/staff/Suppliers";
-// import StaffStockPage from "@/pages/staff/Stock";
-// import StaffInvoicesPage from "@/pages/staff/Invoices";
+// Supplier Pages
+import SuppliersListPage from "@/pages/suppliers/SuppliersList";
+import SupplierAddPage from "@/pages/suppliers/SupplierAdd";
+import SupplierEditPage from "@/pages/suppliers/SupplierEdit";
+import SupplierDetailPage from "@/pages/suppliers/SupplierDetail";
 
-// Common Pages (shared components, mounted at multiple role-prefixed paths)
+
+// Common Pages
 import ProfilePage from "@/pages/Profile";
 import OrganizationProfilePage from "@/pages/admin/OrganizationProfile";
 import InvoiceSettingsPage from "@/pages/admin/InvoiceSettings";
@@ -80,11 +77,30 @@ const App = () => {
           <Route path="/super-admin/chatbot" element={<ChatbotPage />} />
           <Route path="/super-admin/profile" element={<ProfilePage />} />
 
-          {/* Admin Routes */}
+          {/* Admin Dashboard */}
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+
+          {/* Category Routes - ORDER MATTERS! Put specific routes before generic ones */}
+          <Route path="/admin/categories/add" element={<CategoryAddPage />} />
+          <Route path="/admin/categories/:id/edit" element={<CategoryEditPage />} />
+          <Route path="/admin/categories/:id" element={<CategoryDetailsPage />} />
+          <Route path="/admin/categories" element={<CategoryListPage />} />
+
+          {/* Supplier Routes - ORDER MATTERS! */}
+          <Route path="/admin/suppliers/add" element={<SupplierAddPage />} />
+          <Route path="/admin/suppliers/:id/edit" element={<SupplierEditPage />} />
+          <Route path="/admin/suppliers/:id" element={<SupplierDetailPage />} />
+          <Route path="/admin/suppliers" element={<SuppliersListPage />} />
+
+          {/* Product Routes */}
           <Route path="/admin/products" element={<AdminProductsPage />} />
-          <Route path="/admin/categories" element={<AdminCategoriesPage />} />
+          <Route path="/admin/products/add" element={<AdminAddProductPage />} />
+          <Route path="/admin/products/edit/:id" element={<AdminEditProductPage />} />
+          <Route path="/admin/products/:id" element={<AdminProductDetailsPage />} />
+
+          {/* Other Admin Routes */}
           <Route path="/admin/suppliers" element={<AdminSuppliersPage />} />
+          <Route path="/admin/suppliers/:id" element={<AdminSuppliersPage />} />
           <Route path="/admin/stock" element={<AdminStockPage />} />
           <Route path="/admin/invoices" element={<AdminInvoicesPage />} />
           <Route path="/admin/purchase-orders" element={<AdminPurchaseOrdersPage />} />
@@ -94,32 +110,32 @@ const App = () => {
           <Route path="/admin/organization-profile" element={<OrganizationProfilePage />} />
           <Route path="/admin/invoice-settings" element={<InvoiceSettingsPage />} />
 
-          {/* Manager Routes */}
-          {/* <Route path="/manager/dashboard" element={<ManagerDashboardPage />} />
-          <Route path="/manager/products" element={<ManagerProductsPage />} />
-          <Route path="/manager/categories" element={<ManagerCategoriesPage />} />
-          <Route path="/manager/suppliers" element={<ManagerSuppliersPage />} />
-          <Route path="/manager/stock" element={<ManagerStockPage />} />
-          <Route path="/manager/invoices" element={<ManagerInvoicesPage />} />
-          <Route path="/manager/purchase-orders" element={<ManagerPurchaseOrdersPage />} />
-          <Route path="/manager/team" element={<ManagerTeamPage />} />
-          <Route path="/manager/chatbot" element={<ChatbotPage />} /> */}
+          {/* Manager Routes - Commented out */}
+          {/* <Route path="/manager/dashboard" element={<ManagerDashboardPage />} /> */}
+          {/* <Route path="/manager/products" element={<ManagerProductsPage />} /> */}
+          {/* <Route path="/manager/categories" element={<ManagerCategoriesPage />} /> */}
+          {/* <Route path="/manager/suppliers" element={<ManagerSuppliersPage />} /> */}
+          {/* <Route path="/manager/stock" element={<ManagerStockPage />} /> */}
+          {/* <Route path="/manager/invoices" element={<ManagerInvoicesPage />} /> */}
+          {/* <Route path="/manager/purchase-orders" element={<ManagerPurchaseOrdersPage />} /> */}
+          {/* <Route path="/manager/team" element={<ManagerTeamPage />} /> */}
+          {/* <Route path="/manager/chatbot" element={<ChatbotPage />} /> */}
           {/* <Route path="/manager/profile" element={<ProfilePage />} /> */}
           {/* <Route path="/manager/organization-profile" element={<OrganizationProfilePage />} /> */}
           {/* <Route path="/manager/invoice-settings" element={<InvoiceSettingsPage />} /> */}
 
-          {/* Staff Routes */}
-          {/* <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
-          <Route path="/staff/products" element={<StaffProductsPage />} />
-          <Route path="/staff/categories" element={<StaffCategoriesPage />} />
-          <Route path="/staff/suppliers" element={<StaffSuppliersPage />} />
-          <Route path="/staff/stock" element={<StaffStockPage />} />
-          <Route path="/staff/invoices" element={<StaffInvoicesPage />} />
-          <Route path="/staff/chatbot" element={<ChatbotPage />} /> */}
+          {/* Staff Routes - Commented out */}
+          {/* <Route path="/staff/dashboard" element={<StaffDashboardPage />} /> */}
+          {/* <Route path="/staff/products" element={<StaffProductsPage />} /> */}
+          {/* <Route path="/staff/categories" element={<StaffCategoriesPage />} /> */}
+          {/* <Route path="/staff/suppliers" element={<StaffSuppliersPage />} /> */}
+          {/* <Route path="/staff/stock" element={<StaffStockPage />} /> */}
+          {/* <Route path="/staff/invoices" element={<StaffInvoicesPage />} /> */}
+          {/* <Route path="/staff/chatbot" element={<ChatbotPage />} /> */}
           {/* <Route path="/staff/profile" element={<ProfilePage />} /> */}
           {/* <Route path="/staff/organization-profile" element={<OrganizationProfilePage />} /> */}
 
-          {/* Redirect old dashboard to role-specific dashboard */}
+          {/* Redirect old dashboard to Super Admin dashboard */}
           <Route path="/dashboard" element={<SuperAdminDashboardPage />} />
         </Route>
       </Route>

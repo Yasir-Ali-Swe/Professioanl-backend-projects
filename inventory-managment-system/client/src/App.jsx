@@ -52,6 +52,9 @@ import LowStockPage from "@/pages/stock/LowStock";
 import StockInPage from "@/pages/stock/StockIn";
 import StockOutPage from "@/pages/stock/StockOut";
 
+// Invoice Pages
+import GenerateInvoicePage from "@/pages/invoices/GenerateInvoice";
+import AllInvoicesPage from "@/pages/invoices/AllInvoices";
 
 // Common Pages
 import ProfilePage from "@/pages/Profile";
@@ -86,6 +89,10 @@ const App = () => {
 
           {/* Admin Dashboard */}
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+
+          {/* Invoice Routes - ORDER MATTERS! */}
+          <Route path="/admin/invoices/generate" element={<GenerateInvoicePage />} />
+          <Route path="/admin/invoices" element={<AllInvoicesPage />} />
 
           {/* Category Routes - ORDER MATTERS! Put specific routes before generic ones */}
           <Route path="/admin/categories/add" element={<CategoryAddPage />} />

@@ -230,3 +230,138 @@ export const getLowStockProducts = async (req, res) => {
     });
   }
 };
+
+export const getStockSummary = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+
+    const totalProducts = await productModel.countDocuments({ organizationId });
+
+    const lowStockProducts = await productModel.countDocuments({
+      organizationId,
+      $expr: { $lte: ["$quantity", "$reorderThreshold"] },
+    });
+
+    const outOfStockProducts = await productModel.countDocuments({
+      organizationId,
+      quantity: 0,
+    });
+
+    const totalStockValue = await productModel.aggregate([
+      { $match: { organizationId } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $multiply: ["$quantity", "$costPrice"] } },
+        },
+      },
+    ]);
+
+    // Recent stock activity (last 10 entries)
+    const recentActivity = await stockLogModel
+      .find({ organizationId })
+      .populate("productId", "name sku")
+      .populate("performedBy", "name")
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalProducts,
+        lowStockProducts,
+        outOfStockProducts,
+        totalStockValue: totalStockValue[0]?.total || 0,
+        recentActivity,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllStock = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+    const { search, category, supplier, page = 1, limit = 20 } = req.query;
+
+    const query = { organizationId };
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { sku: { $regex: search, $options: "i" } },
+      ];
+    }
+    if (category) query.categoryId = category;
+    if (supplier) query.supplierId = supplier;
+
+    const products = await productModel
+      .find(query)
+      .populate("categoryId", "name")
+      .populate("supplierId", "name")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const total = await productModel.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        products,
+        total,
+        page: Number(page),
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getProductStockDetails = async (req, res) => {
+  try {
+    const organizationId = req.organizationId;
+    const productId = req.params.productId;
+
+    const product = await productModel
+      .findOne({ _id: productId, organizationId })
+      .populate("categoryId", "name")
+      .populate("supplierId", "name contactPerson email phone");
+
+    if (!product) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+    }
+
+    // Get stock history summary
+    const stockSummary = await stockLogModel.aggregate([
+      { $match: { organizationId, productId } },
+      {
+        $group: {
+          _id: "$type",
+          totalQuantity: { $sum: "$quantity" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        product,
+        stockSummary,
+        stockStatus:
+          product.quantity === 0
+            ? "out_of_stock"
+            : product.quantity <= product.reorderThreshold
+              ? "low_stock"
+              : "in_stock",
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

@@ -150,24 +150,6 @@ const profitConfig = {
     },
 };
 
-// const financialBreakdownConfig = {
-//     tax: {
-//         label: "Tax",
-//         color: "var(--chart-2)", // Cyan
-//     },
-//     discount: {
-//         label: "Discount",
-//         color: "var(--chart-5)", // Dark green
-//     },
-//     netProfit: {
-//         label: "Net Profit",
-//         color: "var(--chart-1)", // Bright green
-//     },
-//     cost: {
-//         label: "Cost",
-//         color: "var(--destructive)", // Red
-//     },
-// };
 const financialBreakdownConfig = {
     tax: {
         label: 'Tax',
@@ -451,7 +433,7 @@ const AdminDashboard = () => {
                         <CardDescription className="text-xs sm:text-sm">Monthly revenue and invoice count</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[200px] sm:h-[250px] lg:h-[280px] w-full">
+                        <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={revenueConfig} className="h-full w-full">
                                 <BarChart data={financial.monthlyTrend}>
                                     <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
@@ -471,7 +453,7 @@ const AdminDashboard = () => {
                         <CardDescription className="text-xs sm:text-sm">Revenue vs cost vs profit</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[200px] sm:h-[250px] lg:h-[280px] w-full">
+                        <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={profitConfig} className="h-full w-full">
                                 <AreaChart data={financial.monthlyProfitTrend}>
                                     <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
@@ -517,7 +499,7 @@ const AdminDashboard = () => {
                         <CardDescription className="text-xs sm:text-sm">Where revenue goes</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[200px] sm:h-[250px] w-full">
+                        <div className="h-50 sm:h-62.5 w-full">
                             <ChartContainer config={financialBreakdownConfig} className="h-full w-full">
                                 <PieChart>
                                     <Pie
@@ -556,7 +538,7 @@ const AdminDashboard = () => {
                         <CardDescription className="text-xs sm:text-sm">Best selling products by revenue</CardDescription>
                     </CardHeader>
                     <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                        <div className="min-w-[300px]">
+                        <div className="min-w-75">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -595,7 +577,7 @@ const AdminDashboard = () => {
                         <CardDescription className="text-xs sm:text-sm">Latest invoice activity</CardDescription>
                     </CardHeader>
                     <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                        <div className="min-w-[350px]">
+                        <div className="min-w-87.5">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -641,7 +623,7 @@ const AdminDashboard = () => {
                         <CardDescription className="text-xs sm:text-sm">Latest purchase order activity</CardDescription>
                     </CardHeader>
                     <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                        <div className="min-w-[350px]">
+                        <div className="min-w-87.5">
                             <Table>
                                 <TableHeader>
                                     <TableRow>

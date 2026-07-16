@@ -45,6 +45,13 @@ import SupplierAddPage from "@/pages/suppliers/SupplierAdd";
 import SupplierEditPage from "@/pages/suppliers/SupplierEdit";
 import SupplierDetailPage from "@/pages/suppliers/SupplierDetail";
 
+// Stock Pages
+import StockOverviewPage from "@/pages/stock/StockOverview";
+import StockListPage from "@/pages/stock/StockList";
+import LowStockPage from "@/pages/stock/LowStock";
+import StockInPage from "@/pages/stock/StockIn";
+import StockOutPage from "@/pages/stock/StockOut";
+
 
 // Common Pages
 import ProfilePage from "@/pages/Profile";
@@ -91,6 +98,15 @@ const App = () => {
           <Route path="/admin/suppliers/:id/edit" element={<SupplierEditPage />} />
           <Route path="/admin/suppliers/:id" element={<SupplierDetailPage />} />
           <Route path="/admin/suppliers" element={<SuppliersListPage />} />
+
+          {/* Stock Routes - ORDER MATTERS! */}
+          <Route path="/admin/stock/overview" element={<StockOverviewPage />} />
+          <Route path="/admin/stock/list" element={<StockListPage />} />
+          <Route path="/admin/stock/low-stock" element={<LowStockPage />} />
+          <Route path="/admin/stock/in" element={<StockInPage />} />
+          <Route path="/admin/stock/out" element={<StockOutPage />} />
+          {/* Optional: Redirect /admin/stock to /admin/stock/overview */}
+          <Route path="/admin/stock" element={<StockOverviewPage />} />
 
           {/* Product Routes */}
           <Route path="/admin/products" element={<AdminProductsPage />} />

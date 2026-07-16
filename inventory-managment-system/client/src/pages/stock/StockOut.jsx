@@ -106,7 +106,7 @@ const StockOut = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 sm:h-9 sm:w-9 shrink-0"
-                        onClick={() => navigate('/admin/stock/overview')}
+                        onClick={() => navigate(-1)}
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
@@ -212,7 +212,7 @@ const StockOut = () => {
                                 <Textarea
                                     id="notes"
                                     placeholder="Additional notes about this stock out"
-                                    className="min-h-[80px] text-sm rounded-none resize-none"
+                                    className="min-h-20 text-sm rounded-none resize-none"
                                     {...register("notes")}
                                 />
                             </FieldContent>
@@ -224,7 +224,7 @@ const StockOut = () => {
                                 type="button"
                                 variant="outline"
                                 className="w-full sm:w-auto order-2 sm:order-1"
-                                onClick={() => navigate('/admin/stock/overview')}
+                                onClick={() => navigate(-1)}
                             >
                                 Cancel
                             </Button>

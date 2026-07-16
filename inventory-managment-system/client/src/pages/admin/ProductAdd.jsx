@@ -152,7 +152,7 @@ const ProductAdd = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 sm:h-9 sm:w-9 shrink-0"
-                        onClick={() => navigate('/admin/products')}
+                        onClick={() => navigate(-1)}
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
@@ -173,7 +173,7 @@ const ProductAdd = () => {
                                     className={cn(
                                         "relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
                                         imagePreview ? "border-primary" : "border-muted-foreground/25 hover:border-primary/50",
-                                        "min-h-[150px] flex flex-col items-center justify-center"
+                                        "min-h-37.5 flex flex-col items-center justify-center"
                                     )}
                                     onClick={handleImageClick}
                                 >

@@ -322,7 +322,7 @@ const ProductsList = () => {
 
             {/* Filters */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-                <div className="relative flex-1 min-w-[150px] sm:min-w-[200px]">
+                <div className="relative flex-1 min-w-37.5 sm:min-w-50">
                     <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder="Search products..."
@@ -424,8 +424,8 @@ const ProductsList = () => {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[50px]">Image</TableHead>
-                                <TableHead className="min-w-[150px]">Name</TableHead>
+                                <TableHead className="w-12">Image</TableHead>
+                                <TableHead className="min-w-37.5">Name</TableHead>
                                 <TableHead className="hidden sm:table-cell">SKU</TableHead>
                                 <TableHead className="hidden md:table-cell">Category</TableHead>
                                 <TableHead className="hidden lg:table-cell">Supplier</TableHead>

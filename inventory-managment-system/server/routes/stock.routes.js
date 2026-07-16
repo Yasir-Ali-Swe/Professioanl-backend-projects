@@ -4,6 +4,9 @@ import {
   stockOut,
   getStockHistory,
   getLowStockProducts,
+  getStockSummary,
+  getAllStock,
+  getProductStockDetails,
 } from "../controllers/stock.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
@@ -36,6 +39,32 @@ router.get(
   authMiddleware,
   authorize("admin", "manager", "staff"),
   getLowStockProducts,
+);
+
+// Add these routes to your stock.routes.js
+
+// Dashboard summary
+router.get(
+  "/summary",
+  authMiddleware,
+  authorize("admin", "manager", "staff"),
+  getStockSummary,
+);
+
+// All stock with pagination & filters
+router.get(
+  "/all",
+  authMiddleware,
+  authorize("admin", "manager", "staff"),
+  getAllStock,
+);
+
+// Product stock details
+router.get(
+  "/product/:productId",
+  authMiddleware,
+  authorize("admin", "manager", "staff"),
+  getProductStockDetails,
 );
 
 export default router;

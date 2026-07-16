@@ -24,6 +24,9 @@ import {
     FileText,
     ChevronDown,
     ChevronUp,
+    AlertCircle,      // ← Add this
+    ArrowDown,        // ← Add this
+    ArrowUp,          // ← Add this
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -74,6 +77,9 @@ const ICONS = {
     ShoppingCart,
     Users,
     FileText,
+    AlertCircle,      // ← Add this
+    ArrowDown,        // ← Add this
+    ArrowUp,          // ← Add this
 };
 
 const isUserRoute = (route) => route.section === 'account';

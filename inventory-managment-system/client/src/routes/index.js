@@ -73,6 +73,10 @@
 //     icon: "Receipt",
 //     path: "invoices",
 //     roles: [ROLES.ADMIN, ROLES.MANAGER],
+//     children: [
+//       { label: "Generate Invoice", icon: "Plus", path: "invoices/generate" },
+//       { label: "All Invoices", icon: "List", path: "invoices" },
+//     ],
 //   },
 //   {
 //     label: "My Invoices",
@@ -247,6 +251,10 @@ const SIDEBAR_CONFIG = [
     icon: "ShoppingCart",
     path: "purchase-orders",
     roles: [ROLES.ADMIN, ROLES.MANAGER],
+    children: [
+      { label: "Create PO", icon: "Plus", path: "purchase-orders/create" },
+      { label: "All POs", icon: "List", path: "purchase-orders" },
+    ],
   },
   {
     label: "Team",

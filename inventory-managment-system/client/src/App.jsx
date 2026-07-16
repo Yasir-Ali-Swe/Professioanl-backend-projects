@@ -23,14 +23,10 @@ import SubscriptionDetailPage from "@/pages/superAdmin/SubscriptionDetail";
 
 // Admin Pages
 import AdminDashboardPage from "@/pages/admin/AdminDashboard";
-import AdminProductsPage from "@/pages/admin/ProductsList";
-import AdminSuppliersPage from "@/pages/admin/Suppliers";
-import AdminInvoicesPage from "@/pages/admin/Invoices";
-import AdminPurchaseOrdersPage from "@/pages/admin/PurchaseOrders";
-import AdminTeamPage from "@/pages/admin/Team";
-import AdminProductDetailsPage from "@/pages/admin/ProductDetails";
-import AdminAddProductPage from "@/pages/admin/ProductAdd";
-import AdminEditProductPage from "@/pages/admin/ProductEdit";
+import AdminProductsPage from "@/pages/products/ProductsList";
+import AdminProductDetailsPage from "@/pages/products/ProductDetails";
+import AdminAddProductPage from "@/pages/products/ProductAdd";
+import AdminEditProductPage from "@/pages/products/ProductEdit";
 
 // Category Pages
 import CategoryAddPage from "@/pages/categories/CategoryAdd";

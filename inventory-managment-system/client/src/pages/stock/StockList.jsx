@@ -169,7 +169,7 @@ const StockList = () => {
 
             {/* Search */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-                <div className="relative flex-1 min-w-[150px] sm:min-w-[200px]">
+                <div className="relative flex-1 min-w-37.5 sm:min-w-50">
                     <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder="Search by name or SKU..."
@@ -201,7 +201,7 @@ const StockList = () => {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="min-w-[150px]">Product</TableHead>
+                                <TableHead className="min-w-37.5">Product</TableHead>
                                 <TableHead className="hidden sm:table-cell">SKU</TableHead>
                                 <TableHead className="text-center">Quantity</TableHead>
                                 <TableHead className="hidden md:table-cell">Category</TableHead>

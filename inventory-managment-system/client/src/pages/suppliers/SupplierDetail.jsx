@@ -200,7 +200,7 @@ const SupplierDetail = () => {
                     </div>
                 </CardHeader>
                 <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                    <div className="min-w-[500px]">
+                    <div className="min-w-125">
                         <Table>
                             <TableHeader>
                                 <TableRow>

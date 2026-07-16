@@ -127,7 +127,7 @@ const SupplierEdit = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 sm:h-9 sm:w-9 shrink-0"
-                        onClick={() => navigate(`/admin/suppliers/${supplier._id}`)}
+                        onClick={() => navigate(-1)}
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
@@ -238,7 +238,7 @@ const SupplierEdit = () => {
                                     <Textarea
                                         id="address"
                                         placeholder="Enter full address"
-                                        className="min-h-[80px] text-sm rounded-none resize-none"
+                                        className="min-h-20 text-sm rounded-none resize-none"
                                         {...register("address")}
                                         aria-invalid={errors.address ? "true" : "false"}
                                     />

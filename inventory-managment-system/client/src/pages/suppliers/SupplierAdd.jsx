@@ -178,7 +178,7 @@ const SupplierAdd = () => {
                                     <Textarea
                                         id="address"
                                         placeholder="Enter full address"
-                                        className="min-h-[80px] text-sm rounded-none resize-none"
+                                        className="min-h-20 text-sm rounded-none resize-none"
                                         {...register("address")}
                                         aria-invalid={errors.address ? "true" : "false"}
                                     />

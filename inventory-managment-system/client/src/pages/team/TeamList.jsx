@@ -1,0 +1,772 @@
+// pages/team/TeamList.jsx
+import { useState } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuGroup,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    Users,
+    UserPlus,
+    Search,
+    Filter,
+    ChevronDown,
+    Eye,
+    MoreVertical,
+    CheckCircle,
+    XCircle,
+    UserCog,
+    Trash2,
+    ArrowUpDown,
+    User,
+    UserCheck,
+    UserX,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+
+// Dummy Data
+const dummyUsers = {
+    pagination: {
+        currentPage: 1,
+        totalPages: 3,
+        totalUsers: 25,
+        limit: 10,
+        hasNextPage: true,
+        hasPreviousPage: false,
+    },
+    data: [
+        {
+            _id: 'u1',
+            name: 'John Smith',
+            email: 'john@techcorp.com',
+            role: 'admin',
+            isActive: true,
+            invitedBy: { _id: 'admin1', name: 'Super Admin', email: 'admin@stockpilot.com', role: 'super_admin' },
+            createdAt: '2024-01-15T10:30:00Z',
+        },
+        {
+            _id: 'u2',
+            name: 'Jane Doe',
+            email: 'jane@techcorp.com',
+            role: 'manager',
+            isActive: true,
+            invitedBy: { _id: 'u1', name: 'John Smith', email: 'john@techcorp.com', role: 'admin' },
+            createdAt: '2024-01-14T14:20:00Z',
+        },
+        {
+            _id: 'u3',
+            name: 'Bob Wilson',
+            email: 'bob@techcorp.com',
+            role: 'staff',
+            isActive: true,
+            invitedBy: { _id: 'u2', name: 'Jane Doe', email: 'jane@techcorp.com', role: 'manager' },
+            createdAt: '2024-01-13T09:15:00Z',
+        },
+        {
+            _id: 'u4',
+            name: 'Alice Brown',
+            email: 'alice@techcorp.com',
+            role: 'staff',
+            isActive: false,
+            invitedBy: { _id: 'u1', name: 'John Smith', email: 'john@techcorp.com', role: 'admin' },
+            createdAt: '2024-01-12T16:45:00Z',
+        },
+        {
+            _id: 'u5',
+            name: 'Charlie Davis',
+            email: 'charlie@techcorp.com',
+            role: 'manager',
+            isActive: true,
+            invitedBy: { _id: 'u1', name: 'John Smith', email: 'john@techcorp.com', role: 'admin' },
+            createdAt: '2024-01-11T11:00:00Z',
+        },
+        {
+            _id: 'u6',
+            name: 'Eva Martinez',
+            email: 'eva@techcorp.com',
+            role: 'staff',
+            isActive: true,
+            invitedBy: { _id: 'u2', name: 'Jane Doe', email: 'jane@techcorp.com', role: 'manager' },
+            createdAt: '2024-01-10T09:00:00Z',
+        },
+    ],
+};
+
+// User Detail Dialog Component
+const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
+    const [selectedRole, setSelectedRole] = useState(user?.role || '');
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    if (!user) return null;
+
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
+    const handleUpdateRole = async () => {
+        if (selectedRole === user.role) return;
+        setIsUpdating(true);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            toast.success(`User role updated to ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}`);
+            onOpenChange(false);
+        } catch (error) {
+            toast.error('Failed to update role');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleToggleStatus = async () => {
+        setIsUpdating(true);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            toast.success(`User ${user.isActive ? 'deactivated' : 'activated'} successfully`);
+            onOpenChange(false);
+        } catch (error) {
+            toast.error('Failed to update status');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        setIsUpdating(true);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            toast.success('User deleted successfully');
+            onOpenChange(false);
+        } catch (error) {
+            toast.error('Failed to delete user');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <User className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <DialogTitle className="text-xl font-bold">
+                                {user.name}
+                            </DialogTitle>
+                            <div className="flex items-center gap-2 mt-1">
+                                <Badge variant={user.role === 'admin' ? 'default' : user.role === 'manager' ? 'secondary' : 'outline'} className="text-[10px]">
+                                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                                </Badge>
+                                <Badge variant={user.isActive ? 'default' : 'secondary'} className="text-[10px]">
+                                    {user.isActive ? 'Active' : 'Inactive'}
+                                </Badge>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogDescription>
+                        Joined on {formatDate(user.createdAt)}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                    {/* User Info */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm border-b pb-2">
+                            <span className="text-muted-foreground">Email</span>
+                            <span className="font-medium">{user.email}</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-b pb-2">
+                            <span className="text-muted-foreground">Role</span>
+                            <span className="font-medium capitalize">{user.role}</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-b pb-2">
+                            <span className="text-muted-foreground">Status</span>
+                            <span className="font-medium">{user.isActive ? 'Active' : 'Inactive'}</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-b pb-2">
+                            <span className="text-muted-foreground">Invited By</span>
+                            <span className="font-medium">{user.invitedBy?.name || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Joined</span>
+                            <span className="font-medium">{formatDate(user.createdAt)}</span>
+                        </div>
+                    </div>
+
+                    {/* Actions - Only Admin can perform actions */}
+                    {userRole === 'admin' && (
+                        <>
+                            <div className="border-t pt-4 space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm font-medium">Update Role</span>
+                                    <Select value={selectedRole} onValueChange={setSelectedRole}>
+                                        <SelectTrigger className="h-8 w-32 text-sm rounded-none">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                <SelectLabel>Roles</SelectLabel>
+                                                <SelectItem value="admin">Admin</SelectItem>
+                                                <SelectItem value="manager">Manager</SelectItem>
+                                                <SelectItem value="staff">Staff</SelectItem>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button
+                                        size="sm"
+                                        className="h-8 text-xs"
+                                        onClick={handleUpdateRole}
+                                        disabled={selectedRole === user.role || isUpdating}
+                                    >
+                                        Update
+                                    </Button>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant={user.isActive ? 'destructive' : 'default'}
+                                        size="sm"
+                                        className="flex-1 h-8 text-xs"
+                                        onClick={handleToggleStatus}
+                                        disabled={isUpdating}
+                                    >
+                                        {user.isActive ? (
+                                            <>
+                                                <UserX className="mr-1 h-3 w-3" />
+                                                Deactivate
+                                            </>
+                                        ) : (
+                                            <>
+                                                <UserCheck className="mr-1 h-3 w-3" />
+                                                Activate
+                                            </>
+                                        )}
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        className="flex-1 h-8 text-xs"
+                                        onClick={handleDelete}
+                                        disabled={isUpdating}
+                                    >
+                                        <Trash2 className="mr-1 h-3 w-3" />
+                                        Delete
+                                    </Button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <DialogFooter showCloseButton={false}>
+                    <DialogClose asChild>
+                        <Button variant="outline">Close</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+const TeamList = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [usersData] = useState(dummyUsers);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [dialogOpen, setDialogOpen] = useState(false);
+
+    // Mock user role - will come from auth
+    const userRole = 'admin'; // or 'manager'
+
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const role = searchParams.get('role') || 'all';
+    const status = searchParams.get('status') || 'all';
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const order = searchParams.get('order') || 'desc';
+
+    const { data: users, pagination } = usersData;
+
+    // Stats calculations
+    const totalUsers = pagination.totalUsers;
+    const adminCount = users.filter(u => u.role === 'admin').length;
+    const managerCount = users.filter(u => u.role === 'manager').length;
+    const staffCount = users.filter(u => u.role === 'staff').length;
+    const activeCount = users.filter(u => u.isActive).length;
+
+    const filteredUsers = users.filter(u => {
+        const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
+            u.email.toLowerCase().includes(search.toLowerCase());
+        const matchesRole = role === 'all' || u.role === role;
+        const matchesStatus = status === 'all' ||
+            (status === 'active' && u.isActive) ||
+            (status === 'inactive' && !u.isActive);
+        return matchesSearch && matchesRole && matchesStatus;
+    });
+
+    const updateFilter = (key, value) => {
+        const newParams = new URLSearchParams(searchParams);
+        if (value && value !== 'all' && value !== '') {
+            newParams.set(key, value);
+        } else {
+            newParams.delete(key);
+        }
+        if (key !== 'page') {
+            newParams.set('page', '1');
+        }
+        setSearchParams(newParams);
+    };
+
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+        });
+    };
+
+    const capitalize = (value) => {
+        if (!value) return '';
+        return value.charAt(0).toUpperCase() + value.slice(1);
+    };
+
+    const getPageNumbers = () => {
+        const total = pagination.totalPages;
+        const current = page;
+        const pages = [];
+        const maxVisible = 5;
+
+        if (total <= maxVisible) {
+            for (let i = 1; i <= total; i++) {
+                pages.push(i);
+            }
+        } else {
+            pages.push(1);
+            if (current > 3) {
+                pages.push('ellipsis');
+            }
+            const start = Math.max(2, current - 1);
+            const end = Math.min(total - 1, current + 1);
+            for (let i = start; i <= end; i++) {
+                if (!pages.includes(i)) {
+                    pages.push(i);
+                }
+            }
+            if (current < total - 2) {
+                pages.push('ellipsis');
+            }
+            if (!pages.includes(total)) {
+                pages.push(total);
+            }
+        }
+        return pages;
+    };
+
+    const paginatedUsers = filteredUsers.slice(
+        (page - 1) * limit,
+        page * limit
+    );
+
+    const openDetailDialog = (user) => {
+        setSelectedUser(user);
+        setDialogOpen(true);
+    };
+
+    return (
+        <div className="space-y-4 sm:space-y-6 pb-8">
+            {/* Page Header */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Team</h1>
+                    <p className="text-sm text-muted-foreground sm:text-base">
+                        Manage your organization's team members.
+                    </p>
+                </div>
+                <Button className="w-full sm:w-auto" asChild>
+                    <Link to="/admin/team/invite" className='flex items-center'>
+                        <UserPlus className="mr-1.5 h-4 w-4" />
+                        Invite User
+                    </Link>
+                </Button>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-5">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-[10px] sm:text-xs font-medium">Total Members</CardTitle>
+                        <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold">{totalUsers}</div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-[10px] sm:text-xs font-medium">Admins</CardTitle>
+                        <UserCog className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold text-primary">{adminCount}</div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-[10px] sm:text-xs font-medium">Managers</CardTitle>
+                        <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold text-blue-500">{managerCount}</div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-[10px] sm:text-xs font-medium">Staff</CardTitle>
+                        <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold">{staffCount}</div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+                        <CardTitle className="text-[10px] sm:text-xs font-medium">Active</CardTitle>
+                        <UserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg sm:text-2xl font-bold text-green-500">{activeCount}</div>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">
+                            {Math.round((activeCount / totalUsers) * 100)}% of total
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
+                <div className="relative flex-1 min-w-37.5 sm:min-w-50">
+                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="Search by name or email..."
+                        value={search}
+                        onChange={(e) => updateFilter('search', e.target.value)}
+                        className="pl-8 h-8 sm:h-9 text-xs sm:text-sm"
+                    />
+                </div>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger
+                        render={
+                            <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm gap-1">
+                                <Filter className="h-3.5 w-3.5" />
+                                Role: {role === 'all' ? 'All' : capitalize(role)}
+                                <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
+                        }
+                    />
+                    <DropdownMenuContent align="start" className="w-40">
+                        <DropdownMenuGroup>
+                            <DropdownMenuLabel>Role</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => updateFilter('role', 'all')}>All</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateFilter('role', 'admin')}>
+                                <UserCog className="mr-2 h-3.5 w-3.5 text-primary" />
+                                Admin
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateFilter('role', 'manager')}>
+                                <Users className="mr-2 h-3.5 w-3.5 text-blue-500" />
+                                Manager
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateFilter('role', 'staff')}>
+                                <Users className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                                Staff
+                            </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger
+                        render={
+                            <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm gap-1">
+                                <Filter className="h-3.5 w-3.5" />
+                                Status: {status === 'all' ? 'All' : capitalize(status)}
+                                <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
+                        }
+                    />
+                    <DropdownMenuContent align="start" className="w-40">
+                        <DropdownMenuGroup>
+                            <DropdownMenuLabel>Status</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => updateFilter('status', 'all')}>All</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateFilter('status', 'active')}>
+                                <CheckCircle className="mr-2 h-3.5 w-3.5 text-green-500" />
+                                Active
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateFilter('status', 'inactive')}>
+                                <XCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
+                                Inactive
+                            </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger
+                        render={
+                            <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm gap-1">
+                                <ArrowUpDown className="h-3.5 w-3.5" />
+                                Sort: {sortBy === 'createdAt' ? 'Date' : capitalize(sortBy)}
+                                <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
+                        }
+                    />
+                    <DropdownMenuContent align="start" className="w-40">
+                        <DropdownMenuGroup>
+                            <DropdownMenuLabel>Sort By</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => updateFilter('sortBy', 'name')}>
+                                Name
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateFilter('sortBy', 'email')}>
+                                Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateFilter('sortBy', 'role')}>
+                                Role
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateFilter('sortBy', 'createdAt')}>
+                                Date
+                            </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                            <DropdownMenuLabel>Order</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => updateFilter('order', 'asc')}>
+                                Ascending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateFilter('order', 'desc')}>
+                                Descending
+                            </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                {(search || role !== 'all' || status !== 'all' || sortBy !== 'createdAt' || order !== 'desc') && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 sm:h-9 text-xs sm:text-sm"
+                        onClick={() => {
+                            const newParams = new URLSearchParams();
+                            newParams.set('page', '1');
+                            newParams.set('limit', '10');
+                            setSearchParams(newParams);
+                        }}
+                    >
+                        Clear Filters
+                    </Button>
+                )}
+            </div>
+
+            {/* Table */}
+            <div className="rounded-md border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="min-w-37.5">Name</TableHead>
+                                <TableHead className="min-w-45">Email</TableHead>
+                                <TableHead className="w-25">Role</TableHead>
+                                <TableHead className="w-25">Status</TableHead>
+                                <TableHead className="hidden md:table-cell">Invited By</TableHead>
+                                <TableHead className="hidden lg:table-cell">Joined</TableHead>
+                                <TableHead className="text-right w-15">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedUsers.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
+                                        No users found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                paginatedUsers.map((user) => (
+                                    <TableRow key={user._id}>
+                                        <TableCell className="font-medium">
+                                            <button
+                                                onClick={() => openDetailDialog(user)}
+                                                className="hover:text-primary transition-colors text-xs sm:text-sm cursor-pointer"
+                                            >
+                                                {user.name}
+                                            </button>
+                                        </TableCell>
+                                        <TableCell className="text-xs sm:text-sm">
+                                            {user.email}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={user.role === 'admin' ? 'default' : user.role === 'manager' ? 'secondary' : 'outline'} className="text-[10px] sm:text-xs">
+                                                {capitalize(user.role)}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={user.isActive ? 'default' : 'secondary'} className="text-[10px] sm:text-xs">
+                                                {user.isActive ? 'Active' : 'Inactive'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                                            {user.invitedBy?.name || 'N/A'}
+                                        </TableCell>
+                                        <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                                            {formatDate(user.createdAt)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 sm:h-8 sm:w-8"
+                                                onClick={() => openDetailDialog(user)}
+                                            >
+                                                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t px-3 py-3 sm:px-4">
+                    <div className="whitespace-nowrap text-xs sm:text-sm text-muted-foreground">
+                        Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to{' '}
+                        <span className="font-medium">{Math.min(page * limit, filteredUsers.length)}</span>{' '}
+                        of <span className="font-medium">{filteredUsers.length}</span> results
+                    </div>
+                    <Pagination className="mx-0 w-auto">
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        if (page > 1) updateFilter('page', page - 1);
+                                    }}
+                                    className={cn(
+                                        'h-8 sm:h-9 text-xs sm:text-sm',
+                                        page <= 1 && 'pointer-events-none opacity-50'
+                                    )}
+                                />
+                            </PaginationItem>
+                            {getPageNumbers().map((p, index) => (
+                                <PaginationItem key={index}>
+                                    {p === 'ellipsis' ? (
+                                        <PaginationEllipsis className="h-8 sm:h-9" />
+                                    ) : (
+                                        <PaginationLink
+                                            href="#"
+                                            isActive={p === page}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                updateFilter('page', p);
+                                            }}
+                                            className="h-8 sm:h-9 min-w-8 sm:min-w-9 text-xs sm:text-sm"
+                                        >
+                                            {p}
+                                        </PaginationLink>
+                                    )}
+                                </PaginationItem>
+                            ))}
+                            <PaginationItem>
+                                <PaginationNext
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        if (page < pagination.totalPages) updateFilter('page', page + 1);
+                                    }}
+                                    className={cn(
+                                        'h-8 sm:h-9 text-xs sm:text-sm',
+                                        page >= pagination.totalPages && 'pointer-events-none opacity-50'
+                                    )}
+                                />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            </div>
+
+            {/* User Detail Dialog */}
+            <UserDetailDialog
+                user={selectedUser}
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                userRole={userRole}
+            />
+        </div>
+    );
+};
+
+export default TeamList;

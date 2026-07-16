@@ -189,7 +189,7 @@ const StockOverview = () => {
                         <CardDescription className="text-xs sm:text-sm">Monthly stock in vs stock out</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[200px] sm:h-[250px] lg:h-[280px] w-full">
+                        <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={stockMovementConfig} className="h-full w-full">
                                 <BarChart data={stats.monthlyTrend}>
                                     <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
@@ -210,7 +210,7 @@ const StockOverview = () => {
                         <CardDescription className="text-xs sm:text-sm">Distribution across categories</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[200px] sm:h-[250px] lg:h-[280px] w-full">
+                        <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={stockByCategoryConfig} className="h-full w-full">
                                 <PieChart>
                                     <Pie
@@ -250,7 +250,7 @@ const StockOverview = () => {
                     <CardDescription className="text-xs sm:text-sm">Latest stock movements</CardDescription>
                 </CardHeader>
                 <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                    <div className="min-w-[500px]">
+                    <div className="min-w-125">
                         <table className="w-full text-xs sm:text-sm">
                             <thead>
                                 <tr className="border-b">

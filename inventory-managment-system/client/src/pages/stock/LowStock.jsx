@@ -53,7 +53,7 @@ const LowStock = () => {
                     </p>
                 </div>
                 <Button asChild>
-                    <Link to="/admin/stock/in">
+                    <Link to="/admin/stock/in" className="flex items-center">
                         <ArrowDown className="mr-1.5 h-4 w-4" />
                         Restock Items
                     </Link>
@@ -86,7 +86,7 @@ const LowStock = () => {
                     <CardTitle className="text-sm sm:text-base">Low Stock Products</CardTitle>
                 </CardHeader>
                 <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                    <div className="min-w-[500px]">
+                    <div className="min-w-125">
                         <Table>
                             <TableHeader>
                                 <TableRow>

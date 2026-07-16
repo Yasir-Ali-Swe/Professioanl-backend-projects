@@ -1,3 +1,4 @@
+// routes/index.js
 export const ROLES = {
   SUPER_ADMIN: "super_admin",
   ADMIN: "admin",
@@ -55,10 +56,17 @@ const SIDEBAR_CONFIG = [
     roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF],
   },
   {
-    label: "Stock",
+    label: "Stock Management",
     icon: "Warehouse",
     path: "stock",
     roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF],
+    children: [
+      { label: "Overview", icon: "LayoutDashboard", path: "stock/overview" },
+      { label: "All Stock", icon: "Package", path: "stock/list" },
+      { label: "Low Stock", icon: "AlertCircle", path: "stock/low-stock" },
+      { label: "Stock In", icon: "ArrowDown", path: "stock/in" },
+      { label: "Stock Out", icon: "ArrowUp", path: "stock/out" },
+    ],
   },
   {
     label: "Invoices",

@@ -172,7 +172,7 @@ const ProductDetail = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 mt-0.5"
-                        onClick={() => navigate('/admin/products')}
+                        onClick={() => navigate(-1)}
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
@@ -455,7 +455,7 @@ const ProductDetail = () => {
                             <CardDescription className="text-xs sm:text-sm">All stock movements for this product</CardDescription>
                         </CardHeader>
                         <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                            <div className="min-w-[500px]">
+                            <div className="min-w-125">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>

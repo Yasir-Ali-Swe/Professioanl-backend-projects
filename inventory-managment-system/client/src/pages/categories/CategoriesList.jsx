@@ -1,13 +1,14 @@
 // pages/categories/CategoriesList.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import {
     Card,
     CardContent,
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -103,6 +104,9 @@ const dummyCategories = [
 const CategoriesList = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [categories] = useState(dummyCategories);
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -199,7 +203,7 @@ const CategoriesList = () => {
                     </p>
                 </div>
                 <Button className="w-full sm:w-auto" asChild>
-                    <Link to="/admin/categories/add" className="flex items-center justify-center">
+                    <Link to={`/${rolePrefix}/categories/add`} className="flex items-center justify-center">
                         <Plus className="mr-1.5 h-4 w-4" />
                         Add Category
                     </Link>
@@ -298,7 +302,7 @@ const CategoriesList = () => {
                                     <TableRow key={category._id}>
                                         <TableCell className="font-medium">
                                             <Link
-                                                to={`/admin/categories/${category._id}`}
+                                                to={`/${rolePrefix}/categories/${category._id}`}
                                                 className="hover:text-primary transition-colors"
                                             >
                                                 {category.name}
@@ -338,7 +342,7 @@ const CategoriesList = () => {
                                                     <DropdownMenuGroup>
                                                         <DropdownMenuItem
                                                             render={
-                                                                <Link to={`/admin/categories/${category._id}`} className="cursor-pointer">
+                                                                <Link to={`/${rolePrefix}/categories/${category._id}`} className="cursor-pointer">
                                                                     <Eye className="mr-2 h-3.5 w-3.5" />
                                                                     View Details
                                                                 </Link>
@@ -346,7 +350,7 @@ const CategoriesList = () => {
                                                         />
                                                         <DropdownMenuItem
                                                             render={
-                                                                <Link to={`/admin/categories/${category._id}/edit`} className="cursor-pointer">
+                                                                <Link to={`/${rolePrefix}/categories/${category._id}/edit`} className="cursor-pointer">
                                                                     <Edit className="mr-2 h-3.5 w-3.5" />
                                                                     Edit
                                                                 </Link>

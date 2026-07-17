@@ -1,6 +1,8 @@
 // pages/invoices/AllInvoices.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import {
     Card,
     CardContent,
@@ -52,7 +54,6 @@ import {
     Filter,
     ChevronDown,
     Eye,
-    MoreVertical,
     DollarSign,
     CheckCircle,
     XCircle,
@@ -293,6 +294,9 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
 };
 
 const AllInvoices = () => {
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
     const [searchParams, setSearchParams] = useSearchParams();
     const [invoicesData] = useState(dummyInvoices);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -408,7 +412,7 @@ const AllInvoices = () => {
                     </p>
                 </div>
                 <Button className="w-full sm:w-auto" asChild>
-                    <Link to="/admin/invoices/generate" className="flex items-center justify-center">
+                    <Link to={`/${rolePrefix}/invoices/generate`} className="flex items-center justify-center">
                         <Plus className="mr-1.5 h-4 w-4" />
                         Generate Invoice
                     </Link>

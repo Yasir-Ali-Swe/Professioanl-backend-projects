@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import * as z from 'zod';
 import {
     Field,
@@ -50,6 +52,9 @@ const invoiceSchema = z.object({
 });
 
 const GenerateInvoice = () => {
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
     const navigate = useNavigate();
     const [isPending, setIsPending] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');

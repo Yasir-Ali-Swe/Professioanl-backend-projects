@@ -12,8 +12,10 @@ import {
     FieldGroup,
     FieldContent,
 } from '@/components/ui/field';
-import { Loader2, Receipt, Percent, DollarSign, Hash } from 'lucide-react';
+import { Loader2, Receipt, Percent, DollarSign, Hash, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useRedux';
+import { Badge } from '@/components/ui/badge';
 
 // Dummy invoice settings data
 const DUMMY_INVOICE_SETTINGS = {
@@ -39,6 +41,12 @@ const invoiceSettingsSchema = z.object({
 });
 
 const InvoiceSettingsPage = () => {
+    const { user } = useAuth();
+    const userRole = user?.role || 'staff';
+
+    // ✅ Check if user is admin (only admin can edit)
+    const isAdmin = userRole === 'admin';
+
     const [isPending, setIsPending] = useState(false);
     const [originalValues, setOriginalValues] = useState({
         taxRate: DUMMY_INVOICE_SETTINGS.taxRate.toString(),
@@ -65,8 +73,10 @@ const InvoiceSettingsPage = () => {
     const watchedDiscount = watch('defaultDiscount');
     const watchedPrefix = watch('invoicePrefix');
 
-    // Check if form has changes
+    // Check if form has changes (only for admin)
     const hasChanges = () => {
+        if (!isAdmin) return false;
+
         const currentTaxRate = watchedTaxRate || '';
         const currentDiscount = watchedDiscount || '';
         const currentPrefix = watchedPrefix || '';
@@ -77,8 +87,13 @@ const InvoiceSettingsPage = () => {
         );
     };
 
-    // Handle form submission
+    // Handle form submission (only for admin)
     const onSubmit = (values) => {
+        if (!isAdmin) {
+            toast.error('You do not have permission to update invoice settings');
+            return;
+        }
+
         setIsPending(true);
 
         // Simulate API call
@@ -105,7 +120,7 @@ const InvoiceSettingsPage = () => {
             <div className="w-full max-w-2xl p-6 sm:p-8">
                 {/* Header */}
                 <div className="text-center space-y-2 mb-6">
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center justify-center gap-3">
                         <Receipt className="h-6 w-6 text-muted-foreground" />
                         <h1 className="text-2xl font-bold tracking-tight">Invoice Settings</h1>
                     </div>
@@ -123,7 +138,7 @@ const InvoiceSettingsPage = () => {
                                 <FieldLabel htmlFor="taxRate" className="text-sm font-medium">
                                     <div className="flex items-center gap-1.5">
                                         <Percent className="h-3.5 w-3.5 text-muted-foreground" />
-                                        Tax Rate (%) <span className="text-destructive">*</span>
+                                        Tax Rate (%) {isAdmin && <span className="text-destructive">*</span>}
                                     </div>
                                 </FieldLabel>
                                 <FieldContent>
@@ -135,6 +150,8 @@ const InvoiceSettingsPage = () => {
                                         className="h-10 text-sm"
                                         {...register("taxRate")}
                                         aria-invalid={errors.taxRate ? "true" : "false"}
+                                        readOnly={!isAdmin}
+                                        disabled={!isAdmin}
                                     />
                                     {errors.taxRate && (
                                         <FieldError errors={[errors.taxRate]} />
@@ -146,7 +163,7 @@ const InvoiceSettingsPage = () => {
                                 <FieldLabel htmlFor="defaultDiscount" className="text-sm font-medium">
                                     <div className="flex items-center gap-1.5">
                                         <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                                        Default Discount ($) <span className="text-destructive">*</span>
+                                        Default Discount ($) {isAdmin && <span className="text-destructive">*</span>}
                                     </div>
                                 </FieldLabel>
                                 <FieldContent>
@@ -158,6 +175,8 @@ const InvoiceSettingsPage = () => {
                                         className="h-10 text-sm"
                                         {...register("defaultDiscount")}
                                         aria-invalid={errors.defaultDiscount ? "true" : "false"}
+                                        readOnly={!isAdmin}
+                                        disabled={!isAdmin}
                                     />
                                     {errors.defaultDiscount && (
                                         <FieldError errors={[errors.defaultDiscount]} />
@@ -172,7 +191,7 @@ const InvoiceSettingsPage = () => {
                                 <FieldLabel htmlFor="invoicePrefix" className="text-sm font-medium">
                                     <div className="flex items-center gap-1.5">
                                         <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                                        Invoice Prefix <span className="text-destructive">*</span>
+                                        Invoice Prefix {isAdmin && <span className="text-destructive">*</span>}
                                     </div>
                                 </FieldLabel>
                                 <FieldContent>
@@ -183,9 +202,13 @@ const InvoiceSettingsPage = () => {
                                         className="h-10 text-sm uppercase"
                                         {...register("invoicePrefix")}
                                         aria-invalid={errors.invoicePrefix ? "true" : "false"}
+                                        readOnly={!isAdmin}
+                                        disabled={!isAdmin}
                                         onChange={(e) => {
-                                            e.target.value = e.target.value.toUpperCase();
-                                            register("invoicePrefix").onChange(e);
+                                            if (isAdmin) {
+                                                e.target.value = e.target.value.toUpperCase();
+                                                register("invoicePrefix").onChange(e);
+                                            }
                                         }}
                                     />
                                     {errors.invoicePrefix && (
@@ -212,21 +235,23 @@ const InvoiceSettingsPage = () => {
                             </div>
                         </div>
 
-                        {/* Update Button */}
-                        <Button
-                            type="submit"
-                            className="w-full h-10 text-sm font-medium"
-                            disabled={!hasChanges() || isPending}
-                        >
-                            {isPending ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Updating...
-                                </>
-                            ) : (
-                                'Update Invoice Settings'
-                            )}
-                        </Button>
+                        {/* Update Button - Only visible to Admin */}
+                        {isAdmin && (
+                            <Button
+                                type="submit"
+                                className="w-full h-10 text-sm font-medium"
+                                disabled={!hasChanges() || isPending}
+                            >
+                                {isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Updating...
+                                    </>
+                                ) : (
+                                    'Update Invoice Settings'
+                                )}
+                            </Button>
+                        )}
                     </FieldGroup>
                 </form>
             </div>

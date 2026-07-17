@@ -1,6 +1,8 @@
 // pages/products/ProductsList.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import {
     Card,
     CardContent,
@@ -176,6 +178,10 @@ const dummyProducts = {
 };
 
 const ProductsList = () => {
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
+
     const [searchParams, setSearchParams] = useSearchParams();
     const [products] = useState(dummyProducts);
 
@@ -275,7 +281,7 @@ const ProductsList = () => {
                     </p>
                 </div>
                 <Button className="w-full sm:w-auto">
-                    <Link to="/admin/products/add" className="flex items-center gap-1">
+                    <Link to={`/${rolePrefix}/products/add`} className="flex items-center gap-1">
                         <Plus className="mr-1.5 h-4 w-4" />
                         Add Product
                     </Link>
@@ -449,7 +455,7 @@ const ProductsList = () => {
                                         </TableCell>
                                         <TableCell className="font-medium">
                                             <Link
-                                                to={`/admin/products/${product._id}`}
+                                                to={`/${rolePrefix}/products/${product._id}`}
                                                 className="hover:text-primary transition-colors"
                                             >
                                                 {product.name}
@@ -502,7 +508,7 @@ const ProductsList = () => {
                                                     <DropdownMenuGroup>
                                                         <DropdownMenuItem
                                                             render={
-                                                                <Link to={`/admin/products/${product._id}`} className="cursor-pointer">
+                                                                <Link to={`/${rolePrefix}/products/${product._id}`} className="cursor-pointer">
                                                                     <Eye className="mr-2 h-3.5 w-3.5" />
                                                                     View Details
                                                                 </Link>
@@ -510,7 +516,7 @@ const ProductsList = () => {
                                                         />
                                                         <DropdownMenuItem
                                                             render={
-                                                                <Link to={`/admin/products/edit/${product._id}`} className="cursor-pointer">
+                                                                <Link to={`/${rolePrefix}/products/edit/${product._id}`} className="cursor-pointer">
                                                                     <Edit className="mr-2 h-3.5 w-3.5" />
                                                                     Edit
                                                                 </Link>

@@ -14,24 +14,19 @@ import {
     ChartTooltipContent,
 } from '@/components/ui/chart';
 import {
-    Area,
-    AreaChart,
     Bar,
     BarChart,
-    CartesianGrid,
     XAxis,
     YAxis,
     Pie,
     PieChart,
     Cell,
-    ResponsiveContainer,
 } from 'recharts';
 import {
     Package,
     PackageOpen,
     AlertTriangle,
     TrendingUp,
-    TrendingDown,
     ArrowDown,
     ArrowUp,
     Activity,

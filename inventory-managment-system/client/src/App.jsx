@@ -162,13 +162,14 @@ const App = () => {
           <Route path="/manager/stock/in" element={<StockInPage />} />
           <Route path="/manager/stock/out" element={<StockOutPage />} />
           <Route path="/manager/stock" element={<StockOverviewPage />} />
-          {/* <Route path="/manager/invoices" element={<ManagerInvoicesPage />} /> */}
-          {/* <Route path="/manager/purchase-orders" element={<ManagerPurchaseOrdersPage />} /> */}
-          {/* <Route path="/manager/team" element={<ManagerTeamPage />} /> */}
+          <Route path="/manager/invoices/generate" element={<GenerateInvoicePage />} />
+          <Route path="/manager/invoices" element={<AllInvoicesPage />} />
+          <Route path="/manager/purchase-orders/create" element={<CreatePurchaseOrderPage />} />
+          <Route path="/manager/purchase-orders" element={<AllPurchaseOrdersPage />} />
+          <Route path="/manager/team/invite" element={<InviteUserPage />} />
+          <Route path="/manager/team" element={<TeamListPage />} />
           {/* <Route path="/manager/chatbot" element={<ChatbotPage />} /> */}
           {/* <Route path="/manager/profile" element={<ProfilePage />} /> */}
-          {/* <Route path="/manager/organization-profile" element={<OrganizationProfilePage />} /> */}
-          {/* <Route path="/manager/invoice-settings" element={<InvoiceSettingsPage />} /> */}
 
           {/* Staff Routes - Commented out */}
           {/* <Route path="/staff/dashboard" element={<StaffDashboardPage />} /> */}

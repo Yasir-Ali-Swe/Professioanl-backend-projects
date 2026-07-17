@@ -7,6 +7,9 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
+
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -61,6 +64,8 @@ import {
     User,
     UserCheck,
     UserX,
+    Shield,
+    ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -159,8 +164,25 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
         });
     };
 
+    // ✅ Check if user is admin
+    const isAdmin = user?.role === 'admin';
+
+    // ✅ Check if current user is manager
+    const isManager = userRole === 'manager';
+
+    // ✅ Manager cannot perform actions on admin users
+    const isAdminUser = user?.role === 'admin';
+    const canPerformActions = !(isManager && isAdminUser);
+
     const handleUpdateRole = async () => {
         if (selectedRole === user.role) return;
+
+        // ✅ Manager cannot change admin role
+        if (isManager && isAdminUser) {
+            toast.error('You cannot modify admin users');
+            return;
+        }
+
         setIsUpdating(true);
         try {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -174,6 +196,12 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
     };
 
     const handleToggleStatus = async () => {
+        // ✅ Manager cannot toggle admin status
+        if (isManager && isAdminUser) {
+            toast.error('You cannot modify admin users');
+            return;
+        }
+
         setIsUpdating(true);
         try {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -187,6 +215,12 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
     };
 
     const handleDelete = async () => {
+        // ✅ Manager cannot delete admin users
+        if (isManager && isAdminUser) {
+            toast.error('You cannot delete admin users');
+            return;
+        }
+
         setIsUpdating(true);
         try {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -197,6 +231,16 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
         } finally {
             setIsUpdating(false);
         }
+    };
+
+    // ✅ Get available roles for dropdown based on user role
+    const getAvailableRoles = () => {
+        if (isManager) {
+            // Manager can only assign staff or manager roles
+            return ['manager', 'staff'];
+        }
+        // Admin can assign all roles
+        return ['admin', 'manager', 'staff'];
     };
 
     return (
@@ -218,6 +262,12 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
                                 <Badge variant={user.isActive ? 'default' : 'secondary'} className="text-[10px]">
                                     {user.isActive ? 'Active' : 'Inactive'}
                                 </Badge>
+                                {isAdminUser && (
+                                    <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                                        <ShieldAlert className="h-2.5 w-2.5 mr-1" />
+                                        Protected
+                                    </Badge>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -251,7 +301,7 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
                         </div>
                     </div>
 
-                    {/* Actions - Only Admin can perform actions */}
+                    {/* Actions - Only Admin can perform all actions, Manager has limited actions */}
                     {userRole === 'admin' && (
                         <>
                             <div className="border-t pt-4 space-y-3">
@@ -314,6 +364,76 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
                             </div>
                         </>
                     )}
+
+                    {/* ✅ Manager limited actions - only for non-admin users */}
+                    {userRole === 'manager' && !isAdminUser && (
+                        <>
+                            <div className="border-t pt-4 space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm font-medium">Update Role</span>
+                                    <Select value={selectedRole} onValueChange={setSelectedRole}>
+                                        <SelectTrigger className="h-8 w-32 text-sm rounded-none">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                <SelectLabel>Roles</SelectLabel>
+                                                <SelectItem value="manager">Manager</SelectItem>
+                                                <SelectItem value="staff">Staff</SelectItem>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button
+                                        size="sm"
+                                        className="h-8 text-xs"
+                                        onClick={handleUpdateRole}
+                                        disabled={selectedRole === user.role || isUpdating}
+                                    >
+                                        Update
+                                    </Button>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant={user.isActive ? 'destructive' : 'default'}
+                                        size="sm"
+                                        className="flex-1 h-8 text-xs"
+                                        onClick={handleToggleStatus}
+                                        disabled={isUpdating}
+                                    >
+                                        {user.isActive ? (
+                                            <>
+                                                <UserX className="mr-1 h-3 w-3" />
+                                                Deactivate
+                                            </>
+                                        ) : (
+                                            <>
+                                                <UserCheck className="mr-1 h-3 w-3" />
+                                                Activate
+                                            </>
+                                        )}
+                                    </Button>
+                                    {/* ✅ Manager cannot delete users */}
+                                    {/* Delete button removed for manager */}
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* ✅ Manager viewing admin user - show restricted message */}
+                    {userRole === 'manager' && isAdminUser && (
+                        <div className="border-t pt-4">
+                            <div className="rounded-md bg-muted p-3 text-center">
+                                <Shield className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                                <p className="text-sm text-muted-foreground">
+                                    Admin users cannot be modified by Managers
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    Only Admins can manage other Admins
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <DialogFooter showCloseButton={false}>
@@ -327,18 +447,21 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
 };
 
 const TeamList = () => {
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
     const [searchParams, setSearchParams] = useSearchParams();
     const [usersData] = useState(dummyUsers);
     const [selectedUser, setSelectedUser] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
-    // Mock user role - will come from auth
-    const userRole = 'admin'; // or 'manager'
+    // ✅ Get user role from auth
+    const userRole = user?.role || 'admin';
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
-    const role = searchParams.get('role') || 'all';
+    const roleFilter = searchParams.get('role') || 'all';
     const status = searchParams.get('status') || 'all';
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
@@ -352,10 +475,16 @@ const TeamList = () => {
     const staffCount = users.filter(u => u.role === 'staff').length;
     const activeCount = users.filter(u => u.isActive).length;
 
+    // ✅ Filter users - Manager cannot see Admin users
     const filteredUsers = users.filter(u => {
+        // If user is manager, hide admin users from the list
+        if (userRole === 'manager' && u.role === 'admin') {
+            return false;
+        }
+
         const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
             u.email.toLowerCase().includes(search.toLowerCase());
-        const matchesRole = role === 'all' || u.role === role;
+        const matchesRole = roleFilter === 'all' || u.role === roleFilter;
         const matchesStatus = status === 'all' ||
             (status === 'active' && u.isActive) ||
             (status === 'inactive' && !u.isActive);
@@ -440,15 +569,16 @@ const TeamList = () => {
                         Manage your organization's team members.
                     </p>
                 </div>
+                {/* ✅ Both Admin and Manager can invite users */}
                 <Button className="w-full sm:w-auto" asChild>
-                    <Link to="/admin/team/invite" className='flex items-center'>
+                    <Link to={`/${rolePrefix}/team/invite`} className='flex items-center'>
                         <UserPlus className="mr-1.5 h-4 w-4" />
                         Invite User
                     </Link>
                 </Button>
             </div>
 
-            {/* Stats Cards */}
+            {/* Stats Cards - Admin sees all, Manager sees filtered stats */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-5">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
@@ -456,7 +586,9 @@ const TeamList = () => {
                         <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-lg sm:text-2xl font-bold">{totalUsers}</div>
+                        <div className="text-lg sm:text-2xl font-bold">
+                            {userRole === 'manager' ? filteredUsers.length : totalUsers}
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -466,7 +598,12 @@ const TeamList = () => {
                         <UserCog className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-lg sm:text-2xl font-bold text-primary">{adminCount}</div>
+                        <div className="text-lg sm:text-2xl font-bold text-primary">
+                            {userRole === 'manager' ? 0 : adminCount}
+                        </div>
+                        {userRole === 'manager' && (
+                            <p className="text-[10px] sm:text-xs text-muted-foreground">Restricted</p>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -496,9 +633,11 @@ const TeamList = () => {
                         <UserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-lg sm:text-2xl font-bold text-green-500">{activeCount}</div>
+                        <div className="text-lg sm:text-2xl font-bold text-green-500">
+                            {userRole === 'manager' ? filteredUsers.filter(u => u.isActive).length : activeCount}
+                        </div>
                         <p className="text-[10px] sm:text-xs text-muted-foreground">
-                            {Math.round((activeCount / totalUsers) * 100)}% of total
+                            {Math.round(((userRole === 'manager' ? filteredUsers.filter(u => u.isActive).length : activeCount) / (userRole === 'manager' ? filteredUsers.length : totalUsers)) * 100)}% of total
                         </p>
                     </CardContent>
                 </Card>
@@ -516,12 +655,13 @@ const TeamList = () => {
                     />
                 </div>
 
+                {/* ✅ Role filter - Manager cannot see Admin option */}
                 <DropdownMenu>
                     <DropdownMenuTrigger
                         render={
                             <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm gap-1">
                                 <Filter className="h-3.5 w-3.5" />
-                                Role: {role === 'all' ? 'All' : capitalize(role)}
+                                Role: {roleFilter === 'all' ? 'All' : capitalize(roleFilter)}
                                 <ChevronDown className="h-3.5 w-3.5" />
                             </Button>
                         }
@@ -531,10 +671,13 @@ const TeamList = () => {
                             <DropdownMenuLabel>Role</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => updateFilter('role', 'all')}>All</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateFilter('role', 'admin')}>
-                                <UserCog className="mr-2 h-3.5 w-3.5 text-primary" />
-                                Admin
-                            </DropdownMenuItem>
+                            {/* ✅ Manager cannot see Admin option in filter */}
+                            {userRole !== 'manager' && (
+                                <DropdownMenuItem onClick={() => updateFilter('role', 'admin')}>
+                                    <UserCog className="mr-2 h-3.5 w-3.5 text-primary" />
+                                    Admin
+                                </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => updateFilter('role', 'manager')}>
                                 <Users className="mr-2 h-3.5 w-3.5 text-blue-500" />
                                 Manager
@@ -615,7 +758,7 @@ const TeamList = () => {
                     </DropdownMenuContent>
                 </DropdownMenu>
 
-                {(search || role !== 'all' || status !== 'all' || sortBy !== 'createdAt' || order !== 'desc') && (
+                {(search || roleFilter !== 'all' || status !== 'all' || sortBy !== 'createdAt' || order !== 'desc') && (
                     <Button
                         variant="ghost"
                         size="sm"
@@ -672,6 +815,9 @@ const TeamList = () => {
                                             <Badge variant={user.role === 'admin' ? 'default' : user.role === 'manager' ? 'secondary' : 'outline'} className="text-[10px] sm:text-xs">
                                                 {capitalize(user.role)}
                                             </Badge>
+                                            {user.role === 'admin' && userRole === 'manager' && (
+                                                <span className="text-[10px] text-muted-foreground ml-1">(Restricted)</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={user.isActive ? 'default' : 'secondary'} className="text-[10px] sm:text-xs">

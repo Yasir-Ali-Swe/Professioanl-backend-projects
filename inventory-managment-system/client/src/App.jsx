@@ -168,8 +168,10 @@ const App = () => {
           <Route path="/manager/purchase-orders" element={<AllPurchaseOrdersPage />} />
           <Route path="/manager/team/invite" element={<InviteUserPage />} />
           <Route path="/manager/team" element={<TeamListPage />} />
-          {/* <Route path="/manager/chatbot" element={<ChatbotPage />} /> */}
-          {/* <Route path="/manager/profile" element={<ProfilePage />} /> */}
+          <Route path="/manager/chatbot" element={<ChatbotPage />} />
+          <Route path="/manager/profile" element={<ProfilePage />} />
+          <Route path="/manager/organization-profile" element={<OrganizationProfilePage />} />
+          <Route path="/manager/invoice-settings" element={<InvoiceSettingsPage />} />
 
           {/* Staff Routes - Commented out */}
           {/* <Route path="/staff/dashboard" element={<StaffDashboardPage />} /> */}

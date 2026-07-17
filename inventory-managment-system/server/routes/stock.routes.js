@@ -41,9 +41,6 @@ router.get(
   getLowStockProducts,
 );
 
-// Add these routes to your stock.routes.js
-
-// Dashboard summary
 router.get(
   "/summary",
   authMiddleware,

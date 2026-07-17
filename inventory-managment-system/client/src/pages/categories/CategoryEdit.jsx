@@ -1,8 +1,11 @@
 // pages/categories/CategoryEdit.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
+
 import * as z from 'zod';
 import {
     Field,
@@ -35,6 +38,9 @@ const categorySchema = z.object({
 
 const CategoryEdit = () => {
     const { id } = useParams();
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
     const navigate = useNavigate();
     const [isPending, setIsPending] = useState(false);
     const [category] = useState(dummyCategory);
@@ -84,7 +90,7 @@ const CategoryEdit = () => {
             setOriginalValues({ name: values.name });
             reset(values);
             toast.success('Category updated successfully!');
-            navigate(`/admin/categories/${category._id}`);
+            navigate(`/${rolePrefix}/categories/${category._id}`);
         } catch (error) {
             toast.error(error.message || 'Failed to update category. Please try again.');
         } finally {
@@ -167,7 +173,7 @@ const CategoryEdit = () => {
                                 type="button"
                                 variant="outline"
                                 className="w-full sm:w-auto order-2 sm:order-1"
-                                onClick={() => navigate(`/admin/categories/${category._id}`)}
+                                onClick={() => navigate(`/${rolePrefix}/categories/${category._id}`)}
                             >
                                 Cancel
                             </Button>

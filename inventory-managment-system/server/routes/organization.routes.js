@@ -85,16 +85,18 @@ router.get(
   authorize("admin", "manager"),
   getOrganizationUserById,
 );
+// update the status or role of the org user by admin or manager
 router.patch(
   "/organization-users/:id",
   authMiddleware,
   authorize("admin", "manager"),
   updateOrganizationUserById,
 );
+// admin can delete the org user
 router.delete(
   "/organization-users/:id",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   deleteOrganizationUserById,
 );
 

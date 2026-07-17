@@ -52,8 +52,6 @@ import {
     XCircle,
     Plus,
     ArrowUpDown,
-    DollarSign,
-    TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

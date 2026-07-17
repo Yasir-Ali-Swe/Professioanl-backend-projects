@@ -1,6 +1,8 @@
 // pages/suppliers/SupplierAdd.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -29,6 +31,8 @@ const supplierSchema = z.object({
 
 const SupplierAdd = () => {
     const navigate = useNavigate();
+    const { role } = useAuth();
+    const rolePrefix = getRolePrefix(role);
     const [isPending, setIsPending] = useState(false);
 
     const {
@@ -56,7 +60,7 @@ const SupplierAdd = () => {
         try {
             await new Promise(resolve => setTimeout(resolve, 1500));
             toast.success('Supplier created successfully!');
-            navigate('/admin/suppliers');
+            navigate(`/${rolePrefix}/suppliers`);
         } catch (error) {
             toast.error(error.message || 'Failed to create supplier. Please try again.');
         } finally {
@@ -73,7 +77,7 @@ const SupplierAdd = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 sm:h-9 sm:w-9 shrink-0"
-                        onClick={() => navigate('/admin/suppliers')}
+                        onClick={() => navigate(`/${rolePrefix}/suppliers`)}
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
@@ -210,7 +214,7 @@ const SupplierAdd = () => {
                                 type="button"
                                 variant="outline"
                                 className="w-full sm:w-auto order-2 sm:order-1"
-                                onClick={() => navigate('/admin/suppliers')}
+                                onClick={() => navigate(-1)}
                             >
                                 Cancel
                             </Button>

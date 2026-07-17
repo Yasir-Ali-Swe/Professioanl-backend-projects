@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import {
     Field,
     FieldLabel,
@@ -42,6 +44,10 @@ const stockInSchema = z.object({
 });
 
 const StockIn = () => {
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
+
     const navigate = useNavigate();
     const [isPending, setIsPending] = useState(false);
     const [products] = useState(dummyProducts);
@@ -80,7 +86,7 @@ const StockIn = () => {
         try {
             await new Promise(resolve => setTimeout(resolve, 1500));
             toast.success(`Stock In successful! ${values.quantity} units added.`);
-            navigate('/admin/stock/overview');
+            navigate(`/${rolePrefix}/stock/overview`);
         } catch (error) {
             toast.error(error.message || 'Failed to add stock. Please try again.');
         } finally {

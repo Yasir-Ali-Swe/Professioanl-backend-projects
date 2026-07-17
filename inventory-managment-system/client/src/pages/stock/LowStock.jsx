@@ -1,6 +1,8 @@
 // pages/stock/LowStock.jsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import {
     Card,
     CardContent,
@@ -34,7 +36,9 @@ const dummyLowStock = [
 
 const LowStock = () => {
     const [stock] = useState(dummyLowStock);
-
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
     const getUrgency = (quantity, threshold) => {
         const ratio = quantity / threshold;
         if (ratio <= 0.2) return { label: 'Critical', className: 'text-destructive' };
@@ -53,7 +57,7 @@ const LowStock = () => {
                     </p>
                 </div>
                 <Button asChild>
-                    <Link to="/admin/stock/in" className="flex items-center">
+                    <Link to={`/${rolePrefix}/stock/in`} className="flex items-center">
                         <ArrowDown className="mr-1.5 h-4 w-4" />
                         Restock Items
                     </Link>
@@ -134,7 +138,7 @@ const LowStock = () => {
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 text-right">
                                                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0" asChild>
-                                                        <Link to={`/admin/products/${item._id}`}>
+                                                        <Link to={`/${rolePrefix}/products/${item._id}`}>
                                                             <Eye className="h-3 w-3" />
                                                         </Link>
                                                     </Button>

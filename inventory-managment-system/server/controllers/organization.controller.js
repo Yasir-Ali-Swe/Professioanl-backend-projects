@@ -238,18 +238,34 @@ export const updateOrganizationInvoiceDetails = async (req, res) => {
     });
   }
 };
-
 export const adminInviteOrganizationUsers = async (req, res) => {
   try {
     const userId = req.user._id;
     const organizationId = req.user.organizationId;
+    const userRole = req.user.role; // 👈 Get user role
     const { name, email, role, password } = req.body;
+
     if (!name || !email || !role || !password) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
       });
     }
+
+    if (userRole === "manager" && role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Managers cannot invite admin users.",
+      });
+    }
+
+    if (userRole === "manager" && role !== "staff") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Managers can only invite staff members.",
+      });
+    }
+
     const userExists = await userModel.findOne({ email });
     if (userExists) {
       return res.status(400).json({
@@ -257,6 +273,7 @@ export const adminInviteOrganizationUsers = async (req, res) => {
         message: "User with this email already exists",
       });
     }
+
     const hashedPassword = await hashPassword(password);
     const newUser = new userModel({
       name,
@@ -268,7 +285,9 @@ export const adminInviteOrganizationUsers = async (req, res) => {
       isVerified: true,
     });
     await newUser.save();
+
     queueAccountCreatedEmail(email, name, password);
+
     res.status(201).json({
       success: true,
       message: "User invited successfully",
@@ -282,9 +301,13 @@ export const adminInviteOrganizationUsers = async (req, res) => {
   }
 };
 
+// controllers/user.controller.js
 export const getOrganizationUsers = async (req, res) => {
   try {
     const organizationId = req.user.organizationId;
+    const userRole = req.user.role;
+    const userId = req.user._id;
+
     const {
       page = 1,
       limit = 10,
@@ -295,7 +318,6 @@ export const getOrganizationUsers = async (req, res) => {
       order = "desc",
     } = req.query;
 
-    // Allow sorting only by these fields
     const allowedSortFields = [
       "name",
       "email",
@@ -303,37 +325,42 @@ export const getOrganizationUsers = async (req, res) => {
       "isActive",
       "role",
     ];
-
     const sortField = allowedSortFields.includes(sortBy) ? sortBy : "createdAt";
 
-    // Base query
     const query = {
       organizationId,
-      _id: { $ne: req.user._id },
+      _id: { $ne: userId },
     };
+
+    if (userRole === "manager") {
+      query.role = { $ne: "admin" };
+    }
 
     // Search by name or email
     if (search) {
       query.$or = [
-        {
-          name: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          email: {
-            $regex: search,
-            $options: "i",
-          },
-        },
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
       ];
     }
 
     // Filter by role
     const allowedRoles = ["admin", "manager", "staff"];
-
     if (role && allowedRoles.includes(role)) {
+      if (userRole === "manager" && role === "admin") {
+        return res.status(200).json({
+          success: true,
+          pagination: {
+            currentPage: 1,
+            totalPages: 0,
+            totalUsers: 0,
+            limit: Number(limit),
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+          data: [],
+        });
+      }
       query.role = role;
     }
 
@@ -374,7 +401,6 @@ export const getOrganizationUsers = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getOrganizationUsers:", error);
-
     res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
@@ -387,6 +413,7 @@ export const getOrganizationUserById = async (req, res) => {
     const { id } = req.params;
     const organizationId = req.user.organizationId;
     const loginUserId = req.user._id;
+    const userRole = req.user.role;
 
     if (id === loginUserId.toString()) {
       return res.status(403).json({
@@ -404,6 +431,13 @@ export const getOrganizationUserById = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "User not found",
+      });
+    }
+
+    if (userRole === "manager" && user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Managers cannot view admin users.",
       });
     }
 
@@ -426,12 +460,15 @@ export const updateOrganizationUserById = async (req, res) => {
     const organizationId = req.user.organizationId;
     const { role, isActive } = req.body;
     const loginUserId = req.user._id;
+    const userRole = req.user.role;
+
     if (!id) {
       return res.status(400).json({
         success: false,
         message: "User ID is required",
       });
     }
+
     if (id === loginUserId.toString()) {
       return res.status(403).json({
         success: false,
@@ -439,21 +476,46 @@ export const updateOrganizationUserById = async (req, res) => {
       });
     }
 
+    const targetUser = await userModel.findOne({ _id: id, organizationId });
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (userRole === "manager" && targetUser.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Managers cannot update admin users.",
+      });
+    }
+
+    if (userRole === "manager" && role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Managers cannot assign admin role.",
+      });
+    }
+
     const updateData = {};
     if (role) updateData.role = role;
     if (isActive !== undefined) updateData.isActive = isActive;
+
     const updatedUser = await userModel
       .findOneAndUpdate({ _id: id, organizationId }, updateData, {
         new: true,
         runValidators: true,
       })
       .select("-password -tokenVersion -__v -updatedAt");
+
     if (!updatedUser) {
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
     }
+
     res.status(200).json({
       success: true,
       message: "User updated successfully",
@@ -471,22 +533,55 @@ export const deleteOrganizationUserById = async (req, res) => {
   try {
     const { id } = req.params;
     const organizationId = req.user.organizationId;
+    const userRole = req.user.role;
+
     if (!id) {
       return res.status(400).json({
         success: false,
         message: "User ID is required",
       });
     }
+
+    if (userRole !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Only admins can delete users.",
+      });
+    }
+
+    const targetUser = await userModel.findOne({ _id: id, organizationId });
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (targetUser.role === "admin") {
+      const adminCount = await userModel.countDocuments({
+        organizationId,
+        role: "admin",
+      });
+      if (adminCount <= 1) {
+        return res.status(400).json({
+          success: false,
+          message: "Cannot delete the last admin user",
+        });
+      }
+    }
+
     const deletedUser = await userModel.findOneAndDelete({
       _id: id,
       organizationId,
     });
+
     if (!deletedUser) {
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
     }
+
     res.status(200).json({
       success: true,
       message: "User deleted successfully",

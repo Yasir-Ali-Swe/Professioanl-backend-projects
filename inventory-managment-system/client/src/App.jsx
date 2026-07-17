@@ -152,7 +152,10 @@ const App = () => {
           <Route path="/manager/suppliers/:id/edit" element={<SupplierEditPage />} />
           <Route path="/manager/suppliers/:id" element={<SupplierDetailPage />} />
           <Route path="/manager/suppliers" element={<SuppliersListPage />} />
-          {/* <Route path="/manager/categories" element={<ManagerCategoriesPage />} /> */}
+          <Route path="/manager/categories/add" element={<CategoryAddPage />} />
+          <Route path="/manager/categories/:id/edit" element={<CategoryEditPage />} />
+          <Route path="/manager/categories/:id" element={<CategoryDetailsPage />} />
+          <Route path="/manager/categories" element={<CategoryListPage />} />
           {/* <Route path="/manager/stock" element={<ManagerStockPage />} /> */}
           {/* <Route path="/manager/invoices" element={<ManagerInvoicesPage />} /> */}
           {/* <Route path="/manager/purchase-orders" element={<ManagerPurchaseOrdersPage />} /> */}

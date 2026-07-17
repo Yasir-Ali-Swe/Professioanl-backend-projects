@@ -14,9 +14,11 @@ import {
     FieldGroup,
     FieldContent,
 } from '@/components/ui/field';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useRedux';
+import { Badge } from '@/components/ui/badge';
 
 // Dummy organization profile data
 const DUMMY_ORG_PROFILE = {
@@ -43,6 +45,12 @@ const orgProfileSchema = z.object({
 });
 
 const OrganizationProfilePage = () => {
+    const { user } = useAuth();
+    const userRole = user?.role || 'staff';
+
+    // ✅ Check if user is admin (only admin can edit)
+    const isAdmin = userRole === 'admin';
+
     const fileInputRef = useRef(null);
     const [previewImage, setPreviewImage] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -82,8 +90,10 @@ const OrganizationProfilePage = () => {
         }
     }, []);
 
-    // Check if form has changes
+    // Check if form has changes (only for admin)
     const hasChanges = () => {
+        if (!isAdmin) return false;
+
         const currentName = watchedName || '';
         const currentEmail = watchedEmail || '';
         const currentPhone = watchedPhone || '';
@@ -97,8 +107,10 @@ const OrganizationProfilePage = () => {
         );
     };
 
-    // Handle image selection
+    // Handle image selection (only for admin)
     const handleImageSelect = (event) => {
+        if (!isAdmin) return;
+
         const file = event.target.files?.[0];
         if (file) {
             setSelectedFile(file);
@@ -107,13 +119,19 @@ const OrganizationProfilePage = () => {
         }
     };
 
-    // Handle image click to trigger file input
+    // Handle image click to trigger file input (only for admin)
     const handleAvatarClick = () => {
+        if (!isAdmin) return;
         fileInputRef.current?.click();
     };
 
-    // Handle form submission
+    // Handle form submission (only for admin)
     const onSubmit = (values) => {
+        if (!isAdmin) {
+            toast.error('You do not have permission to update organization profile');
+            return;
+        }
+
         setIsPending(true);
 
         // Simulate API call
@@ -153,9 +171,12 @@ const OrganizationProfilePage = () => {
             <div className="w-full max-w-2xl p-6 sm:p-8">
                 {/* Header */}
                 <div className="text-center space-y-2 mb-6">
-                    <h1 className="text-2xl font-bold tracking-tight">Organization Profile</h1>
+                    <div className="flex items-center justify-center gap-3">
+                        <h1 className="text-2xl font-bold tracking-tight">Organization Profile</h1>
+                    </div>
                     <p className="text-sm text-muted-foreground">
-                        Manage your organization's information
+
+                        View your organization's information
                     </p>
                 </div>
 
@@ -166,7 +187,10 @@ const OrganizationProfilePage = () => {
                         <div className="flex justify-center">
                             <div className="relative group">
                                 <Avatar
-                                    className="h-24 w-24 cursor-pointer transition-opacity hover:opacity-90"
+                                    className={cn(
+                                        "h-24 w-24 transition-opacity",
+                                        isAdmin ? "cursor-pointer hover:opacity-90" : "cursor-default"
+                                    )}
                                     onClick={handleAvatarClick}
                                 >
                                     <AvatarImage src={avatarImage} alt={DUMMY_ORG_PROFILE.name} />
@@ -174,27 +198,30 @@ const OrganizationProfilePage = () => {
                                         {initials}
                                     </AvatarFallback>
                                 </Avatar>
-                                <button
-                                    type="button"
-                                    className={cn(
-                                        "absolute bottom-0 right-0 rounded-full bg-primary p-2 text-primary-foreground shadow-sm",
-                                        "transition-all hover:bg-primary/90 hover:scale-110",
-                                        "ring-2 ring-background"
-                                    )}
-                                    onClick={handleAvatarClick}
-                                >
-                                    <Camera className="h-4 w-4" />
-                                </button>
+                                {isAdmin && (
+                                    <button
+                                        type="button"
+                                        className={cn(
+                                            "absolute bottom-0 right-0 rounded-full bg-primary p-2 text-primary-foreground shadow-sm",
+                                            "transition-all hover:bg-primary/90 hover:scale-110",
+                                            "ring-2 ring-background"
+                                        )}
+                                        onClick={handleAvatarClick}
+                                    >
+                                        <Camera className="h-4 w-4" />
+                                    </button>
+                                )}
                                 <input
                                     ref={fileInputRef}
                                     type="file"
                                     accept="image/*"
                                     className="hidden"
                                     onChange={handleImageSelect}
+                                    disabled={!isAdmin}
                                 />
                             </div>
                         </div>
-                        {selectedFile && (
+                        {selectedFile && isAdmin && (
                             <p className="text-center text-xs text-muted-foreground">
                                 New logo selected: {selectedFile.name}
                             </p>
@@ -204,7 +231,7 @@ const OrganizationProfilePage = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <Field orientation="vertical">
                                 <FieldLabel htmlFor="name" className="text-sm font-medium">
-                                    Organization Name <span className="text-destructive">*</span>
+                                    Organization Name {isAdmin && <span className="text-destructive">*</span>}
                                 </FieldLabel>
                                 <FieldContent>
                                     <Input
@@ -214,6 +241,8 @@ const OrganizationProfilePage = () => {
                                         className="h-10 text-sm"
                                         {...register("name")}
                                         aria-invalid={errors.name ? "true" : "false"}
+                                        readOnly={!isAdmin}
+                                        disabled={!isAdmin}
                                     />
                                     {errors.name && (
                                         <FieldError errors={[errors.name]} />
@@ -223,7 +252,7 @@ const OrganizationProfilePage = () => {
 
                             <Field orientation="vertical">
                                 <FieldLabel htmlFor="contactEmail" className="text-sm font-medium">
-                                    Contact Email <span className="text-destructive">*</span>
+                                    Contact Email {isAdmin && <span className="text-destructive">*</span>}
                                 </FieldLabel>
                                 <FieldContent>
                                     <Input
@@ -233,6 +262,8 @@ const OrganizationProfilePage = () => {
                                         className="h-10 text-sm"
                                         {...register("contactEmail")}
                                         aria-invalid={errors.contactEmail ? "true" : "false"}
+                                        readOnly={!isAdmin}
+                                        disabled={!isAdmin}
                                     />
                                     {errors.contactEmail && (
                                         <FieldError errors={[errors.contactEmail]} />
@@ -245,7 +276,7 @@ const OrganizationProfilePage = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <Field orientation="vertical">
                                 <FieldLabel htmlFor="phone" className="text-sm font-medium">
-                                    Phone <span className="text-destructive">*</span>
+                                    Phone {isAdmin && <span className="text-destructive">*</span>}
                                 </FieldLabel>
                                 <FieldContent>
                                     <Input
@@ -255,6 +286,8 @@ const OrganizationProfilePage = () => {
                                         className="h-10 text-sm"
                                         {...register("phone")}
                                         aria-invalid={errors.phone ? "true" : "false"}
+                                        readOnly={!isAdmin}
+                                        disabled={!isAdmin}
                                     />
                                     {errors.phone && (
                                         <FieldError errors={[errors.phone]} />
@@ -264,7 +297,7 @@ const OrganizationProfilePage = () => {
 
                             <Field orientation="vertical">
                                 <FieldLabel htmlFor="address" className="text-sm font-medium">
-                                    Address <span className="text-destructive">*</span>
+                                    Address {isAdmin && <span className="text-destructive">*</span>}
                                 </FieldLabel>
                                 <FieldContent>
                                     <Textarea
@@ -273,6 +306,8 @@ const OrganizationProfilePage = () => {
                                         className="min-h-20 text-sm resize-none"
                                         {...register("address")}
                                         aria-invalid={errors.address ? "true" : "false"}
+                                        readOnly={!isAdmin}
+                                        disabled={!isAdmin}
                                     />
                                     {errors.address && (
                                         <FieldError errors={[errors.address]} />
@@ -281,21 +316,23 @@ const OrganizationProfilePage = () => {
                             </Field>
                         </div>
 
-                        {/* Update Button */}
-                        <Button
-                            type="submit"
-                            className="w-full h-10 text-sm font-medium"
-                            disabled={!hasChanges() || isPending}
-                        >
-                            {isPending ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Updating...
-                                </>
-                            ) : (
-                                'Update Organization Profile'
-                            )}
-                        </Button>
+                        {/* Update Button - Only visible to Admin */}
+                        {isAdmin && (
+                            <Button
+                                type="submit"
+                                className="w-full h-10 text-sm font-medium"
+                                disabled={!hasChanges() || isPending}
+                            >
+                                {isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Updating...
+                                    </>
+                                ) : (
+                                    'Update Organization Profile'
+                                )}
+                            </Button>
+                        )}
                     </FieldGroup>
                 </form>
             </div>

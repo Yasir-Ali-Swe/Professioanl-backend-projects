@@ -1,6 +1,8 @@
 // pages/suppliers/SupplierDetail.jsx
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import {
     Card,
     CardContent,
@@ -56,6 +58,8 @@ const dummyProducts = [
 const SupplierDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { role } = useAuth();
+    const rolePrefix = getRolePrefix(role);
     const [supplier] = useState(dummySupplier);
     const [products] = useState(dummyProducts);
 
@@ -78,7 +82,7 @@ const SupplierDetail = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 sm:h-9 sm:w-9 shrink-0"
-                        onClick={() => navigate('/admin/suppliers')}
+                        onClick={() => navigate(-1)}
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
@@ -102,7 +106,7 @@ const SupplierDetail = () => {
 
                 <div className="flex items-center gap-2 self-start sm:self-auto">
                     <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm" asChild>
-                        <Link to={`/admin/suppliers/${supplier._id}/edit`} className="flex items-center justify-center">
+                        <Link to={`/${rolePrefix}/suppliers/${supplier._id}/edit`} className="flex items-center justify-center">
                             <Edit className="mr-1.5 h-3.5 w-3.5" />
                             Edit
                         </Link>
@@ -116,68 +120,52 @@ const SupplierDetail = () => {
                     <CardTitle className="text-sm sm:text-base">Supplier Overview</CardTitle>
                     <CardDescription className="text-xs sm:text-sm">Supplier details and contact information</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                            <p className="text-xs text-muted-foreground">Supplier Name</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Truck className="h-4 w-4 text-muted-foreground" />
-                                <p className="text-sm font-medium">{supplier.name}</p>
-                            </div>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Contact Person</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                <p className="text-sm">{supplier.contactPerson}</p>
-                            </div>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Email</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
-                                {supplier.email ? (
-                                    <a href={`mailto:${supplier.email}`} className="text-sm text-primary hover:underline">
-                                        {supplier.email}
-                                    </a>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">N/A</p>
-                                )}
-                            </div>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Phone</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <p className="text-sm">{supplier.phone}</p>
-                            </div>
-                        </div>
-                        <div className="sm:col-span-2">
-                            <p className="text-xs text-muted-foreground">Address</p>
-                            <div className="flex items-start gap-2 mt-1">
-                                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                                <p className="text-sm">{supplier.address}</p>
-                            </div>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Lead Time</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                <p className="text-sm">{supplier.leadTimeDays ? `${supplier.leadTimeDays} days` : 'N/A'}</p>
-                            </div>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Created By</p>
-                            <p className="text-sm">{supplier.createdBy || 'N/A'}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Created At</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                <p className="text-sm">{formatDate(supplier.createdAt)}</p>
-                            </div>
+                <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Supplier Name</p>
+                        <span className="text-sm font-medium">{supplier?.name || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Contact Person</p>
+                        <span className="text-sm">{supplier?.contactPerson || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Email</p>
+                        <a href={`mailto:${supplier?.email}`} className="text-sm text-primary hover:underline">
+                            {supplier?.email || 'N/A'}
+                        </a>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Phone</p>
+                        <span className="text-sm">{supplier?.phone || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Address</p>
+                        <span className="text-sm">{supplier?.address || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Created By</p>
+                        <p className="text-sm">{supplier.createdBy || 'N/A'}</p>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Created At</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <p className="text-sm">{formatDate(supplier.createdAt)}</p>
                         </div>
                     </div>
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">Lead Time (Days)</p>
+                        <Badge variant="outline" className="text-[10px]">
+                            {supplier?.leadTimeDays || 'N/A'} days
+                        </Badge>
+                    </div>
+                    <Button variant="outline" size="sm" className="mt-2 text-xs" asChild>
+                        <Link to={`/${rolePrefix}/suppliers/${supplier?._id}`} className="flex items-center">
+                            <Truck className="mr-1.5 h-3.5 w-3.5" />
+                            View all products from this supplier
+                        </Link>
+                    </Button>
                 </CardContent>
             </Card>
 
@@ -192,7 +180,7 @@ const SupplierDetail = () => {
                             </CardDescription>
                         </div>
                         <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
-                            <Link to="/admin/products/add" className="flex items-center justify-center">
+                            <Link to={`/${rolePrefix}/products/add`} className="flex items-center justify-center">
                                 <Package className="mr-1.5 h-3.5 w-3.5" />
                                 Add Product
                             </Link>
@@ -241,7 +229,7 @@ const SupplierDetail = () => {
                                             </TableCell>
                                             <TableCell className="py-2 px-2 text-right">
                                                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0" asChild>
-                                                    <Link to={`/admin/products/${product._id}`}>
+                                                    <Link to={`/${rolePrefix}/products/${product._id}`}>
                                                         <Eye className="h-3 w-3" />
                                                     </Link>
                                                 </Button>

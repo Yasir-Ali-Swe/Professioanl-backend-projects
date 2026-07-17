@@ -23,10 +23,12 @@ import SubscriptionDetailPage from "@/pages/superAdmin/SubscriptionDetail";
 
 // Admin Pages
 import AdminDashboardPage from "@/pages/admin/AdminDashboard";
-import AdminProductsPage from "@/pages/products/ProductsList";
-import AdminProductDetailsPage from "@/pages/products/ProductDetails";
-import AdminAddProductPage from "@/pages/products/ProductAdd";
-import AdminEditProductPage from "@/pages/products/ProductEdit";
+
+// Product Pages
+import ProductsPage from "@/pages/products/ProductsList";
+import ProductDetailsPage from "@/pages/products/ProductDetails";
+import AddProductPage from "@/pages/products/ProductAdd";
+import EditProductPage from "@/pages/products/ProductEdit";
 
 // Category Pages
 import CategoryAddPage from "@/pages/categories/CategoryAdd";
@@ -59,6 +61,9 @@ import AllPurchaseOrdersPage from "@/pages/purchaseOrders/AllPurchaseOrders";
 // Team Pages
 import TeamListPage from "@/pages/team/TeamList";
 import InviteUserPage from "@/pages/team/InviteUser";
+
+// Manager Pages 
+import ManagerDashboardPage from "@/pages/manager/ManagerDashboard";
 
 // Common Pages
 import ProfilePage from "@/pages/Profile";
@@ -127,10 +132,10 @@ const App = () => {
           <Route path="/admin/stock" element={<StockOverviewPage />} />
 
           {/* Product Routes */}
-          <Route path="/admin/products" element={<AdminProductsPage />} />
-          <Route path="/admin/products/add" element={<AdminAddProductPage />} />
-          <Route path="/admin/products/edit/:id" element={<AdminEditProductPage />} />
-          <Route path="/admin/products/:id" element={<AdminProductDetailsPage />} />
+          <Route path="/admin/products" element={<ProductsPage />} />
+          <Route path="/admin/products/add" element={<AddProductPage />} />
+          <Route path="/admin/products/edit/:id" element={<EditProductPage />} />
+          <Route path="/admin/products/:id" element={<ProductDetailsPage />} />
 
           {/* Other Admin Routes */}
           <Route path="/admin/chatbot" element={<ChatbotPage />} />
@@ -138,10 +143,16 @@ const App = () => {
           <Route path="/admin/organization-profile" element={<OrganizationProfilePage />} />
 
           {/* Manager Routes - Commented out */}
-          {/* <Route path="/manager/dashboard" element={<ManagerDashboardPage />} /> */}
-          {/* <Route path="/manager/products" element={<ManagerProductsPage />} /> */}
+          <Route path="/manager/dashboard" element={<ManagerDashboardPage />} />
+          <Route path="/manager/products" element={<ProductsPage />} />
+          <Route path="/manager/products/add" element={<AddProductPage />} />
+          <Route path="/manager/products/edit/:id" element={<EditProductPage />} />
+          <Route path="/manager/products/:id" element={<ProductDetailsPage />} />
+          <Route path="/manager/suppliers/add" element={<SupplierAddPage />} />
+          <Route path="/manager/suppliers/:id/edit" element={<SupplierEditPage />} />
+          <Route path="/manager/suppliers/:id" element={<SupplierDetailPage />} />
+          <Route path="/manager/suppliers" element={<SuppliersListPage />} />
           {/* <Route path="/manager/categories" element={<ManagerCategoriesPage />} /> */}
-          {/* <Route path="/manager/suppliers" element={<ManagerSuppliersPage />} /> */}
           {/* <Route path="/manager/stock" element={<ManagerStockPage />} /> */}
           {/* <Route path="/manager/invoices" element={<ManagerInvoicesPage />} /> */}
           {/* <Route path="/manager/purchase-orders" element={<ManagerPurchaseOrdersPage />} /> */}

@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import * as z from 'zod';
 import {
     Field,
@@ -24,6 +26,9 @@ const categorySchema = z.object({
 const CategoryAdd = () => {
     const navigate = useNavigate();
     const [isPending, setIsPending] = useState(false);
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
 
     const {
         register,
@@ -58,7 +63,7 @@ const CategoryAdd = () => {
         try {
             await new Promise(resolve => setTimeout(resolve, 1500));
             toast.success('Category created successfully!');
-            navigate('/admin/categories');
+            navigate(`/${rolePrefix}/categories`);
         } catch (error) {
             toast.error(error.message || 'Failed to create category. Please try again.');
         } finally {
@@ -126,7 +131,7 @@ const CategoryAdd = () => {
                                 type="button"
                                 variant="outline"
                                 className="w-full sm:w-auto order-2 sm:order-1"
-                                onClick={() => navigate('/admin/categories')}
+                                onClick={() => navigate(-1)}
                             >
                                 Cancel
                             </Button>

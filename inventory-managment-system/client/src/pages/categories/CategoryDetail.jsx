@@ -1,6 +1,8 @@
 // pages/categories/CategoryDetail.jsx
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import {
     Card,
     CardContent,
@@ -21,14 +23,8 @@ import {
 import {
     ArrowLeft,
     Package,
-    Tag,
-    User,
-    Calendar,
     Edit,
     Eye,
-    Tags,
-    CheckCircle,
-    XCircle,
 } from 'lucide-react';
 
 // Dummy Category Data
@@ -52,6 +48,9 @@ const dummyProducts = [
 ];
 
 const CategoryDetail = () => {
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
     const { id } = useParams();
     const navigate = useNavigate();
     const [category] = useState(dummyCategory);
@@ -97,7 +96,7 @@ const CategoryDetail = () => {
 
                 <div className="flex items-center gap-2 self-start sm:self-auto">
                     <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm" asChild>
-                        <Link to={`/admin/categories/${category._id}/edit`} className="flex items-center justify-center">
+                        <Link to={`/${rolePrefix}/categories/${category._id}/edit`} className="flex items-center justify-center">
                             <Edit className="mr-1.5 h-3.5 w-3.5" />
                             Edit
                         </Link>
@@ -111,34 +110,32 @@ const CategoryDetail = () => {
                     <CardTitle className="text-sm sm:text-base">Category Overview</CardTitle>
                     <CardDescription className="text-xs sm:text-sm">Category details and information</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                            <p className="text-xs text-muted-foreground">Category Name</p>
-                            <p className="text-sm font-medium">{category.name}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Slug</p>
-                            <p className="text-sm font-mono">{category.categorySlug}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Status</p>
-                            <Badge variant={category.isActive ? 'default' : 'secondary'} className="text-[10px]">
-                                {category.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Products Count</p>
-                            <p className="text-sm font-medium">{category.productsCount}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Created By</p>
-                            <p className="text-sm">{category.createdBy?.name} ({category.createdBy?.role})</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Created At</p>
-                            <p className="text-sm">{formatDate(category.createdAt)}</p>
-                        </div>
+                <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Category Name</p>
+                        <p className="text-sm font-medium">{category.name}</p>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Slug</p>
+                        <p className="text-sm font-mono">{category.categorySlug}</p>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Status</p>
+                        <Badge variant={category.isActive ? 'default' : 'secondary'} className="text-[10px]">
+                            {category.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Products Count</p>
+                        <p className="text-sm font-medium">{category.productsCount}</p>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <p className="text-xs text-muted-foreground">Created By</p>
+                        <p className="text-sm">{category.createdBy?.name} ({category.createdBy?.role})</p>
+                    </div>
+                    <div className="flex items-center justify-between pb-2">
+                        <p className="text-xs text-muted-foreground">Created At</p>
+                        <p className="text-sm">{formatDate(category.createdAt)}</p>
                     </div>
                 </CardContent>
             </Card>
@@ -154,7 +151,7 @@ const CategoryDetail = () => {
                             </CardDescription>
                         </div>
                         <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
-                            <Link to="/admin/products/add" className="flex items-center justify-center">
+                            <Link to={`/${rolePrefix}/products/add`} className="flex items-center justify-center">
                                 <Package className="mr-1.5 h-3.5 w-3.5" />
                                 Add Product
                             </Link>
@@ -203,7 +200,7 @@ const CategoryDetail = () => {
                                             </TableCell>
                                             <TableCell className="py-2 px-2 text-right">
                                                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0" asChild>
-                                                    <Link to={`/admin/products/${product._id}`}>
+                                                    <Link to={`/${rolePrefix}/products/${product._id}`}>
                                                         <Eye className="h-3 w-3" />
                                                     </Link>
                                                 </Button>

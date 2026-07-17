@@ -1,6 +1,8 @@
 // pages/suppliers/SuppliersList.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import {
     Card,
     CardContent,
@@ -118,6 +120,8 @@ const dummySuppliers = [
 ];
 
 const SuppliersList = () => {
+    const { role } = useAuth();
+    const rolePrefix = getRolePrefix(role);
     const [searchParams, setSearchParams] = useSearchParams();
     const [suppliers] = useState(dummySuppliers);
 
@@ -211,8 +215,8 @@ const SuppliersList = () => {
                         Manage your product suppliers.
                     </p>
                 </div>
-                <Button className="w-full sm:w-auto" asChild>
-                    <Link to="/admin/suppliers/add" className="flex items-center justify-center">
+                <Button className={"max-w-30"} asChild>
+                    <Link to={`/${rolePrefix}/suppliers/add`} className="flex items-center justify-center">
                         <Plus className="mr-1.5 h-4 w-4" />
                         Add Supplier
                     </Link>
@@ -312,7 +316,7 @@ const SuppliersList = () => {
                                     <TableRow key={supplier._id}>
                                         <TableCell className="font-medium">
                                             <Link
-                                                to={`/admin/suppliers/${supplier._id}`}
+                                                to={`/${rolePrefix}/suppliers/${supplier._id}`}
                                                 className="hover:text-primary transition-colors"
                                             >
                                                 {supplier.name}
@@ -365,7 +369,7 @@ const SuppliersList = () => {
                                                     <DropdownMenuGroup>
                                                         <DropdownMenuItem
                                                             render={
-                                                                <Link to={`/admin/suppliers/${supplier._id}`} className="cursor-pointer">
+                                                                <Link to={`/${rolePrefix}/suppliers/${supplier._id}`} className="cursor-pointer">
                                                                     <Eye className="mr-2 h-3.5 w-3.5" />
                                                                     View Details
                                                                 </Link>
@@ -373,7 +377,7 @@ const SuppliersList = () => {
                                                         />
                                                         <DropdownMenuItem
                                                             render={
-                                                                <Link to={`/admin/suppliers/${supplier._id}/edit`} className="cursor-pointer">
+                                                                <Link to={`/${rolePrefix}/suppliers/${supplier._id}/edit`} className="cursor-pointer">
                                                                     <Edit className="mr-2 h-3.5 w-3.5" />
                                                                     Edit
                                                                 </Link>

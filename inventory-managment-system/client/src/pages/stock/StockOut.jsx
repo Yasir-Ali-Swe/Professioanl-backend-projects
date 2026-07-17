@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import * as z from 'zod';
 import {
     Field,
@@ -46,6 +48,9 @@ const StockOut = () => {
     const [isPending, setIsPending] = useState(false);
     const [products] = useState(dummyProducts);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
 
     const {
         register,
@@ -89,7 +94,7 @@ const StockOut = () => {
         try {
             await new Promise(resolve => setTimeout(resolve, 1500));
             toast.success(`Stock Out successful! ${values.quantity} units removed.`);
-            navigate('/admin/stock/overview');
+            navigate(`/${rolePrefix}/stock/overview`);
         } catch (error) {
             toast.error(error.message || 'Failed to remove stock. Please try again.');
         } finally {

@@ -1,6 +1,8 @@
 // pages/products/ProductDetail.jsx
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
 import {
     Card,
     CardContent,
@@ -122,6 +124,10 @@ const dummyReorderSuggestion = {
 };
 
 const ProductDetail = () => {
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
+
     const { id } = useParams();
     const navigate = useNavigate();
     const [product] = useState(dummyProduct);
@@ -199,7 +205,7 @@ const ProductDetail = () => {
                             <div className="flex items-center gap-1.5">
                                 <Tag className="h-3 w-3 text-muted-foreground" />
                                 <Link
-                                    to={`/admin/categories/${product.category?._id}`}
+                                    to={`/${rolePrefix}/categories/${product.category?._id}`}
                                     className="text-xs sm:text-sm text-primary hover:underline"
                                 >
                                     {product.category?.name || 'N/A'}
@@ -214,7 +220,7 @@ const ProductDetail = () => {
 
                 <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
                     <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm" asChild>
-                        <Link to={`/admin/products/${product._id}/edit`} className="flex items-center">
+                        <Link to={`/${rolePrefix}/products/edit/${product._id}`} className="flex items-center">
                             <Edit className="mr-1.5 h-3.5 w-3.5" />
                             Edit
                         </Link>
@@ -295,7 +301,7 @@ const ProductDetail = () => {
                             <div>
                                 <p className="text-xs text-muted-foreground">Category</p>
                                 <Link
-                                    to={`/admin/categories/${product.category?._id}`}
+                                    to={`/${rolePrefix}/categories/${product.category?._id}`}
                                     className="text-sm font-medium text-primary hover:underline"
                                 >
                                     {product.category?.name || 'N/A'}
@@ -425,7 +431,7 @@ const ProductDetail = () => {
                         </Badge>
                     </div>
                     <Button variant="outline" size="sm" className="mt-2 text-xs" asChild>
-                        <Link to={`/admin/suppliers/${product.supplier?._id}`} className="flex items-center">
+                        <Link to={`/${rolePrefix}/suppliers/${product.supplier?._id}`} className="flex items-center">
                             <Truck className="mr-1.5 h-3.5 w-3.5" />
                             View all products from this supplier
                         </Link>

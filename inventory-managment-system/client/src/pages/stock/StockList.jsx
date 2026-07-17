@@ -1,12 +1,9 @@
 // pages/stock/StockList.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
+
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -37,14 +34,11 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-    Package,
     Search,
     Eye,
     MoreVertical,
     ArrowDown,
     ArrowUp,
-    AlertTriangle,
-    CheckCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -60,6 +54,9 @@ const dummyStock = [
 const StockList = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [stock] = useState(dummyStock);
+    const { user } = useAuth();
+    const role = user?.role || 'admin';
+    const rolePrefix = getRolePrefix(role);
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -224,7 +221,7 @@ const StockList = () => {
                                         <TableRow key={item._id}>
                                             <TableCell className="font-medium">
                                                 <Link
-                                                    to={`/admin/products/${item._id}`}
+                                                    to={`/${rolePrefix}/products/${item._id}`}
                                                     className="hover:text-primary transition-colors"
                                                 >
                                                     {item.name}
@@ -268,7 +265,7 @@ const StockList = () => {
                                                         <DropdownMenuGroup>
                                                             <DropdownMenuItem
                                                                 render={
-                                                                    <Link to={`/admin/products/${item._id}`} className="cursor-pointer">
+                                                                    <Link to={`/${rolePrefix}/products/${item._id}`} className="cursor-pointer">
                                                                         <Eye className="mr-2 h-3.5 w-3.5" />
                                                                         View Product
                                                                     </Link>

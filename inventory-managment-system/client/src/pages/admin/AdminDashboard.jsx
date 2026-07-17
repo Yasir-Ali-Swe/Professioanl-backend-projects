@@ -1,6 +1,5 @@
 // pages/dashboard/AdminDashboard.jsx
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
     Card,
     CardContent,
@@ -17,6 +16,16 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import {
     ChartContainer,
     ChartTooltip,
@@ -43,8 +52,19 @@ import {
     Users,
     TrendingUp,
     Eye,
+    FileText,
+    ShoppingCart,
+    Calendar,
+    User,
+    Building2,
+    Mail,
+    Phone,
+    MapPin,
+    Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+
 // Dummy Data
 const dummyDashboard = {
     inventory: {
@@ -107,18 +127,18 @@ const dummyDashboard = {
     },
     recentActivity: {
         invoices: [
-            { id: 'INV-001', customer: 'TechCorp Inc.', total: 2500, createdBy: 'John Doe', date: '2024-01-15' },
-            { id: 'INV-002', customer: 'GreenLeaf Solutions', total: 1800, createdBy: 'Jane Smith', date: '2024-01-14' },
-            { id: 'INV-003', customer: 'BlueWave Media', total: 3200, createdBy: 'John Doe', date: '2024-01-13' },
-            { id: 'INV-004', customer: 'CloudNine Systems', total: 4500, createdBy: 'Sarah Johnson', date: '2024-01-12' },
-            { id: 'INV-005', customer: 'StarBridge Consulting', total: 2100, createdBy: 'Jane Smith', date: '2024-01-11' },
+            { id: 'INV-001', customer: 'TechCorp Inc.', total: 2500, createdBy: 'John Doe', date: '2024-01-15', items: 3, status: 'paid' },
+            { id: 'INV-002', customer: 'GreenLeaf Solutions', total: 1800, createdBy: 'Jane Smith', date: '2024-01-14', items: 2, status: 'unpaid' },
+            { id: 'INV-003', customer: 'BlueWave Media', total: 3200, createdBy: 'John Doe', date: '2024-01-13', items: 4, status: 'paid' },
+            { id: 'INV-004', customer: 'CloudNine Systems', total: 4500, createdBy: 'Sarah Johnson', date: '2024-01-12', items: 5, status: 'paid' },
+            { id: 'INV-005', customer: 'StarBridge Consulting', total: 2100, createdBy: 'Jane Smith', date: '2024-01-11', items: 2, status: 'unpaid' },
         ],
         purchaseOrders: [
-            { id: 'PO-001', supplier: 'TechSupply Co.', totalCost: 5000, status: 'fulfilled', createdBy: 'John Doe', date: '2024-01-15' },
-            { id: 'PO-002', supplier: 'GreenGoods Ltd.', totalCost: 3200, status: 'pending', createdBy: 'Jane Smith', date: '2024-01-14' },
-            { id: 'PO-003', supplier: 'BlueWholesale Inc.', totalCost: 4500, status: 'fulfilled', createdBy: 'John Doe', date: '2024-01-13' },
-            { id: 'PO-004', supplier: 'CloudTech Supplies', totalCost: 2800, status: 'pending', createdBy: 'Sarah Johnson', date: '2024-01-12' },
-            { id: 'PO-005', supplier: 'StarLogistics Group', totalCost: 3900, status: 'fulfilled', createdBy: 'Jane Smith', date: '2024-01-11' },
+            { id: 'PO-001', supplier: 'TechSupply Co.', totalCost: 5000, status: 'fulfilled', createdBy: 'John Doe', date: '2024-01-15', items: 3 },
+            { id: 'PO-002', supplier: 'GreenGoods Ltd.', totalCost: 3200, status: 'pending', createdBy: 'Jane Smith', date: '2024-01-14', items: 2 },
+            { id: 'PO-003', supplier: 'BlueWholesale Inc.', totalCost: 4500, status: 'fulfilled', createdBy: 'John Doe', date: '2024-01-13', items: 4 },
+            { id: 'PO-004', supplier: 'CloudTech Supplies', totalCost: 2800, status: 'pending', createdBy: 'Sarah Johnson', date: '2024-01-12', items: 3 },
+            { id: 'PO-005', supplier: 'StarLogistics Group', totalCost: 3900, status: 'fulfilled', createdBy: 'Jane Smith', date: '2024-01-11', items: 2 },
         ],
     },
 };
@@ -171,8 +191,213 @@ const financialBreakdownConfig = {
 
 const COLORS = ['var(--chart-1)', 'var(--destructive)', 'var(--chart-3)', 'var(--chart-4)'];
 
+// Invoice Detail Dialog Component
+const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
+    if (!invoice) return null;
+
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    const getStatusBadge = (status) => {
+        const variants = {
+            paid: 'default',
+            unpaid: 'destructive',
+            void: 'secondary',
+        };
+        return variants[status] || 'secondary';
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <div className="flex items-center justify-between">
+                        <DialogTitle className="text-xl font-bold">
+                            {invoice.id}
+                        </DialogTitle>
+                        <Badge variant={getStatusBadge(invoice.status)} className="text-[10px]">
+                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                        </Badge>
+                    </div>
+                    <DialogDescription>
+                        Created by {invoice.createdBy} on {formatDate(invoice.date)}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                    {/* Customer Info */}
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                        <div>
+                            <p className="text-xs text-muted-foreground">Customer</p>
+                            <p className="text-sm font-medium">{invoice.customer}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-muted-foreground">Total Items</p>
+                            <p className="text-sm font-medium">{invoice.items}</p>
+                        </div>
+                    </div>
+
+                    {/* Invoice Items */}
+                    <div className="rounded-md border overflow-hidden">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="py-1.5 px-2 text-xs">Product</TableHead>
+                                    <TableHead className="py-1.5 px-2 text-xs text-center">Qty</TableHead>
+                                    <TableHead className="py-1.5 px-2 text-xs text-right">Price</TableHead>
+                                    <TableHead className="py-1.5 px-2 text-xs text-right">Subtotal</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {[...Array(invoice.items)].map((_, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell className="py-1.5 px-2 text-xs font-medium">
+                                            Product {index + 1}
+                                        </TableCell>
+                                        <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
+                                        <TableCell className="py-1.5 px-2 text-xs text-right">
+                                            ${(invoice.total / invoice.items).toFixed(2)}
+                                        </TableCell>
+                                        <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                            ${(invoice.total / invoice.items).toFixed(2)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="border-t pt-3">
+                        <div className="flex justify-between text-base font-bold">
+                            <span>Total</span>
+                            <span className="text-primary">${invoice.total.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <DialogFooter showCloseButton={false}>
+                    <DialogClose asChild>
+                        <Button variant="outline">Close</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+// Purchase Order Detail Dialog Component
+const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
+    if (!po) return null;
+
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    const getStatusBadge = (status) => {
+        const variants = {
+            pending: 'outline',
+            approved: 'default',
+            rejected: 'destructive',
+            fulfilled: 'secondary',
+        };
+        return variants[status] || 'secondary';
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <div className="flex items-center justify-between">
+                        <DialogTitle className="text-xl font-bold">
+                            {po.id}
+                        </DialogTitle>
+                        <Badge variant={getStatusBadge(po.status)} className="text-[10px]">
+                            {po.status.charAt(0).toUpperCase() + po.status.slice(1)}
+                        </Badge>
+                    </div>
+                    <DialogDescription>
+                        Created by {po.createdBy} on {formatDate(po.date)}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                    {/* Supplier Info */}
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                        <div>
+                            <p className="text-xs text-muted-foreground">Supplier</p>
+                            <p className="text-sm font-medium">{po.supplier}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-muted-foreground">Total Items</p>
+                            <p className="text-sm font-medium">{po.items}</p>
+                        </div>
+                    </div>
+
+                    {/* PO Items */}
+                    <div className="rounded-md border overflow-hidden">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="py-1.5 px-2 text-xs">Product</TableHead>
+                                    <TableHead className="py-1.5 px-2 text-xs text-center">Qty</TableHead>
+                                    <TableHead className="py-1.5 px-2 text-xs text-right">Unit Cost</TableHead>
+                                    <TableHead className="py-1.5 px-2 text-xs text-right">Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {[...Array(po.items)].map((_, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell className="py-1.5 px-2 text-xs font-medium">
+                                            Product {index + 1}
+                                        </TableCell>
+                                        <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
+                                        <TableCell className="py-1.5 px-2 text-xs text-right">
+                                            ${(po.totalCost / po.items).toFixed(2)}
+                                        </TableCell>
+                                        <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                            ${(po.totalCost / po.items).toFixed(2)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="border-t pt-3">
+                        <div className="flex justify-between text-base font-bold">
+                            <span>Total Cost</span>
+                            <span className="text-primary">${po.totalCost.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <DialogFooter showCloseButton={false}>
+                    <DialogClose asChild>
+                        <Button variant="outline">Close</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 const AdminDashboard = () => {
     const [dashboard] = useState(dummyDashboard);
+    const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [selectedPO, setSelectedPO] = useState(null);
+    const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+    const [poDialogOpen, setPODialogOpen] = useState(false);
 
     const {
         inventory,
@@ -206,6 +431,16 @@ const AdminDashboard = () => {
     const capitalize = (value) => {
         if (!value) return '';
         return value.charAt(0).toUpperCase() + value.slice(1);
+    };
+
+    const openInvoiceDetail = (invoice) => {
+        setSelectedInvoice(invoice);
+        setInvoiceDialogOpen(true);
+    };
+
+    const openPODetail = (po) => {
+        setSelectedPO(po);
+        setPODialogOpen(true);
     };
 
     return (
@@ -602,10 +837,13 @@ const AdminDashboard = () => {
                                                 {inv.date}
                                             </TableCell>
                                             <TableCell className="py-1.5 px-2 text-xs text-center">
-                                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" asChild>
-                                                    <Link to={`/admin/invoices/${inv.id}`}>
-                                                        <Eye className="h-3 w-3" />
-                                                    </Link>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0"
+                                                    onClick={() => openInvoiceDetail(inv)}
+                                                >
+                                                    <Eye className="h-3 w-3" />
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -650,10 +888,13 @@ const AdminDashboard = () => {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="py-1.5 px-2 text-xs text-center">
-                                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" asChild>
-                                                    <Link to={`/admin/purchase-orders/${po.id}`}>
-                                                        <Eye className="h-3 w-3" />
-                                                    </Link>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0"
+                                                    onClick={() => openPODetail(po)}
+                                                >
+                                                    <Eye className="h-3 w-3" />
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -664,6 +905,19 @@ const AdminDashboard = () => {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Dialogs */}
+            <InvoiceDetailDialog
+                invoice={selectedInvoice}
+                open={invoiceDialogOpen}
+                onOpenChange={setInvoiceDialogOpen}
+            />
+
+            <PurchaseOrderDetailDialog
+                po={selectedPO}
+                open={poDialogOpen}
+                onOpenChange={setPODialogOpen}
+            />
         </div>
     );
 };

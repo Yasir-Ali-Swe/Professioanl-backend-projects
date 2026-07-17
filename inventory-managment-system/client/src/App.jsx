@@ -156,7 +156,12 @@ const App = () => {
           <Route path="/manager/categories/:id/edit" element={<CategoryEditPage />} />
           <Route path="/manager/categories/:id" element={<CategoryDetailsPage />} />
           <Route path="/manager/categories" element={<CategoryListPage />} />
-          {/* <Route path="/manager/stock" element={<ManagerStockPage />} /> */}
+          <Route path="/manager/stock/overview" element={<StockOverviewPage />} />
+          <Route path="/manager/stock/list" element={<StockListPage />} />
+          <Route path="/manager/stock/low-stock" element={<LowStockPage />} />
+          <Route path="/manager/stock/in" element={<StockInPage />} />
+          <Route path="/manager/stock/out" element={<StockOutPage />} />
+          <Route path="/manager/stock" element={<StockOverviewPage />} />
           {/* <Route path="/manager/invoices" element={<ManagerInvoicesPage />} /> */}
           {/* <Route path="/manager/purchase-orders" element={<ManagerPurchaseOrdersPage />} /> */}
           {/* <Route path="/manager/team" element={<ManagerTeamPage />} /> */}

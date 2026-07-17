@@ -124,7 +124,7 @@ const SIDEBAR_CONFIG = [
     ],
   },
   {
-    label: "Invoice Settings",
+    label: "Invoice",
     icon: "FileText",
     path: "invoice-settings",
     section: "account",

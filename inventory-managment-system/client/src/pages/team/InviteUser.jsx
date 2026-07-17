@@ -252,7 +252,7 @@ const InviteUser = () => {
                                 type="button"
                                 variant="outline"
                                 className="w-full sm:w-auto order-2 sm:order-1"
-                                onClick={() => navigate('/admin/team')}
+                                onClick={() => navigate(-1)}
                             >
                                 Cancel
                             </Button>

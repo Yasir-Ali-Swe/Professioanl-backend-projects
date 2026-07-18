@@ -202,12 +202,15 @@ const CategoriesList = () => {
                         Manage your product categories.
                     </p>
                 </div>
-                <Button className="w-full sm:w-auto" asChild>
-                    <Link to={`/${rolePrefix}/categories/add`} className="flex items-center justify-center">
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        Add Category
-                    </Link>
-                </Button>
+                {
+                    user && (user.role === 'admin' || user.role === 'manager') &&
+                    <Button className="w-full sm:w-auto" asChild>
+                        <Link to={`/${rolePrefix}/categories/add`} className="flex items-center justify-center">
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            Add Category
+                        </Link>
+                    </Button>
+                }
             </div>
 
             {/* Stats Cards */}

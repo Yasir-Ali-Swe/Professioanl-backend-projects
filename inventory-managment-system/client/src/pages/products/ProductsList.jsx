@@ -278,12 +278,15 @@ const ProductsList = () => {
                         Manage your product catalog.
                     </p>
                 </div>
-                <Button className="w-full sm:w-auto">
-                    <Link to={`/${rolePrefix}/products/add`} className="flex items-center gap-1">
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        Add Product
-                    </Link>
-                </Button>
+                {
+                    user && (user.role === 'admin' || user.role === 'manager') &&
+                    <Button className="w-full sm:w-auto">
+                        <Link to={`/${rolePrefix}/products/add`} className="flex items-center gap-1">
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            Add Product
+                        </Link>
+                    </Button>
+                }
             </div>
 
             {/* Stats Cards */}

@@ -217,61 +217,63 @@ const ProductDetail = () => {
                         </div>
                     </div>
                 </div>
-
-                <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-                    <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm" asChild>
-                        <Link to={`/${rolePrefix}/products/edit/${product._id}`} className="flex items-center">
-                            <Edit className="mr-1.5 h-3.5 w-3.5" />
-                            Edit
-                        </Link>
-                    </Button>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger
-                            render={
-                                <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm gap-1">
-                                    Actions
-                                    <ChevronRight className="h-3.5 w-3.5" />
-                                </Button>
-                            }
-                        />
-                        <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuGroup>
-                                <DropdownMenuLabel>Stock Actions</DropdownMenuLabel>
+                {
+                    user && (user.role === 'admin' || user.role === 'manager') &&
+                    <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                        <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm" asChild>
+                            <Link to={`/${rolePrefix}/products/edit/${product._id}`} className="flex items-center">
+                                <Edit className="mr-1.5 h-3.5 w-3.5" />
+                                Edit
+                            </Link>
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger
+                                render={
+                                    <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm gap-1">
+                                        Actions
+                                        <ChevronRight className="h-3.5 w-3.5" />
+                                    </Button>
+                                }
+                            />
+                            <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuGroup>
+                                    <DropdownMenuLabel>Stock Actions</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="cursor-pointer">
+                                        <Plus className="mr-2 h-3.5 w-3.5 text-green-500" />
+                                        Stock In
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="cursor-pointer">
+                                        <Minus className="mr-2 h-3.5 w-3.5 text-destructive" />
+                                        Stock Out
+                                    </DropdownMenuItem>
+                                </DropdownMenuGroup>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="cursor-pointer">
-                                    <Plus className="mr-2 h-3.5 w-3.5 text-green-500" />
-                                    Stock In
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="cursor-pointer">
-                                    <Minus className="mr-2 h-3.5 w-3.5 text-destructive" />
-                                    Stock Out
-                                </DropdownMenuItem>
-                            </DropdownMenuGroup>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuGroup>
-                                <DropdownMenuLabel>Product Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="cursor-pointer">
-                                    <Image className="mr-2 h-3.5 w-3.5" />
-                                    Upload Image
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="cursor-pointer">
-                                    {product.isActive ? (
-                                        <>
-                                            <XCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
-                                            Deactivate
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CheckCircle className="mr-2 h-3.5 w-3.5 text-primary" />
-                                            Activate
-                                        </>
-                                    )}
-                                </DropdownMenuItem>
-                            </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+                                <DropdownMenuGroup>
+                                    <DropdownMenuLabel>Product Actions</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="cursor-pointer">
+                                        <Image className="mr-2 h-3.5 w-3.5" />
+                                        Upload Image
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="cursor-pointer">
+                                        {product.isActive ? (
+                                            <>
+                                                <XCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
+                                                Deactivate
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle className="mr-2 h-3.5 w-3.5 text-primary" />
+                                                Activate
+                                            </>
+                                        )}
+                                    </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                }
             </div>
 
             {/* Product Overview Card - Full Width */}

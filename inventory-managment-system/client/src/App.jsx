@@ -179,8 +179,10 @@ const App = () => {
 
           {/* Staff Routes - Commented out */}
           <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
-          {/* <Route path="/staff/products" element={<StaffProductsPage />} /> */}
-          {/* <Route path="/staff/categories" element={<StaffCategoriesPage />} /> */}
+          <Route path="/staff/products" element={<ProductsPage />} />
+          <Route path="/staff/products/:id" element={<ProductDetailsPage />} />
+          <Route path="/staff/categories" element={<CategoryListPage />} />
+          <Route path="/staff/categories/:id" element={<CategoryDetailsPage />} />
           {/* <Route path="/staff/suppliers" element={<StaffSuppliersPage />} /> */}
           <Route path="/staff/stock/in" element={<StockInPage />} />
           <Route path="/staff/stock/out" element={<StockOutPage />} />

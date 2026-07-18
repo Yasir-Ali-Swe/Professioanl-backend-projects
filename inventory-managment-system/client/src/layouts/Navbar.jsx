@@ -2,6 +2,7 @@
 import { Fragment } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { getBreadcrumbs } from '@/routes/breadcrumbsConfig';
 import {
     BadgeCheckIcon,
     BellIcon,
@@ -32,34 +33,12 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const isIdLike = (segment) => /^\d+$/.test(segment) || /^[0-9a-fA-F]{16,}$/.test(segment);
-const buildBreadcrumbs = (routes, pathname, userRole) => {
-    const dashboardPath = getDefaultDashboardPath(userRole);
-    const pathSegments = pathname.split('/').filter(Boolean);
-    const breadcrumbs = [{ label: 'Dashboard', path: dashboardPath }];
-
-    let currentPath = '';
-    for (const segment of pathSegments) {
-        currentPath += `/${segment}`;
-        if (currentPath === dashboardPath) continue;
-
-        const route = routes.find((r) => r.path === currentPath);
-
-        if (route) {
-            breadcrumbs.push({ label: route.label, path: currentPath });
-        } else if (isIdLike(segment)) {
-            breadcrumbs.push({ label: 'Details', path: currentPath });
-        }
-    }
-
-    return breadcrumbs;
-};
-
 export const Navbar = ({ routes }) => {
     const location = useLocation();
     const user = useSelector(selectUser);
+    const reduxState = useSelector((state) => state);
 
-    const breadcrumbs = buildBreadcrumbs(routes, location.pathname, user?.role);
+    const breadcrumbs = getBreadcrumbs(location.pathname, user?.role, reduxState);
     const pageTitle = breadcrumbs[breadcrumbs.length - 1]?.label || 'Dashboard';
 
     return (
@@ -72,9 +51,9 @@ export const Navbar = ({ routes }) => {
                     <Breadcrumb>
                         <BreadcrumbList>
                             {breadcrumbs.map((item, index) => {
-                                const isLast = index === breadcrumbs.length - 1;
+                                const isLast = index === breadcrumbs.length - 1 || !item.path;
                                 return (
-                                    <Fragment key={item.path}>
+                                    <Fragment key={`${item.label}-${index}`}>
                                         <BreadcrumbItem>
                                             {isLast ? (
                                                 <BreadcrumbPage className="font-semibold text-foreground">

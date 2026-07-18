@@ -351,22 +351,31 @@ const CategoriesList = () => {
                                                                 </Link>
                                                             }
                                                         />
-                                                        <DropdownMenuItem
-                                                            render={
-                                                                <Link to={`/${rolePrefix}/categories/${category._id}/edit`} className="cursor-pointer">
-                                                                    <Edit className="mr-2 h-3.5 w-3.5" />
-                                                                    Edit
-                                                                </Link>
-                                                            }
-                                                        />
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            className="cursor-pointer text-destructive focus:text-destructive"
-                                                            onClick={() => handleDelete(category)}
-                                                        >
-                                                            <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                                            Delete
-                                                        </DropdownMenuItem>
+                                                        {
+                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                                            <DropdownMenuItem
+                                                                render={
+                                                                    <Link to={`/${rolePrefix}/categories/${category._id}/edit`} className="cursor-pointer">
+                                                                        <Edit className="mr-2 h-3.5 w-3.5" />
+                                                                        Edit
+                                                                    </Link>
+                                                                }
+                                                            />
+                                                        }
+                                                        {
+                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                                            <DropdownMenuSeparator />
+                                                        }
+                                                        {
+                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer text-destructive focus:text-destructive"
+                                                                onClick={() => handleDelete(category)}
+                                                            >
+                                                                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        }
                                                     </DropdownMenuGroup>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>

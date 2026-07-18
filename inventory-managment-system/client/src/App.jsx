@@ -53,6 +53,7 @@ import StockOutPage from "@/pages/stock/StockOut";
 import GenerateInvoicePage from "@/pages/invoices/GenerateInvoice";
 import AllInvoicesPage from "@/pages/invoices/AllInvoices";
 import InvoiceSettingsPage from "@/pages/invoices/InvoiceSettings";
+import MyInvoicesPage from "@/pages/invoices/MyInvoices";
 
 // Purchase Order Pages
 import CreatePurchaseOrderPage from "@/pages/purchaseOrders/CreatePurchaseOrder";
@@ -64,6 +65,9 @@ import InviteUserPage from "@/pages/team/InviteUser";
 
 // Manager Pages 
 import ManagerDashboardPage from "@/pages/manager/ManagerDashboard";
+
+// Staff Pages
+import StaffDashboardPage from "@/pages/staff/StaffDashboard";
 
 // Common Pages
 import ProfilePage from "@/pages/Profile";
@@ -174,15 +178,17 @@ const App = () => {
           <Route path="/manager/invoice-settings" element={<InvoiceSettingsPage />} />
 
           {/* Staff Routes - Commented out */}
-          {/* <Route path="/staff/dashboard" element={<StaffDashboardPage />} /> */}
+          <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
           {/* <Route path="/staff/products" element={<StaffProductsPage />} /> */}
           {/* <Route path="/staff/categories" element={<StaffCategoriesPage />} /> */}
           {/* <Route path="/staff/suppliers" element={<StaffSuppliersPage />} /> */}
-          {/* <Route path="/staff/stock" element={<StaffStockPage />} /> */}
-          {/* <Route path="/staff/invoices" element={<StaffInvoicesPage />} /> */}
-          {/* <Route path="/staff/chatbot" element={<ChatbotPage />} /> */}
-          {/* <Route path="/staff/profile" element={<ProfilePage />} /> */}
-          {/* <Route path="/staff/organization-profile" element={<OrganizationProfilePage />} /> */}
+          <Route path="/staff/stock/in" element={<StockInPage />} />
+          <Route path="/staff/stock/out" element={<StockOutPage />} />
+          <Route path="/staff/invoices/generate" element={<GenerateInvoicePage />} />
+          <Route path="/staff/invoices" element={<MyInvoicesPage />} />
+          <Route path="/staff/profile" element={<ProfilePage />} />
+          <Route path="/staff/organization-profile" element={<OrganizationProfilePage />} />
+          <Route path="/staff/invoice-settings" element={<InvoiceSettingsPage />} />
 
           {/* Redirect old dashboard to Super Admin dashboard */}
           <Route path="/dashboard" element={<SuperAdminDashboardPage />} />

@@ -183,7 +183,8 @@ const App = () => {
           <Route path="/staff/products/:id" element={<ProductDetailsPage />} />
           <Route path="/staff/categories" element={<CategoryListPage />} />
           <Route path="/staff/categories/:id" element={<CategoryDetailsPage />} />
-          {/* <Route path="/staff/suppliers" element={<StaffSuppliersPage />} /> */}
+          <Route path="/staff/suppliers" element={<SuppliersListPage />} />
+          <Route path="/staff/suppliers/:id" element={<SupplierDetailPage />} />
           <Route path="/staff/stock/in" element={<StockInPage />} />
           <Route path="/staff/stock/out" element={<StockOutPage />} />
           <Route path="/staff/invoices/generate" element={<GenerateInvoicePage />} />

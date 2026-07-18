@@ -515,23 +515,32 @@ const ProductsList = () => {
                                                                 </Link>
                                                             }
                                                         />
-                                                        <DropdownMenuItem
-                                                            render={
-                                                                <Link to={`/${rolePrefix}/products/edit/${product._id}`} className="cursor-pointer">
-                                                                    <Edit className="mr-2 h-3.5 w-3.5" />
-                                                                    Edit
-                                                                </Link>
-                                                            }
-                                                        />
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="cursor-pointer">
-                                                            {product.isActive ? (
-                                                                <XCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
-                                                            ) : (
-                                                                <CheckCircle className="mr-2 h-3.5 w-3.5 text-primary" />
-                                                            )}
-                                                            {product.isActive ? 'Deactivate' : 'Activate'}
-                                                        </DropdownMenuItem>
+                                                        {
+                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                                            <DropdownMenuItem
+                                                                render={
+                                                                    <Link to={`/${rolePrefix}/products/edit/${product._id}`} className="cursor-pointer">
+                                                                        <Edit className="mr-2 h-3.5 w-3.5" />
+                                                                        Edit
+                                                                    </Link>
+                                                                }
+                                                            />
+                                                        }
+                                                        {
+                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                                            <DropdownMenuSeparator />
+                                                        }
+                                                        {
+                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                                            <DropdownMenuItem className="cursor-pointer">
+                                                                {product.isActive ? (
+                                                                    <XCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
+                                                                ) : (
+                                                                    <CheckCircle className="mr-2 h-3.5 w-3.5 text-primary" />
+                                                                )}
+                                                                {product.isActive ? 'Deactivate' : 'Activate'}
+                                                            </DropdownMenuItem>
+                                                        }
                                                     </DropdownMenuGroup>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>

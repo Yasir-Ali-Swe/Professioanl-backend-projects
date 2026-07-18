@@ -59,6 +59,7 @@ const SupplierDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { role } = useAuth();
+    const user = useAuth().user;
     const rolePrefix = getRolePrefix(role);
     const [supplier] = useState(dummySupplier);
     const [products] = useState(dummyProducts);
@@ -105,12 +106,14 @@ const SupplierDetail = () => {
                 </div>
 
                 <div className="flex items-center gap-2 self-start sm:self-auto">
-                    <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm" asChild>
-                        <Link to={`/${rolePrefix}/suppliers/${supplier._id}/edit`} className="flex items-center justify-center">
-                            <Edit className="mr-1.5 h-3.5 w-3.5" />
-                            Edit
-                        </Link>
-                    </Button>
+                    {user && (user.role === 'admin' || user.role === 'manager') && (
+                        <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm" asChild>
+                            <Link to={`/${rolePrefix}/suppliers/${supplier._id}/edit`} className="flex items-center justify-center">
+                                <Edit className="mr-1.5 h-3.5 w-3.5" />
+                                Edit
+                            </Link>
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -179,12 +182,14 @@ const SupplierDetail = () => {
                                 {products.length} products supplied by {supplier.name}
                             </CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
-                            <Link to={`/${rolePrefix}/products/add`} className="flex items-center justify-center">
-                                <Package className="mr-1.5 h-3.5 w-3.5" />
-                                Add Product
-                            </Link>
-                        </Button>
+                        {
+                            user && (user.role === 'admin' || user.role === 'manager') &&
+                            <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+                                <Link to={`/${rolePrefix}/products/add`} className="flex items-center justify-center">
+                                    <Package className="mr-1.5 h-3.5 w-3.5" />
+                                    Add Product
+                                </Link>
+                            </Button>}
                     </div>
                 </CardHeader>
                 <CardContent className="px-2 sm:px-4 overflow-x-auto">

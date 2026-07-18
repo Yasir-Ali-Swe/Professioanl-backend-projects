@@ -391,8 +391,7 @@ const SuperAdminAnalytics = () => {
                         <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={growthConfig} className="h-full w-full">
                                 <BarChart data={growthData}>
-                                    <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
-                                    <YAxis className="text-[10px] sm:text-xs" />
+                                    <XAxis dataKey="month" tick={false} axisLine={false} tickLine={false} />
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                     <Bar dataKey="count" fill="var(--color-count)" radius={4} />
                                 </BarChart>
@@ -411,8 +410,7 @@ const SuperAdminAnalytics = () => {
                         <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={revenueConfig} className="h-full w-full">
                                 <AreaChart data={revenueData}>
-                                    <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
-                                    <YAxis className="text-[10px] sm:text-xs" />
+                                    <XAxis dataKey="month" tick={false} axisLine={false} tickLine={false} />
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                     <Area
                                         type="monotone"
@@ -513,7 +511,7 @@ const SuperAdminAnalytics = () => {
                 </Card>
 
                 {/* User Role Distribution */}
-                <Card>
+                {/* <Card>
                     <CardHeader>
                         <CardTitle className="text-sm sm:text-base">User Roles</CardTitle>
                         <CardDescription className="text-xs sm:text-sm">Distribution by role</CardDescription>
@@ -526,6 +524,49 @@ const SuperAdminAnalytics = () => {
                                     <YAxis type="category" dataKey="name" className="text-[10px] sm:text-xs" width={70} />
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                     <Bar dataKey="count" fill="var(--chart-1)" radius={4} />
+                                </BarChart>
+                            </ChartContainer>
+                        </div>
+                    </CardContent>
+                </Card> */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm sm:text-base">User Roles</CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Distribution by role
+                        </CardDescription>
+                    </CardHeader>
+
+                    <CardContent>
+                        <div className="h-40 sm:h-50 w-full">
+                            <ChartContainer config={revenueConfig} className="h-full w-full">
+                                <BarChart data={roleData}>
+                                    <XAxis
+                                        dataKey="name"
+                                        tick={false}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+
+                                    <YAxis
+                                        tick={false}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+
+                                    <ChartTooltip
+                                        content={
+                                            <ChartTooltipContent
+                                                indicator="dot"
+                                            />
+                                        }
+                                    />
+
+                                    <Bar
+                                        dataKey="count"
+                                        fill="var(--chart-1)"
+                                        radius={[4, 4, 0, 0]}
+                                    />
                                 </BarChart>
                             </ChartContainer>
                         </div>

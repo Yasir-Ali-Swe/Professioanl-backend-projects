@@ -577,8 +577,9 @@ const ManagerDashboard = () => {
                         <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={poValueConfig} className="h-full w-full">
                                 <AreaChart data={purchaseOrders.poValueTrend}>
-                                    <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
-                                    <YAxis className="text-[10px] sm:text-xs" />
+                                    <XAxis dataKey="month" tick={false}
+                                        axisLine={false}
+                                        tickLine={false} />
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                     <Area
                                         type="monotone"

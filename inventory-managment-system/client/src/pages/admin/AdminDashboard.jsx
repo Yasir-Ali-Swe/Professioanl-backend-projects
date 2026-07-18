@@ -671,8 +671,9 @@ const AdminDashboard = () => {
                         <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={revenueConfig} className="h-full w-full">
                                 <BarChart data={financial.monthlyTrend}>
-                                    <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
-                                    <YAxis className="text-[10px] sm:text-xs" />
+                                    <XAxis dataKey="month" tick={false}
+                                        axisLine={false}
+                                        tickLine={false} />
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                     <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
                                 </BarChart>
@@ -691,8 +692,9 @@ const AdminDashboard = () => {
                         <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={profitConfig} className="h-full w-full">
                                 <AreaChart data={financial.monthlyProfitTrend}>
-                                    <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
-                                    <YAxis className="text-[10px] sm:text-xs" />
+                                    <XAxis dataKey="month" tick={false}
+                                        axisLine={false}
+                                        tickLine={false} />
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                     <Area
                                         type="monotone"

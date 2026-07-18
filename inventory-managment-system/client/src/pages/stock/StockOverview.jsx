@@ -187,8 +187,9 @@ const StockOverview = () => {
                         <div className="h-50 sm:h-62.5 lg:h-70 w-full">
                             <ChartContainer config={stockMovementConfig} className="h-full w-full">
                                 <BarChart data={stats.monthlyTrend}>
-                                    <XAxis dataKey="month" className="text-[10px] sm:text-xs" />
-                                    <YAxis className="text-[10px] sm:text-xs" />
+                                    <XAxis dataKey="month" tick={false}
+                                        axisLine={false}
+                                        tickLine={false} />
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                     <Bar dataKey="stockIn" fill="var(--color-stockIn)" radius={4} />
                                     <Bar dataKey="stockOut" fill="var(--color-stockOut)" radius={4} />

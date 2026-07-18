@@ -121,6 +121,7 @@ const dummySuppliers = [
 
 const SuppliersList = () => {
     const { role } = useAuth();
+    const user = useAuth().user;
     const rolePrefix = getRolePrefix(role);
     const [searchParams, setSearchParams] = useSearchParams();
     const [suppliers] = useState(dummySuppliers);
@@ -215,12 +216,15 @@ const SuppliersList = () => {
                         Manage your product suppliers.
                     </p>
                 </div>
-                <Button className={"max-w-30"} asChild>
-                    <Link to={`/${rolePrefix}/suppliers/add`} className="flex items-center justify-center">
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        Add Supplier
-                    </Link>
-                </Button>
+                {
+                    user && (user.role === 'admin' || user.role === 'manager') &&
+                    <Button className={"max-w-30"} asChild>
+                        <Link to={`/${rolePrefix}/suppliers/add`} className="flex items-center justify-center">
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            Add Supplier
+                        </Link>
+                    </Button>
+                }
             </div>
 
             {/* Stats Cards */}
@@ -375,22 +379,31 @@ const SuppliersList = () => {
                                                                 </Link>
                                                             }
                                                         />
-                                                        <DropdownMenuItem
-                                                            render={
-                                                                <Link to={`/${rolePrefix}/suppliers/${supplier._id}/edit`} className="cursor-pointer">
-                                                                    <Edit className="mr-2 h-3.5 w-3.5" />
-                                                                    Edit
-                                                                </Link>
-                                                            }
-                                                        />
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            className="cursor-pointer text-destructive focus:text-destructive"
-                                                            onClick={() => handleDelete(supplier)}
-                                                        >
-                                                            <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                                            Delete
-                                                        </DropdownMenuItem>
+                                                        {
+                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                                            <DropdownMenuItem
+                                                                render={
+                                                                    <Link to={`/${rolePrefix}/suppliers/${supplier._id}/edit`} className="cursor-pointer">
+                                                                        <Edit className="mr-2 h-3.5 w-3.5" />
+                                                                        Edit
+                                                                    </Link>
+                                                                }
+                                                            />
+                                                        }
+                                                        {
+                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                                            <DropdownMenuSeparator />
+                                                        }
+                                                        {
+                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer text-destructive focus:text-destructive"
+                                                                onClick={() => handleDelete(supplier)}
+                                                            >
+                                                                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        }
                                                     </DropdownMenuGroup>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>

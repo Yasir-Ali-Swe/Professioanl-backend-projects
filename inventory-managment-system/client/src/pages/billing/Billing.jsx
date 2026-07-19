@@ -157,8 +157,7 @@ const BillingPage = () => {
 
             {/* Current Plan Card */}
             <Card className={cn(
-                "border-2",
-                isPremium ? "border-primary/30" : "border-muted"
+                "bg-transparent", "border-0", "shadow-none!", "ring-0",
             )}>
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -176,31 +175,6 @@ const BillingPage = () => {
                                     {formatPrice(subscriptionPlanId.price)} {getBillingCycleLabel(subscriptionPlanId.billingCycle)}
                                 </CardDescription>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <Badge className={statusBadge.className}>
-                                <span className="h-1.5 w-1.5 rounded-full bg-current mr-1.5" />
-                                {statusBadge.label}
-                            </Badge>
-                            <Badge variant={subscriptionPlanId.aiFeatures ? 'default' : 'secondary'}>
-                                {subscriptionPlanId.aiFeatures ? (
-                                    <>
-                                        <CheckCircle className="h-3 w-3 mr-1" />
-                                        AI Features Included
-                                    </>
-                                ) : (
-                                    <>
-                                        <XCircle className="h-3 w-3 mr-1" />
-                                        AI Features Locked
-                                    </>
-                                )}
-                            </Badge>
-                            {isPremium && (
-                                <Badge variant="default" className="bg-primary/10 text-primary border-primary/20">
-                                    <Zap className="h-3 w-3 mr-1" />
-                                    Premium
-                                </Badge>
-                            )}
                         </div>
                     </div>
                 </CardHeader>
@@ -309,8 +283,6 @@ const BillingPage = () => {
                     )}
                 </CardContent>
             </Card>
-
-            {/* Stripe Reference */}
             <Card>
                 <CardHeader>
                     <CardTitle className="text-sm sm:text-base">Billing Reference</CardTitle>

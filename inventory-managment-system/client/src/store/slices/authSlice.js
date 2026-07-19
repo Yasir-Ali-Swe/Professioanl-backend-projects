@@ -5,10 +5,9 @@ const MOCK_USER = {
   id: "1",
   name: "John Doe",
   email: "john@stockpilot.com",
-  role: "super_admin", // Change to 'super_admin', 'admin', 'manager', or 'staff' to test different roles
+  role: "admin", // Change to 'super_admin', 'admin', 'manager', or 'staff' to test different roles
   organizationId: "org_123",
-  avatar:
-    "https://ui-avatars.com/api/?name=John+Doe&background=6B46C1&color=fff&size=128",
+  avatar: "https://github.com/shadcn.png",
 };
 
 const initialState = {

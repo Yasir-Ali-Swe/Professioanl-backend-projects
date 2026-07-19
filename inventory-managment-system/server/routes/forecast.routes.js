@@ -16,42 +16,37 @@ const router = express.Router();
 router.get(
   "/forecast/:id",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   getForecastForProduct,
 );
 
-router.get(
-  "/forecasts",
-  authMiddleware,
-  authorize("admin", "manager"),
-  getAllForecasts,
-);
+router.get("/forecasts", authMiddleware, authorize("admin"), getAllForecasts);
 
 router.get(
   "/reorder-suggestions",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   getReorderSuggestions,
 );
 
 router.post(
   "/reorder-suggestions/generate/:id",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   generateReorderSuggestion,
 );
 
 router.patch(
   "/reorder-suggestions/:id/approve",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   approveReorderSuggestion,
 );
 
 router.patch(
   "/reorder-suggestions/:id/dismiss",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   dismissReorderSuggestion,
 );
 

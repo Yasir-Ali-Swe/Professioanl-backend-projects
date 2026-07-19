@@ -7,7 +7,7 @@ import {
 } from "../controllers/insights.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
-import { requirePremium  } from "../middleware/featureAccess.middleware.js";
+import { requirePremium } from "../middleware/featureAccess.middleware.js";
 
 const router = express.Router();
 

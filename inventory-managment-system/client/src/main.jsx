@@ -1,22 +1,57 @@
+// import { createRoot } from 'react-dom/client'
+// import './index.css'
+// import App from './App.jsx'
+// import { TooltipProvider } from "@/components/ui/tooltip"
+// import { BrowserRouter } from "react-router-dom"
+// import { Toaster } from "@/components/ui/sonner"
+// import { Provider } from 'react-redux';
+// import { store } from "./store/index.js";
+// import { ThemeProvider } from "@/components/ThemeProvider.jsx";
+// import { QueryClientProvider } from "@tanstack/react-query";
+// import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+// import { queryClient } from "@/lib/queryClient.js";
+
+// createRoot(document.getElementById('root')).render(
+//   <TooltipProvider>
+//     <BrowserRouter>
+//       <QueryClientProvider client={queryClient}>
+//         <Toaster richColors position="bottom-right" />
+//         <Provider store={store}>
+//           <ThemeProvider defaultTheme="light" storageKey="stockpilot-theme">
+//             <App />
+//           </ThemeProvider>
+//         </Provider>
+//         <ReactQueryDevtools initialIsOpen={false} />
+//       </QueryClientProvider>
+//     </BrowserRouter>
+//   </TooltipProvider>
+// )
+
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { BrowserRouter } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
-import { Provider } from 'react-redux';
-import { store } from "./store/index.js";
-import { ThemeProvider } from "@/components/ThemeProvider.jsx";
+import { Provider } from 'react-redux'
+import { store } from "./store/index.js"
+import { ThemeProvider } from "@/components/ThemeProvider.jsx"
+import { QueryClientProvider } from "@tanstack/react-query"
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
+import { queryClient } from "@/lib/queryClient.js"
 
 createRoot(document.getElementById('root')).render(
-  <TooltipProvider>
+  <Provider store={store}>
     <BrowserRouter>
-      <Toaster richColors position="bottom-right" />
-      <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
         <ThemeProvider defaultTheme="light" storageKey="stockpilot-theme">
-          <App />
+          <TooltipProvider>
+            <App />
+            <Toaster richColors position="bottom-right" />
+          </TooltipProvider>
         </ThemeProvider>
-      </Provider>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
     </BrowserRouter>
-  </TooltipProvider>
+  </Provider>
 )

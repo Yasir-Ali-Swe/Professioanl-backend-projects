@@ -4,7 +4,7 @@ import {
   getAnomalies,
   getAnomalyById,
   resolveAnomaly,
-  runAnomalyDetection, 
+  runAnomalyDetection,
 } from "../controllers/anomaly.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
@@ -18,14 +18,12 @@ router.get(
   getAnomalies,
 );
 
-
 router.get(
   "/anomalies/:id",
   authMiddleware,
   authorize("admin", "manager"),
   getAnomalyById,
 );
-
 
 router.patch(
   "/anomalies/:id/resolve",

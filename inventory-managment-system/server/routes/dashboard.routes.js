@@ -19,7 +19,7 @@ router.get(
   "/super-admin-dashboard-stats",
   authMiddleware,
   authorize("super_admin"),
-  getSuperAdminDashboardStats
+  getSuperAdminDashboardStats,
 );
 
 // Admin Dashboard
@@ -27,7 +27,7 @@ router.get(
   "/admin-dashboard-stats",
   authMiddleware,
   authorize("admin"),
-  getAdminDashboardStats
+  getAdminDashboardStats,
 );
 
 // Manager Dashboard
@@ -35,7 +35,7 @@ router.get(
   "/manager-dashboard-stats",
   authMiddleware,
   authorize("manager"),
-  getManagerDashboardStats
+  getManagerDashboardStats,
 );
 
 // Staff Dashboard
@@ -43,7 +43,7 @@ router.get(
   "/staff-dashboard-stats",
   authMiddleware,
   authorize("staff"),
-  getStaffDashboardStats
+  getStaffDashboardStats,
 );
 
 // Reports
@@ -51,21 +51,21 @@ router.get(
   "/sales-trends",
   authMiddleware,
   authorize("admin", "manager"),
-  getSalesTrends
+  getSalesTrends,
 );
 
 router.get(
   "/stock-levels-report",
   authMiddleware,
   authorize("admin", "manager"),
-  getStockLevelsReport
+  getStockLevelsReport,
 );
 
 router.get(
   "/financial-report",
   authMiddleware,
   authorize("admin", "manager"),
-  getFinancialReport
+  getFinancialReport,
 );
 
 export default router;

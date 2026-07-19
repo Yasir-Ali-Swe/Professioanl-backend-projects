@@ -27,7 +27,6 @@ router.get(
   getAllForecasts,
 );
 
-
 router.get(
   "/reorder-suggestions",
   authMiddleware,
@@ -48,7 +47,6 @@ router.patch(
   authorize("admin", "manager"),
   approveReorderSuggestion,
 );
-
 
 router.patch(
   "/reorder-suggestions/:id/dismiss",

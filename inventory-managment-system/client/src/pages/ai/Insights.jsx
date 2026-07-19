@@ -372,7 +372,9 @@ const InsightsPage = () => {
 
             {!insight ? (
                 // Empty State
-                <Card>
+                <Card className={cn(
+                    "bg-transparent", "border-0", "shadow-none!", "ring-0",
+                )}>
                     <CardContent className="py-12 text-center">
                         <div className="flex flex-col items-center gap-4">
                             <Sparkles className="h-12 w-12 text-muted-foreground opacity-50" />
@@ -400,7 +402,10 @@ const InsightsPage = () => {
             ) : (
                 <>
                     {/* Main Insight Card */}
-                    <Card className="border-primary/20">
+                    {/* <Card className="border-primary/20"> */}
+                    <Card className={cn(
+                        "bg-transparent", "border-0", "shadow-none!", "ring-0",
+                    )}>
                         <CardHeader>
                             <div className="flex items-start justify-between">
                                 <div>

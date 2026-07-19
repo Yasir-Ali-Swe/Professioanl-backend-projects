@@ -69,10 +69,19 @@ import ManagerDashboardPage from "@/pages/manager/ManagerDashboard";
 // Staff Pages
 import StaffDashboardPage from "@/pages/staff/StaffDashboard";
 
+// AI Pages
+import ChatbotPage from "@/pages/ai/Chatbot";
+import ForecastPage from "@/pages/ai/Forecast";
+import AnomalyDetectionPage from "@/pages/ai/Anomalies";
+import InsightsPage from "@/pages/ai/Insights";
+import ReorderSuggestionsPage from "@/pages/ai/ReorderSuggestions";
+
+// Billing Page
+import BillingPage from "@/pages/billing/Billing";
+
 // Common Pages
 import ProfilePage from "@/pages/Profile";
 import OrganizationProfilePage from "@/pages/admin/OrganizationProfile";
-import ChatbotPage from "@/pages/Chatbot";
 
 const App = () => {
   return (
@@ -141,9 +150,18 @@ const App = () => {
           <Route path="/admin/products/edit/:id" element={<EditProductPage />} />
           <Route path="/admin/products/:id" element={<ProductDetailsPage />} />
 
-          {/* Other Admin Routes */}
+          {/* AI Admin Routes */}
           <Route path="/admin/chatbot" element={<ChatbotPage />} />
+          <Route path="/admin/forecast" element={<ForecastPage />} />
           <Route path="/admin/profile" element={<ProfilePage />} />
+          <Route path="/admin/anomalies" element={<AnomalyDetectionPage />} />
+          <Route path="/admin/insights" element={<InsightsPage />} />
+          <Route path="/admin/reorder-suggestions" element={<ReorderSuggestionsPage />} />
+
+          {/* Billing Route */}
+          <Route path="/admin/billing" element={<BillingPage />} />
+
+          {/* Admin Organization Profile Route */}
           <Route path="/admin/organization-profile" element={<OrganizationProfilePage />} />
 
           {/* Manager Routes - Commented out */}

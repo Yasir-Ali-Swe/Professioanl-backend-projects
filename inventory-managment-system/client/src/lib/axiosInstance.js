@@ -89,8 +89,7 @@ axiosInstance.interceptors.response.use(
         );
 
         const { accessToken } = response.data;
-
-        // Update Redux store with new access token
+        console.log("Token refreshed successfully:", accessToken);
         if (accessToken) {
           store.dispatch(setAccessToken(accessToken));
         }

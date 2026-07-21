@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
     Table,
     TableBody,
@@ -85,12 +86,14 @@ const LowStock = () => {
             </div>
 
             {/* Table */}
-            <Card>
+            <Card className={cn(
+                "bg-transparent ring-0"
+            )}>
                 <CardHeader>
                     <CardTitle className="text-sm sm:text-base">Low Stock Products</CardTitle>
                 </CardHeader>
                 <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                    <div className="min-w-125">
+                    <div className="min-w-125 border">
                         <Table>
                             <TableHeader>
                                 <TableRow>

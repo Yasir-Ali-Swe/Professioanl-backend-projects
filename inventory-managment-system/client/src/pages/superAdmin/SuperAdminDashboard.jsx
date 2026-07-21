@@ -15,6 +15,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import {
     Building2,
     Users,
@@ -290,25 +291,60 @@ const SuperAdminDashboard = () => {
 
             {/* Charts Section */}
             <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2">
-                {/* Revenue Trend Chart */}
                 <Card>
                     <CardHeader className="pb-2 sm:pb-4">
-                        <CardTitle className="text-sm sm:text-base">Revenue Trend</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Monthly subscription revenue (last 6 months)</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Revenue Trend
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Monthly subscription revenue (last 6 months)
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
-                        <div className="h-50 sm:h-62.5 lg:h-75 w-full">
-                            <ChartContainer config={revenueConfig} className="h-full w-full">
-                                <AreaChart data={subscriptions.monthlyRevenueTrend}>
-                                    <XAxis dataKey="month" tick={false} axisLine={false} tickLine={false} />
-                                    <ChartTooltip content={<ChartTooltipContent />} />
+                        <div className="h-56 sm:h-64 lg:h-72 w-full">
+                            <ChartContainer
+                                config={revenueConfig}
+                                className="h-full w-full"
+                            >
+                                <AreaChart
+                                    data={subscriptions.monthlyRevenueTrend}
+                                    margin={{
+                                        top: 5,
+                                        right: 0,
+                                        left: 5,
+                                        bottom: 0,
+                                    }}
+                                >
+                                    <CartesianGrid
+                                        vertical={false}
+                                        strokeDasharray="0"
+                                    />
+
+                                    <XAxis
+                                        dataKey="month"
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={30}
+                                        tickFormatter={(value) => `${value / 1000}k`}
+                                    />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
+
                                     <Area
                                         type="monotone"
                                         dataKey="revenue"
                                         fill="var(--color-revenue)"
                                         fillOpacity={0.3}
                                         stroke="var(--color-revenue)"
-                                        strokeWidth={2}
+                                        strokeWidth={3}
                                     />
                                 </AreaChart>
                             </ChartContainer>
@@ -316,63 +352,152 @@ const SuperAdminDashboard = () => {
                     </CardContent>
                 </Card>
 
-                {/* Organization Status Chart */}
+                {/* Organization Status */}
                 <Card>
                     <CardHeader className="pb-2 sm:pb-4">
-                        <CardTitle className="text-sm sm:text-base">Organization Status</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Distribution of organizations by status</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Organization Status
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Distribution of organizations by status
+                        </CardDescription>
                     </CardHeader>
-                    <CardContent className="flex flex-col">
-                        <div className="h-45 sm:h-55 lg:h-65 w-full">
-                            <ChartContainer config={statusConfig} className="h-full w-full">
+
+                    <CardContent>
+                        <div className="relative h-56 sm:h-64 lg:h-72 w-full">
+                            <ChartContainer
+                                config={statusConfig}
+                                className="h-full w-full"
+                            >
                                 <PieChart>
                                     <Pie
                                         data={statusData}
+                                        dataKey="value"
                                         cx="50%"
                                         cy="50%"
-                                        innerRadius="55%"
+                                        innerRadius="60%"
                                         outerRadius="85%"
                                         paddingAngle={2}
-                                        dataKey="value"
                                     >
                                         {statusData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
+                                            <Cell
+                                                key={entry.name}
+                                                fill={STATUS_COLORS[index % STATUS_COLORS.length]}
+                                            />
                                         ))}
                                     </Pie>
-                                    <ChartTooltip content={<ChartTooltipContent />} />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
                                 </PieChart>
                             </ChartContainer>
+
+                            {/* Center Text */}
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="text-center">
+                                    <p className="text-sm sm:text-base font-semibold leading-none">
+                                        Organization
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                                        Status
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex justify-center gap-4 sm:gap-6 pt-3 sm:pt-4">
+
+                        <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
                             {statusData.map((item, index) => (
-                                <div key={item.name} className="flex items-center gap-1.5 sm:gap-2">
+                                <div
+                                    key={item.name}
+                                    className="flex items-center gap-2"
+                                >
                                     <div
-                                        className="h-2 w-2 sm:h-3 sm:w-3 rounded-full shrink-0"
-                                        style={{ backgroundColor: STATUS_COLORS[index] }}
+                                        className="h-3 w-3 rounded-full"
+                                        style={{
+                                            backgroundColor: STATUS_COLORS[index],
+                                        }}
                                     />
-                                    <span className="text-[10px] sm:text-xs whitespace-nowrap">{item.name}</span>
-                                    <span className="text-[10px] sm:text-xs font-medium whitespace-nowrap">{item.value}</span>
+
+                                    <span className="text-xs text-muted-foreground">
+                                        {item.name}
+                                    </span>
+
+                                    <span className="text-xs font-semibold">
+                                        {item.value}
+                                    </span>
                                 </div>
                             ))}
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Profit Breakdown Chart */}
+                {/* Profit Breakdown */}
                 <Card>
                     <CardHeader className="pb-2 sm:pb-4">
-                        <CardTitle className="text-sm sm:text-base">Profit Breakdown</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Platform revenue vs cost vs profit</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Profit Breakdown
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Platform revenue vs cost vs profit
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
-                        <div className="h-50 sm:h-62.5 lg:h-75 w-full">
-                            <ChartContainer config={profitConfig} className="h-full w-full">
-                                <BarChart data={profitData}>
-                                    <XAxis dataKey="name" tick={false} axisLine={false} tickLine={false} />
-                                    <ChartTooltip content={<ChartTooltipContent />} />
-                                    <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="cost" fill="var(--color-cost)" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="profit" fill="var(--color-profit)" radius={[4, 4, 0, 0]} />
+                        <div className="h-56 sm:h-64 lg:h-72 w-full">
+                            <ChartContainer
+                                config={profitConfig}
+                                className="h-full w-full"
+                            >
+                                <BarChart
+                                    data={profitData}
+                                    margin={{
+                                        top: 5,
+                                        right: 0,
+                                        left: 5,
+                                        bottom: 0,
+                                    }}
+                                    barCategoryGap="15%"
+                                >
+                                    <CartesianGrid
+                                        vertical={false}
+                                        strokeDasharray="0"
+                                    />
+
+                                    <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={30}
+                                        tickFormatter={(value) => `${value / 1000}k`}
+                                    />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
+
+                                    <Bar
+                                        dataKey="revenue"
+                                        fill="var(--color-revenue)"
+                                        radius={[4, 4, 0, 0]}
+                                    />
+
+                                    <Bar
+                                        dataKey="cost"
+                                        fill="var(--color-cost)"
+                                        radius={[4, 4, 0, 0]}
+                                    />
+
+                                    <Bar
+                                        dataKey="profit"
+                                        fill="var(--color-profit)"
+                                        radius={[4, 4, 0, 0]}
+                                    />
                                 </BarChart>
                             </ChartContainer>
                         </div>
@@ -442,12 +567,12 @@ const SuperAdminDashboard = () => {
             </div>
 
             {/* Recent Organizations Table - Using shadcn Table components */}
-            <Card>
-                <CardHeader className="pb-2 sm:pb-4">
+            <Card className={cn("bg-transparent", "ring-0")}>
+                <CardHeader>
                     <CardTitle className="text-sm sm:text-base">Recent Organizations</CardTitle>
                     <CardDescription className="text-xs sm:text-sm">Latest organizations registered on the platform</CardDescription>
                 </CardHeader>
-                <CardContent className="px-2 sm:px-4">
+                <CardContent className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>

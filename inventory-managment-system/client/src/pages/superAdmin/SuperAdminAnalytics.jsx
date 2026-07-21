@@ -9,6 +9,7 @@ import {
     CardDescription,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
     Table,
     TableBody,
@@ -78,12 +79,12 @@ const dummyAnalytics = {
             { month: '2025-08', count: 2 },
             { month: '2025-09', count: 1 },
             { month: '2025-10', count: 3 },
-            { month: '2025-11', count: 0 },
+            { month: '2025-11', count: 4 },
             { month: '2025-12', count: 2 },
             { month: '2026-01', count: 1 },
             { month: '2026-02', count: 2 },
             { month: '2026-03', count: 1 },
-            { month: '2026-04', count: 0 },
+            { month: '2026-04', count: 6 },
             { month: '2026-05', count: 2 },
             { month: '2026-06', count: 1 },
             { month: '2026-07', count: 3 },
@@ -384,16 +385,53 @@ const SuperAdminAnalytics = () => {
                 {/* Organization Growth Trend */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Organization Growth</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">New organizations over time</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Organization Growth
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            New organizations over time
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
-                        <div className="h-50 sm:h-62.5 lg:h-70 w-full">
+                        <div className="h-56 sm:h-64 lg:h-72 w-full">
                             <ChartContainer config={growthConfig} className="h-full w-full">
-                                <BarChart data={growthData}>
-                                    <XAxis dataKey="month" tick={false} axisLine={false} tickLine={false} />
-                                    <ChartTooltip content={<ChartTooltipContent />} />
-                                    <Bar dataKey="count" fill="var(--color-count)" radius={4} />
+                                <BarChart
+                                    data={growthData}
+                                    margin={{
+                                        top: 5,
+                                        right: 0,
+                                        left: 10,
+                                        bottom: 0,
+                                    }}
+                                    barCategoryGap="20%"
+                                >
+                                    <CartesianGrid
+                                        vertical={false}
+                                        strokeDasharray="0"
+                                    />
+
+                                    <XAxis
+                                        dataKey="month"
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={28}
+                                    />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
+
+                                    <Bar
+                                        dataKey="count"
+                                        fill="var(--color-count)"
+                                        radius={[4, 4, 0, 0]}
+                                    />
                                 </BarChart>
                             </ChartContainer>
                         </div>
@@ -403,22 +441,55 @@ const SuperAdminAnalytics = () => {
                 {/* Revenue Trend */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Revenue Trend</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Monthly subscription revenue</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Revenue Trend
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Monthly subscription revenue
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
-                        <div className="h-50 sm:h-62.5 lg:h-70 w-full">
+                        <div className="h-56 sm:h-64 lg:h-72 w-full">
                             <ChartContainer config={revenueConfig} className="h-full w-full">
-                                <AreaChart data={revenueData}>
-                                    <XAxis dataKey="month" tick={false} axisLine={false} tickLine={false} />
-                                    <ChartTooltip content={<ChartTooltipContent />} />
+                                <AreaChart
+                                    data={revenueData}
+                                    margin={{
+                                        top: 5,
+                                        right: 0,
+                                        left: 15,
+                                        bottom: 0,
+                                    }}
+                                >
+                                    <CartesianGrid
+                                        vertical={false}
+                                        strokeDasharray="0"
+                                    />
+
+                                    <XAxis
+                                        dataKey="month"
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={30}
+                                        tickFormatter={(v) => `${v / 1000}k`}
+                                    />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
+
                                     <Area
                                         type="monotone"
                                         dataKey="revenue"
                                         fill="var(--color-revenue)"
                                         fillOpacity={0.3}
                                         stroke="var(--color-revenue)"
-                                        strokeWidth={2}
+                                        strokeWidth={3}
                                     />
                                 </AreaChart>
                             </ChartContainer>
@@ -432,41 +503,73 @@ const SuperAdminAnalytics = () => {
                 {/* Subscription Distribution */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Subscriptions</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Free vs Premium</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Subscriptions
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Free vs Premium
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
-                        <div className="h-40 sm:h-50 w-full">
+                        <div className="relative h-56 sm:h-64 lg:h-72 w-full">
                             <ChartContainer config={revenueConfig} className="h-full w-full">
                                 <PieChart>
                                     <Pie
                                         data={subscriptionData}
-                                        cx="50%"
-                                        cy="45%"
-                                        innerRadius={40}
-                                        outerRadius={60}
-                                        paddingAngle={2}
                                         dataKey="value"
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius="60%"
+                                        outerRadius="85%"
+                                        paddingAngle={2}
                                     >
                                         {subscriptionData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            <Cell
+                                                key={entry.name}
+                                                fill={COLORS[index % COLORS.length]}
+                                            />
                                         ))}
                                     </Pie>
+
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                 </PieChart>
                             </ChartContainer>
+
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="text-center">
+                                    <p className="text-sm font-semibold">Subscriptions</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Distribution
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex justify-center gap-4 mt-1">
+
+                        <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
                             {subscriptionData.map((item, index) => (
-                                <div key={item.name} className="flex items-center gap-1.5">
-                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-                                    <span className="text-[10px] sm:text-xs">{item.name}</span>
-                                    <span className="text-[10px] sm:text-xs font-medium">{item.value}</span>
+                                <div
+                                    key={item.name}
+                                    className="flex items-center gap-2"
+                                >
+                                    <div
+                                        className="h-3 w-3 rounded-full"
+                                        style={{ backgroundColor: COLORS[index] }}
+                                    />
+
+                                    <span className="text-xs text-muted-foreground">
+                                        {item.name}
+                                    </span>
+
+                                    <span className="text-xs font-semibold">
+                                        {item.value}
+                                    </span>
                                 </div>
                             ))}
                         </div>
-                        <p className="text-center text-[10px] sm:text-xs text-muted-foreground mt-1">
-                            +{subscriptionDistribution.premiumSwitchesThisMonth} org upgraded to Premium this month
+
+                        <p className="mt-3 text-center text-xs text-muted-foreground">
+                            +{subscriptionDistribution.premiumSwitchesThisMonth} organizations upgraded this month
                         </p>
                     </CardContent>
                 </Card>
@@ -474,92 +577,116 @@ const SuperAdminAnalytics = () => {
                 {/* Organization Status Breakdown */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Org Status</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Distribution by status</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Organization Status
+                        </CardTitle>
+
+                        <CardDescription className="text-xs sm:text-sm">
+                            Distribution by status
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
-                        <div className="h-40 sm:h-50 w-full">
+                        <div className="relative h-56 sm:h-64 lg:h-72 w-full">
                             <ChartContainer config={revenueConfig} className="h-full w-full">
                                 <PieChart>
                                     <Pie
                                         data={statusData}
-                                        cx="50%"
-                                        cy="45%"
-                                        innerRadius={40}
-                                        outerRadius={60}
-                                        paddingAngle={2}
                                         dataKey="value"
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius="60%"
+                                        outerRadius="85%"
+                                        paddingAngle={2}
                                     >
                                         {statusData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            <Cell
+                                                key={entry.name}
+                                                fill={COLORS[index % COLORS.length]}
+                                            />
                                         ))}
                                     </Pie>
+
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                 </PieChart>
                             </ChartContainer>
+
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="text-center">
+                                    <p className="text-sm font-semibold">Organization</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Status
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex justify-center gap-3 sm:gap-4 mt-1 flex-wrap">
+
+                        <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
                             {statusData.map((item, index) => (
-                                <div key={item.name} className="flex items-center gap-1.5">
-                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-                                    <span className="text-[10px] sm:text-xs">{item.name}</span>
-                                    <span className="text-[10px] sm:text-xs font-medium">{item.value}</span>
+                                <div
+                                    key={item.name}
+                                    className="flex items-center gap-2"
+                                >
+                                    <div
+                                        className="h-3 w-3 rounded-full"
+                                        style={{ backgroundColor: COLORS[index] }}
+                                    />
+
+                                    <span className="text-xs text-muted-foreground">
+                                        {item.name}
+                                    </span>
+
+                                    <span className="text-xs font-semibold">
+                                        {item.value}
+                                    </span>
                                 </div>
                             ))}
                         </div>
                     </CardContent>
                 </Card>
-
-                {/* User Role Distribution */}
-                {/* <Card>
-                    <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">User Roles</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Distribution by role</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-40 sm:h-50 w-full">
-                            <ChartContainer config={revenueConfig} className="h-full w-full">
-                                <BarChart data={roleData} layout="vertical">
-                                    <XAxis type="number" className="text-[10px] sm:text-xs" />
-                                    <YAxis type="category" dataKey="name" className="text-[10px] sm:text-xs" width={70} />
-                                    <ChartTooltip content={<ChartTooltipContent />} />
-                                    <Bar dataKey="count" fill="var(--chart-1)" radius={4} />
-                                </BarChart>
-                            </ChartContainer>
-                        </div>
-                    </CardContent>
-                </Card> */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">User Roles</CardTitle>
+                        <CardTitle className="text-sm sm:text-base">
+                            User Roles
+                        </CardTitle>
+
                         <CardDescription className="text-xs sm:text-sm">
                             Distribution by role
                         </CardDescription>
                     </CardHeader>
 
                     <CardContent>
-                        <div className="h-40 sm:h-50 w-full">
+                        <div className="h-56 sm:h-64 lg:h-72 w-full">
                             <ChartContainer config={revenueConfig} className="h-full w-full">
-                                <BarChart data={roleData}>
+                                <BarChart
+                                    data={roleData}
+                                    margin={{
+                                        top: 5,
+                                        right: 0,
+                                        left: 10,
+                                        bottom: 0,
+                                    }}
+                                    barCategoryGap="20%"
+                                >
+                                    <CartesianGrid
+                                        vertical={false}
+                                        strokeDasharray="0"
+                                    />
+
                                     <XAxis
                                         dataKey="name"
-                                        tick={false}
                                         axisLine={false}
                                         tickLine={false}
                                     />
 
                                     <YAxis
-                                        tick={false}
                                         axisLine={false}
                                         tickLine={false}
+                                        width={28}
                                     />
 
                                     <ChartTooltip
-                                        content={
-                                            <ChartTooltipContent
-                                                indicator="dot"
-                                            />
-                                        }
+                                        content={<ChartTooltipContent indicator="dot" />}
                                     />
 
                                     <Bar
@@ -575,48 +702,46 @@ const SuperAdminAnalytics = () => {
             </div>
 
             {/* Top Organizations Table */}
-            <Card>
+            <Card className={cn("bg-transparent", "ring-0")}>
                 <CardHeader>
                     <CardTitle className="text-sm sm:text-base">Top Organizations by Products</CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
                         Organizations with the most products
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                    <div className="min-w-120 sm:min-w-0">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">#</TableHead>
-                                    <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">Organization</TableHead>
-                                    <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm text-right">Products</TableHead>
+                <CardContent className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">#</TableHead>
+                                <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">Organization</TableHead>
+                                <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm text-right">Products</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {topOrganizations.map((org, index) => (
+                                <TableRow key={org.organizationId}>
+                                    <TableCell className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm text-muted-foreground">
+                                        {index + 1}
+                                    </TableCell>
+                                    <TableCell className="py-2 sm:py-3 px-2 sm:px-3">
+                                        <Link
+                                            to={`/super-admin/organizations/${org.organizationId}`}
+                                            className="text-xs sm:text-sm font-medium hover:text-primary transition-colors"
+                                        >
+                                            {org.organizationName}
+                                        </Link>
+                                    </TableCell>
+                                    <TableCell className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm text-right font-medium">
+                                        {org.productCount}
+                                    </TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {topOrganizations.map((org, index) => (
-                                    <TableRow key={org.organizationId}>
-                                        <TableCell className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm text-muted-foreground">
-                                            {index + 1}
-                                        </TableCell>
-                                        <TableCell className="py-2 sm:py-3 px-2 sm:px-3">
-                                            <Link
-                                                to={`/super-admin/organizations/${org.organizationId}`}
-                                                className="text-xs sm:text-sm font-medium hover:text-primary transition-colors"
-                                            >
-                                                {org.organizationName}
-                                            </Link>
-                                        </TableCell>
-                                        <TableCell className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm text-right font-medium">
-                                            {org.productCount}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+                            ))}
+                        </TableBody>
+                    </Table>
                 </CardContent>
             </Card>
-        </div>
+        </div >
     );
 };
 

@@ -19,6 +19,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import {
     Building2,
     Users,
@@ -360,59 +361,57 @@ const OrganizationDetail = () => {
             </div>
 
             {/* All Users Table */}
-            <Card>
+            <Card className={cn("bg-transparent", "ring-0")}>
                 <CardHeader>
                     <CardTitle className="text-sm sm:text-base">All Users</CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
                         {organizationUsersCount} users in this organization
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="px-2 sm:px-4 overflow-x-auto">
-                    <div className="min-w-[480px] sm:min-w-0">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">User</TableHead>
-                                    <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">Email</TableHead>
-                                    <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">Role</TableHead>
-                                    <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">Status</TableHead>
+                <CardContent className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">User</TableHead>
+                                <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">Email</TableHead>
+                                <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">Role</TableHead>
+                                <TableHead className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm">Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {allUsers.map((user) => (
+                                <TableRow key={user._id}>
+                                    <TableCell className="py-2 sm:py-3 px-2 sm:px-3">
+                                        <div className="flex items-center gap-2">
+                                            <Avatar className="h-6 w-6 sm:h-7 sm:w-7">
+                                                <AvatarFallback className="text-[10px] sm:text-xs bg-muted">
+                                                    {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-xs sm:text-sm font-medium truncate">{user.name}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm text-muted-foreground truncate">
+                                        {user.email}
+                                    </TableCell>
+                                    <TableCell className="py-2 sm:py-3 px-2 sm:px-3">
+                                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="text-[10px] sm:text-xs">
+                                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="py-2 sm:py-3 px-2 sm:px-3">
+                                        <Badge variant={user.isActive ? 'default' : 'secondary'} className="gap-1 text-[10px] sm:text-xs">
+                                            <span className={`h-1.5 w-1.5 rounded-full ${user.isActive ? 'bg-emerald-300' : 'bg-current'}`} />
+                                            {user.isActive ? 'Active' : 'Inactive'}
+                                        </Badge>
+                                    </TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {allUsers.map((user) => (
-                                    <TableRow key={user._id}>
-                                        <TableCell className="py-2 sm:py-3 px-2 sm:px-3">
-                                            <div className="flex items-center gap-2">
-                                                <Avatar className="h-6 w-6 sm:h-7 sm:w-7">
-                                                    <AvatarFallback className="text-[10px] sm:text-xs bg-muted">
-                                                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-xs sm:text-sm font-medium truncate">{user.name}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm text-muted-foreground truncate">
-                                            {user.email}
-                                        </TableCell>
-                                        <TableCell className="py-2 sm:py-3 px-2 sm:px-3">
-                                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="text-[10px] sm:text-xs">
-                                                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="py-2 sm:py-3 px-2 sm:px-3">
-                                            <Badge variant={user.isActive ? 'default' : 'secondary'} className="gap-1 text-[10px] sm:text-xs">
-                                                <span className={`h-1.5 w-1.5 rounded-full ${user.isActive ? 'bg-emerald-300' : 'bg-current'}`} />
-                                                {user.isActive ? 'Active' : 'Inactive'}
-                                            </Badge>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+                            ))}
+                        </TableBody>
+                    </Table>
                 </CardContent>
             </Card>
-        </div>
+        </div >
     );
 };
 

@@ -570,64 +570,138 @@ const ManagerDashboard = () => {
                 {/* PO Value Trend */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">PO Value Trend</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Monthly purchase order value</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            PO Value Trend
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Monthly purchase order value
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
-                        <div className="h-50 sm:h-62.5 lg:h-70 w-full">
-                            <ChartContainer config={poValueConfig} className="h-full w-full">
-                                <AreaChart data={purchaseOrders.poValueTrend}>
-                                    <XAxis dataKey="month" tick={false}
+                        <div className="h-56 sm:h-64 lg:h-72 w-full">
+                            <ChartContainer
+                                config={poValueConfig}
+                                className="h-full w-full"
+                            >
+                                <AreaChart
+                                    data={purchaseOrders.poValueTrend}
+                                    margin={{
+                                        top: 5,
+                                        right: 0,
+                                        left: 10,
+                                        bottom: -10,
+                                    }}
+                                >
+                                    <CartesianGrid
+                                        vertical={false}
+                                        strokeDasharray="0"
+                                    />
+
+                                    <XAxis
+                                        dataKey="month"
                                         axisLine={false}
-                                        tickLine={false} />
-                                    <ChartTooltip content={<ChartTooltipContent />} />
+                                        tickLine={false}
+                                    />
+
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={30}
+                                        tickFormatter={(value) => `${value / 1000}k`}
+                                    />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
+
                                     <Area
                                         type="monotone"
                                         dataKey="totalValue"
                                         fill="var(--color-totalValue)"
                                         fillOpacity={0.3}
                                         stroke="var(--color-totalValue)"
-                                        strokeWidth={2}
+                                        strokeWidth={3}
                                     />
                                 </AreaChart>
                             </ChartContainer>
                         </div>
                     </CardContent>
                 </Card>
-
-                {/* Category Distribution */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Category Distribution</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Products by category</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Category Distribution
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Products by category
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
-                        <div className="h-50 sm:h-62.5 w-full">
-                            <ChartContainer config={categoryConfig} className="h-full w-full">
+                        <div className="relative h-56 sm:h-64 lg:h-72 w-full">
+                            <ChartContainer
+                                config={categoryConfig}
+                                className="h-full w-full"
+                            >
                                 <PieChart>
                                     <Pie
                                         data={categoryData}
-                                        cx="50%"
-                                        cy="45%"
-                                        innerRadius={60}
-                                        outerRadius={100}
-                                        paddingAngle={2}
                                         dataKey="value"
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius="60%"
+                                        outerRadius="85%"
+                                        paddingAngle={2}
                                     >
                                         {categoryData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            <Cell
+                                                key={entry.name}
+                                                fill={COLORS[index % COLORS.length]}
+                                            />
                                         ))}
                                     </Pie>
-                                    <ChartTooltip content={<ChartTooltipContent />} />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
                                 </PieChart>
                             </ChartContainer>
+
+                            {/* Center Text */}
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="text-center">
+                                    <p className="text-sm sm:text-base font-semibold leading-none">
+                                        Product
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                                        Categories
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex justify-center gap-3 sm:gap-4 mt-1 flex-wrap">
+
+                        {/* Legend */}
+                        <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
                             {categoryData.map((item, index) => (
-                                <div key={item.name} className="flex items-center gap-1.5">
-                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-                                    <span className="text-[10px] sm:text-xs">{item.name}</span>
-                                    <span className="text-[10px] sm:text-xs font-medium">{item.value}</span>
+                                <div
+                                    key={item.name}
+                                    className="flex items-center gap-2"
+                                >
+                                    <div
+                                        className="h-3 w-3 rounded-full"
+                                        style={{
+                                            backgroundColor: COLORS[index],
+                                        }}
+                                    />
+
+                                    <span className="text-xs text-muted-foreground">
+                                        {item.name}
+                                    </span>
+
+                                    <span className="text-xs font-semibold">
+                                        {item.value}
+                                    </span>
                                 </div>
                             ))}
                         </div>

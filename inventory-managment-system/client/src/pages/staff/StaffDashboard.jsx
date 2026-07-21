@@ -571,6 +571,155 @@ const StaffDashboard = () => {
                 {/* Monthly Performance */}
                 <Card>
                     <CardHeader>
+                        <CardTitle className="text-sm sm:text-base">
+                            Monthly Performance
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Your invoices, revenue & stock actions
+                        </CardDescription>
+                    </CardHeader>
+
+                    <CardContent>
+                        <div className="h-56 sm:h-64 lg:h-72 w-full">
+                            <ChartContainer
+                                config={monthlyConfig}
+                                className="h-full w-full"
+                            >
+                                <BarChart
+                                    data={performance.monthlyTrend}
+                                    margin={{
+                                        top: 5,
+                                        right: 0,
+                                        left: 10,
+                                        bottom: 0,
+                                    }}
+                                    barCategoryGap="15%"
+                                >
+                                    <CartesianGrid
+                                        vertical={false}
+                                        strokeDasharray="0"
+                                    />
+
+                                    <XAxis
+                                        dataKey="month"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        padding={{ left: 0, right: 0 }}
+                                    />
+
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={28}
+                                    />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
+
+                                    <Bar
+                                        dataKey="invoices"
+                                        fill="var(--color-invoices)"
+                                        radius={[4, 4, 0, 0]}
+                                    />
+
+                                    <Bar
+                                        dataKey="stockActions"
+                                        fill="var(--color-stockActions)"
+                                        radius={[4, 4, 0, 0]}
+                                    />
+                                </BarChart>
+                            </ChartContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Invoice Status Distribution */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm sm:text-base">
+                            Invoice Status Distribution
+                        </CardTitle>
+
+                        <CardDescription className="text-xs sm:text-sm">
+                            Your invoices by status
+                        </CardDescription>
+                    </CardHeader>
+
+                    <CardContent>
+                        <div className="relative h-56 sm:h-64 lg:h-72 w-full">
+                            <ChartContainer
+                                config={invoiceStatusConfig}
+                                className="h-full w-full"
+                            >
+                                <PieChart>
+                                    <Pie
+                                        data={statusData}
+                                        dataKey="value"
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius="60%"
+                                        outerRadius="85%"
+                                        paddingAngle={2}
+                                    >
+                                        {statusData.map((entry, index) => (
+                                            <Cell
+                                                key={entry.name}
+                                                fill={COLORS[index % COLORS.length]}
+                                            />
+                                        ))}
+                                    </Pie>
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
+                                </PieChart>
+                            </ChartContainer>
+
+                            {/* Center Text */}
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="text-center">
+                                    <p className="text-sm sm:text-base font-semibold leading-none">
+                                        Invoice
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                                        Status
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Legend */}
+                        <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
+                            {statusData.map((item, index) => (
+                                <div
+                                    key={item.name}
+                                    className="flex items-center gap-2"
+                                >
+                                    <div
+                                        className="h-3 w-3 rounded-full"
+                                        style={{
+                                            backgroundColor: COLORS[index],
+                                        }}
+                                    />
+
+                                    <span className="text-xs text-muted-foreground">
+                                        {item.name}
+                                    </span>
+
+                                    <span className="text-xs font-semibold">
+                                        {item.value}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+            {/* <div className="grid gap-4 md:grid-cols-2">
+                //Monthly Performance 
+                <Card>
+                    <CardHeader>
                         <CardTitle className="text-sm sm:text-base">Monthly Performance</CardTitle>
                         <CardDescription className="text-xs sm:text-sm">Your invoices, revenue & stock actions</CardDescription>
                     </CardHeader>
@@ -593,7 +742,7 @@ const StaffDashboard = () => {
                     </CardContent>
                 </Card>
 
-                {/* Invoice Status Distribution */}
+            Invoice Status Distribution 
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-sm sm:text-base">Invoice Status Distribution</CardTitle>
@@ -631,7 +780,7 @@ const StaffDashboard = () => {
                         </div>
                     </CardContent>
                 </Card>
-            </div>
+            </div> */}
 
             {/* Recent Invoices + Recent Stock Actions */}
             <div className="grid gap-4 md:grid-cols-2">

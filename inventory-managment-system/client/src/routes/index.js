@@ -36,7 +36,12 @@ const SIDEBAR_CONFIG = [
     path: "subscriptions",
     roles: [ROLES.SUPER_ADMIN],
   },
-
+  {
+    label: "AI Chatbot",
+    icon: "Bot",
+    path: "chatbot",
+    roles: [ROLES.SUPER_ADMIN],
+  },
   // --- Inventory-style pages (Admin / Manager / Staff) ---
   {
     label: "Products",

@@ -7,6 +7,7 @@ import {
     CardTitle,
     CardDescription,
 } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import {
     Table,
@@ -39,8 +40,10 @@ import {
     XAxis,
     YAxis,
     Pie,
+    CartesianGrid,
     PieChart,
     Cell,
+    Label,
 } from 'recharts';
 import {
     Package,
@@ -664,18 +667,54 @@ const AdminDashboard = () => {
                 {/* Revenue Trend */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Revenue Trend</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Monthly revenue and invoice count</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Revenue Trend
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Monthly revenue
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
                         <div className="h-50 sm:h-62.5 lg:h-70 w-full">
-                            <ChartContainer config={revenueConfig} className="h-full w-full">
-                                <BarChart data={financial.monthlyTrend}>
-                                    <XAxis dataKey="month" tick={false}
+                            <ChartContainer
+                                config={revenueConfig}
+                                className="h-full w-full"
+                            >
+                                <BarChart data={financial.monthlyTrend} margin={{
+                                    top: 5,
+                                    right: 0,
+                                    left: -25,
+                                    bottom: 0,
+                                }}>
+                                    {/* Horizontal grid lines only */}
+                                    <CartesianGrid
+                                        vertical={false}
+                                    />
+
+                                    {/* X Axis */}
+                                    <XAxis
+                                        dataKey="month"
                                         axisLine={false}
-                                        tickLine={false} />
-                                    <ChartTooltip content={<ChartTooltipContent />} />
-                                    <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
+                                        tickLine={false}
+                                    />
+
+                                    {/* Y Axis */}
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tickFormatter={(value) => `${value / 1000}k`}
+                                    />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
+
+                                    <Bar
+                                        dataKey="revenue"
+                                        fill="var(--color-revenue)"
+                                        radius={[4, 4, 0, 0]}
+                                    />
                                 </BarChart>
                             </ChartContainer>
                         </div>
@@ -685,17 +724,50 @@ const AdminDashboard = () => {
                 {/* Profit Trend */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Profit Trend</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Revenue vs cost vs profit</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Profit Trend
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Revenue vs Cost vs Profit
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
                         <div className="h-50 sm:h-62.5 lg:h-70 w-full">
-                            <ChartContainer config={profitConfig} className="h-full w-full">
-                                <AreaChart data={financial.monthlyProfitTrend}>
-                                    <XAxis dataKey="month" tick={false}
+                            <ChartContainer
+                                config={profitConfig}
+                                className="h-full w-full"
+                            >
+                                <AreaChart data={financial.monthlyProfitTrend} margin={{
+                                    top: 5,
+                                    right: 0,
+                                    left: -25,
+                                    bottom: 0,
+                                }}>
+                                    {/* Horizontal grid lines only */}
+                                    <CartesianGrid
+                                        vertical={false}
+                                        strokeDasharray="0"
+                                    />
+
+                                    {/* X Axis */}
+                                    <XAxis
+                                        dataKey="month"
                                         axisLine={false}
-                                        tickLine={false} />
-                                    <ChartTooltip content={<ChartTooltipContent />} />
+                                        tickLine={false}
+                                    />
+
+                                    {/* Y Axis */}
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tickFormatter={(value) => `${value / 1000}k`}
+                                    />
+
+                                    <ChartTooltip
+                                        content={<ChartTooltipContent />}
+                                    />
+
                                     <Area
                                         type="monotone"
                                         dataKey="revenue"
@@ -704,6 +776,7 @@ const AdminDashboard = () => {
                                         stroke="var(--color-revenue)"
                                         strokeWidth={2}
                                     />
+
                                     <Area
                                         type="monotone"
                                         dataKey="cost"
@@ -712,6 +785,7 @@ const AdminDashboard = () => {
                                         stroke="var(--color-cost)"
                                         strokeWidth={2}
                                     />
+
                                     <Area
                                         type="monotone"
                                         dataKey="profit"
@@ -732,42 +806,81 @@ const AdminDashboard = () => {
                 {/* Financial Breakdown */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Financial Breakdown</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Where revenue goes</CardDescription>
+                        <CardTitle className="text-sm sm:text-base">
+                            Financial Breakdown
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Where revenue goes
+                        </CardDescription>
                     </CardHeader>
+
                     <CardContent>
-                        <div className="h-50 sm:h-62.5 w-full">
-                            <ChartContainer config={financialBreakdownConfig} className="h-full w-full">
+                        <div className="relative h-56  w-full">
+                            <ChartContainer
+                                config={financialBreakdownConfig}
+                                className="h-full w-full"
+                            >
                                 <PieChart>
                                     <Pie
                                         data={financialBreakdownData}
-                                        cx="50%"
-                                        cy="45%"
-                                        innerRadius={60}
-                                        outerRadius={100}
-                                        paddingAngle={2}
                                         dataKey="value"
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius="60%"
+                                        outerRadius="85%"
+                                        paddingAngle={2}
                                     >
                                         {financialBreakdownData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            <Cell
+                                                key={entry.name}
+                                                fill={COLORS[index % COLORS.length]}
+                                            />
                                         ))}
                                     </Pie>
+
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                 </PieChart>
                             </ChartContainer>
+
+                            {/* Center Text */}
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="text-center">
+                                    <p className="text-sm sm:text-base font-semibold leading-none">
+                                        Financial
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                                        Breakdown
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex justify-center gap-3 sm:gap-4 mt-1 flex-wrap">
+
+                        {/* Legend */}
+                        <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
                             {financialBreakdownData.map((item, index) => (
-                                <div key={item.name} className="flex items-center gap-1.5">
-                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-                                    <span className="text-[10px] sm:text-xs">{item.name}</span>
-                                    <span className="text-[10px] sm:text-xs font-medium">${item.value.toLocaleString()}</span>
+                                <div
+                                    key={item.name}
+                                    className="flex items-center gap-2"
+                                >
+                                    <div
+                                        className="h-3 w-3 rounded-full"
+                                        style={{
+                                            backgroundColor: COLORS[index],
+                                        }}
+                                    />
+
+                                    <span className="text-xs text-muted-foreground">
+                                        {item.name}
+                                    </span>
+
+                                    <span className="text-xs font-semibold">
+                                        ${item.value.toLocaleString()}
+                                    </span>
                                 </div>
                             ))}
                         </div>
                     </CardContent>
                 </Card>
-
                 {/* Top Products */}
                 <Card>
                     <CardHeader>

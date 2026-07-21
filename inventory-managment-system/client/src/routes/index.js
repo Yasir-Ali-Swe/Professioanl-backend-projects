@@ -102,18 +102,18 @@ const SIDEBAR_CONFIG = [
     path: "invoices",
     roles: [ROLES.ADMIN, ROLES.MANAGER],
     children: [
-      { label: "Generate Invoice", icon: "Plus", path: "invoices/generate" },
       { label: "All Invoices", icon: "List", path: "invoices" },
+      { label: "Generate Invoice", icon: "Plus", path: "invoices/generate" },
     ],
   },
   {
-    label: "My Invoices",
+    label: "Invoices",
     icon: "Receipt",
     path: "invoices",
     roles: [ROLES.STAFF],
     children: [
-      { label: "Generate Invoice", icon: "Plus", path: "invoices/generate" },
       { label: "My Invoices", icon: "List", path: "invoices" },
+      { label: "Generate Invoice", icon: "Plus", path: "invoices/generate" },
     ],
   },
 
@@ -124,8 +124,8 @@ const SIDEBAR_CONFIG = [
     path: "purchase-orders",
     roles: [ROLES.ADMIN, ROLES.MANAGER],
     children: [
-      { label: "Create PO", icon: "Plus", path: "purchase-orders/create" },
       { label: "All POs", icon: "List", path: "purchase-orders" },
+      { label: "Create PO", icon: "Plus", path: "purchase-orders/create" },
     ],
   },
 
@@ -156,6 +156,11 @@ const SIDEBAR_CONFIG = [
         label: "Reorder Suggestions",
         icon: "ShoppingCart",
         path: "reorder-suggestions",
+      },
+      {
+        label: "Reorder History",
+        icon: "ShoppingCart",
+        path: "reorder-suggestions/history",
       },
     ],
   },

@@ -5,7 +5,7 @@ const MOCK_USER = {
   id: "1",
   name: "John Doe",
   email: "john@stockpilot.com",
-  role: "admin", // Change to 'super_admin', 'admin', 'manager', or 'staff' to test different roles
+  role: "staff", // Change to 'super_admin', 'admin', 'manager', or 'staff' to test different roles
   organizationId: "org_123",
   avatar: "https://github.com/shadcn.png",
 };

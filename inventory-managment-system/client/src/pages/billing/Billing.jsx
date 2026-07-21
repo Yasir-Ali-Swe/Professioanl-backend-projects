@@ -283,7 +283,9 @@ const BillingPage = () => {
                     )}
                 </CardContent>
             </Card>
-            <Card>
+            <Card className={cn(
+                "bg-transparent", "border-0", "shadow-none!", "ring-0",
+            )}>
                 <CardHeader>
                     <CardTitle className="text-sm sm:text-base">Billing Reference</CardTitle>
                     <CardDescription className="text-xs sm:text-sm">

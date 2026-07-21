@@ -75,6 +75,8 @@ import ForecastPage from "@/pages/ai/Forecast";
 import AnomalyDetectionPage from "@/pages/ai/Anomalies";
 import InsightsPage from "@/pages/ai/Insights";
 import ReorderSuggestionsPage from "@/pages/ai/ReorderSuggestions";
+import ReorderSuggestionsHistoryPage from "@/pages/ai/ReorderSuggestionsHistory";
+
 
 // Billing Page
 import BillingPage from "@/pages/billing/Billing";
@@ -157,6 +159,7 @@ const App = () => {
           <Route path="/admin/anomalies" element={<AnomalyDetectionPage />} />
           <Route path="/admin/insights" element={<InsightsPage />} />
           <Route path="/admin/reorder-suggestions" element={<ReorderSuggestionsPage />} />
+          <Route path="/admin/reorder-suggestions/history" element={<ReorderSuggestionsHistoryPage />} />
 
           {/* Billing Route */}
           <Route path="/admin/billing" element={<BillingPage />} />

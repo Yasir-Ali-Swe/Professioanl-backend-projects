@@ -14,6 +14,209 @@ import mongoose from "mongoose";
 import subscriptionPlanModel from "../models/organization.subscriptionPlan.js";
 import subscriptionModel from "../models/subscription.model.js";
 
+export const getSuperAdminDashboardStats = async (req, res) => {
+  try {
+    const startOfMonth = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1,
+    );
+    const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+
+    const [
+      totalOrganizations,
+      activeOrganizations,
+      suspendedOrganizations,
+      trialOrganizations,
+      totalProducts,
+      totalCategories,
+      totalSuppliers,
+      totalUsers,
+      organizationsThisMonth,
+      subscriptions,
+      premiumPlan,
+      allOrganizations,
+      allInvoices,
+      allPurchaseOrders,
+    ] = await Promise.all([
+      organizationModel.countDocuments(),
+      organizationModel.countDocuments({ status: "active" }),
+      organizationModel.countDocuments({ status: "suspended" }),
+      organizationModel.countDocuments({ status: "trial" }),
+      productModel.countDocuments(),
+      categoryModel.countDocuments(),
+      supplierModel.countDocuments(),
+      userModel.countDocuments({ role: { $ne: "super_admin" } }),
+      organizationModel.countDocuments({ createdAt: { $gte: startOfMonth } }),
+      subscriptionModel.find({ status: "active" }).populate("subscriptionPlanId"),
+      subscriptionPlanModel.findOne({ name: "premium" }),
+      organizationModel.find().select("_id name status createdAt"),
+      invoiceModel.find().populate("products.productId"),
+      purchaseOrderModel.find(),
+    ]);
+
+    // Calculate subscription metrics
+    const premiumCount = subscriptions.filter(
+      (s) => s.subscriptionPlanId?.name === "premium",
+    ).length;
+    const freeCount = totalOrganizations - premiumCount;
+
+    // Calculate platform revenue from subscriptions
+    let platformRevenue = 0;
+    if (premiumPlan) {
+      platformRevenue = premiumCount * (premiumPlan.price || 0);
+    }
+
+    // Calculate platform cost (sum of all purchase orders)
+    const platformCost = allPurchaseOrders.reduce(
+      (sum, po) => sum + (po.totalCost || 0),
+      0,
+    );
+
+    const platformProfit = platformRevenue - platformCost;
+
+    // Calculate invoice metrics
+    let totalInvoiceRevenue = 0;
+    let totalInvoiceCost = 0;
+    let totalInvoiceProfit = 0;
+
+    // Get all products for cost calculation
+    const allProducts = await productModel.find().select("costPrice");
+    const productCostMap = {};
+    allProducts.forEach((p) => {
+      productCostMap[p._id.toString()] = p.costPrice || 0;
+    });
+
+    for (const invoice of allInvoices) {
+      totalInvoiceRevenue += invoice.total || 0;
+      for (const item of invoice.products) {
+        if (item.productId) {
+          const productId = item.productId._id || item.productId;
+          const costPrice = productCostMap[productId.toString()] || 0;
+          totalInvoiceCost += item.quantity * costPrice;
+        }
+      }
+    }
+    totalInvoiceProfit = totalInvoiceRevenue - totalInvoiceCost;
+
+    // Monthly subscription revenue trend (last 6 months) - matching dummy format
+    const monthlyRevenueTrend = [];
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    for (let i = 5; i >= 0; i--) {
+      const month = new Date();
+      month.setMonth(month.getMonth() - i);
+      const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+      const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+
+      const monthSubscriptions = await subscriptionModel.find({
+        status: "active",
+        updatedAt: { $gte: monthStart, $lte: monthEnd },
+      }).populate("subscriptionPlanId");
+
+      const monthPremiumCount = monthSubscriptions.filter(
+        (s) => s.subscriptionPlanId?.name === "premium",
+      ).length;
+      const monthRevenue = monthPremiumCount * (premiumPlan?.price || 0);
+
+      monthlyRevenueTrend.push({
+        month: monthNames[month.getMonth()],
+        revenue: monthRevenue,
+        premiumCount: monthPremiumCount,
+      });
+    }
+
+    // Organizations by status (matching dummy format - no trial field)
+    const organizationsByStatus = {
+      active: activeOrganizations,
+      suspended: suspendedOrganizations,
+    };
+
+    // Calculate growth percentage
+    const lastMonthStart = new Date(startOfMonth);
+    lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+    const organizationsLastMonth = await organizationModel.countDocuments({
+      createdAt: { $gte: lastMonthStart, $lt: startOfMonth },
+    });
+
+    const growthPercentage =
+      organizationsLastMonth > 0
+        ? (
+          ((organizationsThisMonth - organizationsLastMonth) /
+            organizationsLastMonth) *
+          100
+        ).toFixed(1)
+        : organizationsThisMonth > 0
+          ? 100
+          : 0;
+
+    const switchedToPremiumThisMonth = await subscriptionModel.countDocuments({
+      status: "active",
+      subscriptionPlanId: premiumPlan?._id,
+      updatedAt: { $gte: startOfMonth },
+    });
+
+    // Format recent organizations - matching dummy format with date string
+    const recentOrganizations = allOrganizations
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 5)
+      .map((org) => ({
+        _id: org._id,
+        name: org.name,
+        status: org.status,
+        createdAt: org.createdAt.toISOString().split('T')[0], // Format as YYYY-MM-DD
+      }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        organizations: {
+          total: totalOrganizations,
+          active: activeOrganizations,
+          suspended: suspendedOrganizations,
+          createdThisMonth: organizationsThisMonth,
+          growthPercentage: parseFloat(growthPercentage),
+          byStatus: organizationsByStatus,
+        },
+        platformTotals: {
+          totalProducts,
+          totalCategories,
+          totalSuppliers,
+          totalUsers,
+        },
+        subscriptions: {
+          freeCount,
+          premiumCount,
+          switchedToPremiumThisMonth,
+          monthlySubscriptionRevenue: platformRevenue,
+          monthlyRevenueTrend,
+        },
+        platformProfit: {
+          revenue: platformRevenue,
+          cost: platformCost,
+          profit: platformProfit,
+          profitMargin: platformRevenue > 0
+            ? parseFloat(((platformProfit / platformRevenue) * 100).toFixed(2))
+            : 0,
+          invoiceRevenue: totalInvoiceRevenue,
+          invoiceCost: totalInvoiceCost,
+          invoiceProfit: totalInvoiceProfit,
+          invoiceProfitMargin: totalInvoiceRevenue > 0
+            ? parseFloat(((totalInvoiceProfit / totalInvoiceRevenue) * 100).toFixed(2))
+            : 0,
+        },
+        recentOrganizations,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getSuperAdminDashboardStats:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+
 export const getAllOrganizations = async (req, res) => {
   try {
     const {
@@ -27,18 +230,43 @@ export const getAllOrganizations = async (req, res) => {
     } = req.query;
 
     const query = {};
-    if (status) {
+    if (status && status !== "all") {
       query.status = status;
     }
-    if (subscriptionPlan) {
-      query.subscriptionPlan = subscriptionPlan;
+
+    const andConditions = [];
+
+    if (subscriptionPlan && subscriptionPlan !== "all") {
+      const planDoc = await subscriptionPlanModel.findOne({ name: subscriptionPlan });
+      if (planDoc) {
+        andConditions.push({ subscriptionPlan: planDoc._id });
+      } else if (subscriptionPlan === "free") {
+        const freePlanDoc = await subscriptionPlanModel.findOne({ name: "free" });
+        const freeConditions = [
+          { subscriptionPlan: null },
+          { subscriptionPlan: { $exists: false } }
+        ];
+        if (freePlanDoc) {
+          freeConditions.push({ subscriptionPlan: freePlanDoc._id });
+        }
+        andConditions.push({ $or: freeConditions });
+      } else {
+        andConditions.push({ subscriptionPlan: new mongoose.Types.ObjectId() });
+      }
     }
+
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { contactEmail: { $regex: search, $options: "i" } },
-        { phone: { $regex: search, $options: "i" } },
-      ];
+      andConditions.push({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { contactEmail: { $regex: search, $options: "i" } },
+          { phone: { $regex: search, $options: "i" } },
+        ]
+      });
+    }
+
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -78,17 +306,158 @@ export const getAllOrganizations = async (req, res) => {
       if (!usersByOrganization[orgId]) {
         usersByOrganization[orgId] = [];
       }
-      usersByOrganization[orgId].push(user);
+      usersByOrganization[orgId].push({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        imageUrl: user.imageUrl || "",
+      });
     });
 
+    // Format data to match dummy structure - simplified organizationData
     const formattedData = organizations.map((org) => ({
-      organizationData: org,
+      organizationData: {
+        _id: org._id,
+        name: org.name,
+        contactEmail: org.contactEmail,
+        phone: org.phone,
+        status: org.status,
+        subscriptionPlan: org.subscriptionPlan ? { name: org.subscriptionPlan.name || "free" } : { name: "free" },
+        createdAt: org.createdAt,
+      },
       organizationUsersData: usersByOrganization[org._id.toString()] || [],
     }));
+
+    // Calculate aggregate stats
+    const allOrganizations = await organizationModel
+      .find()
+      .select("status subscriptionPlan")
+      .lean();
+    const allOrgIds = allOrganizations.map((org) => org._id);
+
+    const allUsers = await userModel
+      .find()
+      .select("organizationId role")
+      .lean();
+    const allSubscriptions = await subscriptionModel
+      .find({ organizationId: { $in: allOrgIds } })
+      .populate("subscriptionPlanId", "name")
+      .lean();
+
+    const allPlans = await subscriptionPlanModel.find().lean();
+    const planMap = {};
+    allPlans.forEach((p) => {
+      planMap[p._id.toString()] = p.name;
+    });
+
+    let totalOrganizationsCount = allOrganizations.length;
+    let activeOrganizations = 0;
+    let suspendedOrganizations = 0;
+    let premiumOrganizations = 0;
+    let freeOrganizations = 0;
+
+    const subMap = {};
+    allSubscriptions.forEach((sub) => {
+      const orgId = sub.organizationId.toString();
+      subMap[orgId] = sub;
+    });
+
+    allOrganizations.forEach((org) => {
+      if (org.status === "active") activeOrganizations++;
+      if (org.status === "suspended") suspendedOrganizations++;
+
+      const orgId = org._id.toString();
+      const sub = subMap[orgId];
+      let planName = "free";
+
+      if (sub && sub.subscriptionPlanId) {
+        planName = sub.subscriptionPlanId.name;
+      } else if (org.subscriptionPlan) {
+        const planId = org.subscriptionPlan.toString();
+        planName = planMap[planId] || "free";
+      }
+
+      if (planName === "premium") premiumOrganizations++;
+      else if (planName === "free") freeOrganizations++;
+    });
+
+    const totalUsersCount = allUsers.length;
+
+    // Calculate growth metrics (last 30 days vs previous 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const activeThisMonth = await organizationModel.countDocuments({
+      createdAt: { $gte: thirtyDaysAgo },
+    });
+
+    const activePreviousMonth = await organizationModel.countDocuments({
+      createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo },
+    });
+
+    const totalGrowth =
+      activePreviousMonth > 0
+        ? ((activeThisMonth - activePreviousMonth) / activePreviousMonth) * 100
+        : 0;
+
+    const activeGrowth =
+      activePreviousMonth > 0
+        ? ((activeThisMonth - activePreviousMonth) / activePreviousMonth) * 100
+        : 0;
+
+    // Premium growth (last 30 days vs previous 30 days)
+    const premiumThisMonth = await subscriptionModel.countDocuments({
+      createdAt: { $gte: thirtyDaysAgo },
+      status: "active",
+    });
+
+    const premiumPreviousMonth = await subscriptionModel.countDocuments({
+      createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo },
+      status: "active",
+    });
+
+    const premiumGrowth =
+      premiumPreviousMonth > 0
+        ? ((premiumThisMonth - premiumPreviousMonth) / premiumPreviousMonth) *
+        100
+        : 0;
+
+    // Free growth
+    const freeThisMonth = activeThisMonth - premiumThisMonth;
+    const freePreviousMonth = activePreviousMonth - premiumPreviousMonth;
+    const freeGrowth =
+      freePreviousMonth > 0
+        ? ((freeThisMonth - freePreviousMonth) / freePreviousMonth) * 100
+        : 0;
+
+    const activePercentage =
+      totalOrganizationsCount > 0
+        ? (activeOrganizations / totalOrganizationsCount) * 100
+        : 0;
+
+    const aggregateStats = {
+      totalOrganizations: totalOrganizationsCount,
+      activeOrganizations,
+      suspendedOrganizations,
+      premiumOrganizations,
+      freeOrganizations,
+      totalUsers: totalUsersCount,
+      totalGrowth: Math.round(totalGrowth * 100) / 100,
+      activeGrowth: Math.round(activeGrowth * 100) / 100,
+      premiumGrowth: Math.round(premiumGrowth * 100) / 100,
+      freeGrowth: Math.round(freeGrowth * 100) / 100,
+      activeThisMonth,
+      activePercentage: Math.round(activePercentage * 100) / 100,
+    };
 
     res.status(200).json({
       success: true,
       data: formattedData,
+      aggregateStats,
       totalNumberOfOrganizations: totalOrganizations,
       page: Number(page),
       limit: Number(limit),
@@ -145,78 +514,108 @@ export const getOrganizationById = async (req, res) => {
     });
 
     // Get subscription data
-    const subscription = await mongoose
-      .model("Subscription")
+    const subscription = await subscriptionModel
       .findOne({ organizationId: id })
       .populate("subscriptionPlanId", "-__v -updatedAt")
       .lean();
 
-    // Prepare subscription data
-    let subscriptionData = null;
+    // Prepare subscription data matching dummy format
+    let subscriptionData = {
+      subscriptionRecord: null,
+      subscriptionPlan: null,
+      subscriptionDetails: {
+        isActive: false,
+        isPastDue: false,
+        isCanceled: false,
+        isIncomplete: false,
+        daysUntilExpiry: null,
+        isExpiringSoon: false,
+      },
+    };
+
     if (subscription) {
-      subscriptionData = {
-        subscriptionRecord: {
-          id: subscription._id,
-          stripeCustomerId: subscription.stripeCustomerId,
-          stripeSubscriptionId: subscription.stripeSubscriptionId,
-          status: subscription.status,
-          currentPeriodEnd: subscription.currentPeriodEnd,
-          createdAt: subscription.createdAt,
-          updatedAt: subscription.updatedAt,
-        },
-        subscriptionPlan: subscription.subscriptionPlanId
-          ? {
-              id: subscription.subscriptionPlanId._id,
-              name: subscription.subscriptionPlanId.name,
-              price: subscription.subscriptionPlanId.price,
-              billingCycle: subscription.subscriptionPlanId.billingCycle,
-              aiFeatures: subscription.subscriptionPlanId.aiFeatures,
-              stripePriceId: subscription.subscriptionPlanId.stripePriceId,
-            }
-          : null,
-        // Additional subscription metadata
-        subscriptionDetails: {
-          isActive: subscription.status === "active",
-          isPastDue: subscription.status === "past_due",
-          isCanceled: subscription.status === "canceled",
-          isIncomplete: subscription.status === "incomplete",
-          daysUntilExpiry: subscription.currentPeriodEnd
-            ? Math.ceil(
-                (new Date(subscription.currentPeriodEnd) - new Date()) /
-                  (1000 * 60 * 60 * 24),
-              )
-            : null,
-          isExpiringSoon: subscription.currentPeriodEnd
-            ? Math.ceil(
-                (new Date(subscription.currentPeriodEnd) - new Date()) /
-                  (1000 * 60 * 60 * 24),
-              ) <= 7
-            : false,
-        },
+      subscriptionData.subscriptionRecord = {
+        id: subscription._id,
+        stripeCustomerId: subscription.stripeCustomerId,
+        stripeSubscriptionId: subscription.stripeSubscriptionId,
+        status: subscription.status,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+        createdAt: subscription.createdAt,
+        updatedAt: subscription.updatedAt,
       };
-    } else {
-      // If no subscription record exists, check if organization has a subscriptionPlan
-      subscriptionData = {
-        subscriptionRecord: null,
-        subscriptionPlan: organization.subscriptionPlan || null,
-        subscriptionDetails: {
-          isActive: false,
-          isPastDue: false,
-          isCanceled: false,
-          isIncomplete: false,
-          daysUntilExpiry: null,
-          isExpiringSoon: false,
-          hasNoSubscription: true,
-        },
+
+      if (subscription.subscriptionPlanId) {
+        subscriptionData.subscriptionPlan = {
+          id: subscription.subscriptionPlanId._id,
+          name: subscription.subscriptionPlanId.name,
+          price: subscription.subscriptionPlanId.price,
+          billingCycle: subscription.subscriptionPlanId.billingCycle,
+          aiFeatures: subscription.subscriptionPlanId.aiFeatures,
+          stripePriceId: subscription.subscriptionPlanId.stripePriceId,
+        };
+      }
+
+      const daysUntilExpiry = subscription.currentPeriodEnd
+        ? Math.ceil(
+          (new Date(subscription.currentPeriodEnd) - new Date()) /
+          (1000 * 60 * 60 * 24),
+        )
+        : null;
+
+      subscriptionData.subscriptionDetails = {
+        isActive: subscription.status === "active",
+        isPastDue: subscription.status === "past_due",
+        isCanceled: subscription.status === "canceled",
+        isIncomplete: subscription.status === "incomplete",
+        daysUntilExpiry: daysUntilExpiry,
+        isExpiringSoon: daysUntilExpiry !== null && daysUntilExpiry <= 7,
+      };
+    } else if (organization.subscriptionPlan) {
+      // If no subscription record but organization has a plan reference
+      subscriptionData.subscriptionPlan = {
+        id: organization.subscriptionPlan._id,
+        name: organization.subscriptionPlan.name || "free",
+        price: organization.subscriptionPlan.price || 0,
+        billingCycle: organization.subscriptionPlan.billingCycle || "monthly",
+        aiFeatures: organization.subscriptionPlan.aiFeatures || false,
+        stripePriceId: organization.subscriptionPlan.stripePriceId || "",
       };
     }
+
+    const formattedAdminUser = adminUser ? {
+      _id: adminUser._id,
+      name: adminUser.name,
+      email: adminUser.email,
+      role: adminUser.role,
+      isActive: adminUser.isActive,
+      imageUrl: adminUser.imageUrl || "",
+    } : null;
+
+    const formattedAllUsers = allUsers ? allUsers.map((user) => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      imageUrl: user.imageUrl || "",
+    })) : [];
 
     res.status(200).json({
       success: true,
       data: {
-        organizationData: organization,
-        adminUser: adminUser || null,
-        allUsers: allUsers || [],
+        organizationData: {
+          _id: organization._id,
+          name: organization.name,
+          contactEmail: organization.contactEmail,
+          phone: organization.phone,
+          status: organization.status,
+          subscriptionPlan: organization.subscriptionPlan ? {
+            name: organization.subscriptionPlan.name || "free",
+          } : { name: "free" },
+          createdAt: organization.createdAt,
+        },
+        adminUser: formattedAdminUser,
+        allUsers: formattedAllUsers,
         organizationUsersCount: userCount,
         organizationProductsCount: productCount,
         organizationSuppliersCount: supplierCount,
@@ -232,6 +631,7 @@ export const getOrganizationById = async (req, res) => {
     });
   }
 };
+
 
 export const updateOrganizationStatus = async (req, res) => {
   try {
@@ -306,8 +706,6 @@ export const getAnalytics = async (req, res) => {
       new Date().getMonth(),
       1,
     );
-
-    // Run all queries in parallel for better performance
     const [
       totalOrganizations,
       activeOrganizations,
@@ -602,6 +1000,8 @@ export const getAnalytics = async (req, res) => {
     });
   }
 };
+
+
 export const getAllOrganizationSubscriptions = async (req, res) => {
   try {
     const {
@@ -609,17 +1009,22 @@ export const getAllOrganizationSubscriptions = async (req, res) => {
       limit = 10,
       status,
       plan,
+      search,
       sortBy = "createdAt",
       order = "desc",
     } = req.query;
 
     const query = {};
-    if (status) {
+    if (status && status !== "all") {
       query.status = status;
     }
-
-    const skip = (Number(page) - 1) * Number(limit);
-    const totalOrganizations = await organizationModel.countDocuments(query);
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { contactEmail: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
+    }
 
     const organizations = await organizationModel
       .find(query)
@@ -629,8 +1034,6 @@ export const getAllOrganizationSubscriptions = async (req, res) => {
       .sort({
         [sortBy]: order === "asc" ? 1 : -1,
       })
-      .skip(skip)
-      .limit(Number(limit))
       .lean();
 
     const organizationIds = organizations.map((org) => org._id);
@@ -649,14 +1052,6 @@ export const getAllOrganizationSubscriptions = async (req, res) => {
     allPlans.forEach((p) => {
       planMap[p._id.toString()] = p.name;
     });
-
-    // Get ALL subscriptions for summary (not just paginated ones)
-    const allSubscriptions = await subscriptionModel
-      .find({
-        organizationId: { $in: organizationIds },
-      })
-      .populate("subscriptionPlanId", "name price")
-      .lean();
 
     // Create a map of organizationId -> subscription
     const subscriptionMap = {};
@@ -707,11 +1102,15 @@ export const getAllOrganizationSubscriptions = async (req, res) => {
     });
 
     // Filter by plan if provided
-    if (plan) {
+    if (plan && plan !== "all") {
       results = results.filter((item) => item.planName === plan);
     }
 
     const totalResults = results.length;
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const skip = (pageNum - 1) * limitNum;
+    const paginatedResults = results.slice(skip, skip + limitNum);
 
     // Calculate summary statistics
     // Get all organizations for summary (not just paginated)
@@ -788,12 +1187,12 @@ export const getAllOrganizationSubscriptions = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: results,
+      data: paginatedResults,
       summary,
       total: totalResults,
-      page: Number(page),
-      limit: Number(limit),
-      totalPages: Math.ceil(totalResults / Number(limit)),
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(totalResults / limitNum) || 1,
     });
   } catch (error) {
     console.error("Error in getAllOrganizationSubscriptions:", error.message);
@@ -803,13 +1202,14 @@ export const getAllOrganizationSubscriptions = async (req, res) => {
     });
   }
 };
+
 export const getOrganizationSubscriptionDetails = async (req, res) => {
   try {
     const { id } = req.params;
 
     const organization = await organizationModel
       .findById(id)
-      .select("name contactEmail phone status logoUrl invoiceSettings")
+      .select("name contactEmail phone status logoUrl invoiceSettings subscriptionPlan")
       .lean();
 
     if (!organization) {
@@ -819,11 +1219,16 @@ export const getOrganizationSubscriptionDetails = async (req, res) => {
       });
     }
 
-    const currentPlan = await subscriptionPlanModel
-      .findById(organization.subscriptionPlan)
-      .select("name price billingCycle aiFeatures stripePriceId")
-      .lean();
+    // Get current plan details if organization has one
+    let currentPlan = null;
+    if (organization.subscriptionPlan) {
+      currentPlan = await subscriptionPlanModel
+        .findById(organization.subscriptionPlan)
+        .select("name price billingCycle aiFeatures stripePriceId")
+        .lean();
+    }
 
+    // Get subscription record
     const subscriptionRecord = await subscriptionModel
       .findOne({ organizationId: id })
       .populate(
@@ -838,6 +1243,31 @@ export const getOrganizationSubscriptionDetails = async (req, res) => {
       .select("_id name price billingCycle aiFeatures")
       .lean();
 
+    // Build subscription object
+    let subscriptionData;
+    if (subscriptionRecord) {
+      subscriptionData = {
+        subscriptionPlanId: subscriptionRecord.subscriptionPlanId,
+        stripeCustomerId: subscriptionRecord.stripeCustomerId,
+        stripeSubscriptionId: subscriptionRecord.stripeSubscriptionId,
+        status: subscriptionRecord.status,
+        currentPeriodEnd: subscriptionRecord.currentPeriodEnd,
+        createdAt: subscriptionRecord.createdAt,
+        updatedAt: subscriptionRecord.updatedAt,
+      };
+    } else {
+      // No subscription record found
+      subscriptionData = {
+        subscriptionPlanId: currentPlan || null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        status: "inactive",
+        currentPeriodEnd: null,
+        createdAt: organization.createdAt || new Date(),
+        updatedAt: organization.createdAt || new Date(),
+      };
+    }
+
     const response = {
       organization: {
         _id: organization._id,
@@ -849,17 +1279,7 @@ export const getOrganizationSubscriptionDetails = async (req, res) => {
         invoiceSettings: organization.invoiceSettings,
       },
       currentPlan: currentPlan || null,
-      subscription: subscriptionRecord
-        ? {
-            subscriptionPlanId: subscriptionRecord.subscriptionPlanId,
-            stripeCustomerId: subscriptionRecord.stripeCustomerId,
-            stripeSubscriptionId: subscriptionRecord.stripeSubscriptionId,
-            status: subscriptionRecord.status,
-            currentPeriodEnd: subscriptionRecord.currentPeriodEnd,
-            createdAt: subscriptionRecord.createdAt,
-            updatedAt: subscriptionRecord.updatedAt,
-          }
-        : null,
+      subscription: subscriptionData,
       availablePlans,
     };
 
@@ -958,6 +1378,81 @@ export const updateOrganizationSubscriptionPlan = async (req, res) => {
     res.status(error.status || 500).json({
       success: false,
       message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const getSuperAdminProfile = async (req, res) => {
+  try {
+    const user = await userModel.findById(req.user._id).select("name email imageUrl role");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        imageUrl: user.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6B46C1&color=fff&size=128`,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getSuperAdminProfile:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+export const updateSuperAdminProfile = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) {
+      // Check if email already exists
+      const existingUser = await userModel.findOne({ email, _id: { $ne: req.user._id } });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is already in use",
+        });
+      }
+      updateData.email = email;
+    }
+
+    if (req.file) {
+      updateData.imageUrl = req.file.path;
+    } else if (req.body.imageUrl !== undefined) {
+      updateData.imageUrl = req.body.imageUrl;
+    }
+
+    const updatedUser = await userModel.findByIdAndUpdate(
+      req.user._id,
+      updateData,
+      { new: true }
+    ).select("name email imageUrl role");
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        imageUrl: updatedUser.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(updatedUser.name)}&background=6B46C1&color=fff&size=128`,
+      },
+    });
+  } catch (error) {
+    console.error("Error in updateSuperAdminProfile:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
     });
   }
 };

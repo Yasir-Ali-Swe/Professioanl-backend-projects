@@ -14,28 +14,28 @@ const router = express.Router();
 router.get(
   "/anomalies",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   getAnomalies,
 );
 
 router.get(
   "/anomalies/:id",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   getAnomalyById,
 );
 
 router.patch(
   "/anomalies/:id/resolve",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   resolveAnomaly,
 );
 
 router.post(
   "/anomalies/run-detection",
   authMiddleware,
-  authorize("admin", "manager"),
+  authorize("admin"),
   runAnomalyDetection,
 );
 

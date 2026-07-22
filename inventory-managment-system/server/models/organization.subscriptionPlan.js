@@ -23,7 +23,7 @@ const subscriptionSchema = new mongoose.Schema(
     },
     stripePriceId: {
       type: String,
-      default: null, 
+      default: null,
     },
   },
   { timestamps: true },

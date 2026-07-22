@@ -68,14 +68,21 @@ const formatTime = (dateString) => {
     }
 };
 
+import { useSearchParams } from 'react-router-dom';
+
 export const ChatSidebar = () => {
     const user = useSelector(selectUser);
-    const { state } = useSidebar();
-    const isCollapsed = state === 'collapsed';
-    const [activeConversation, setActiveConversation] = useState('1');
+    const { state, isMobile } = useSidebar();
+    const isCollapsed = state === 'collapsed' && !isMobile;
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeConversation = searchParams.get('c') || '1';
+
+    const setActiveConversation = (id) => {
+        setSearchParams({ c: id });
+    };
 
     return (
-        <SidebarContainer collapsible="icon" variant="sidebar">
+        <SidebarContainer variant="sidebar">
             <SidebarHeader className="border-b border-sidebar-border">
                 <div className="flex items-center gap-2 px-2 py-1">
                     <Boxes className="h-6 w-6 text-primary" />
@@ -86,53 +93,38 @@ export const ChatSidebar = () => {
             </SidebarHeader>
 
             <SidebarContent className="hide-scrollbar flex flex-col">
-                <SidebarGroup className="flex-1 min-h-0">
-                    {!isCollapsed && (
-                        <SidebarGroupLabel className="text-muted-foreground uppercase tracking-wider text-xs">
+                {!isCollapsed && (
+                    <SidebarGroup className="flex flex-col flex-1 min-h-0 px-2 py-3">
+                        <SidebarGroupLabel className="text-muted-foreground uppercase tracking-wider text-xs px-2 py-1 mb-2 select-none">
                             Previous Chats
                         </SidebarGroupLabel>
-                    )}
-                    <SidebarGroupContent>
-                        <ScrollArea className="h-full">
-                            <SidebarMenu className="gap-1.5">
-                                {dummyConversations.map((conversation) => {
-                                    const isActive = activeConversation === conversation.id;
-                                    return (
-                                        <SidebarMenuItem key={conversation.id}>
-                                            <SidebarMenuButton
-                                                size="lg"
-                                                className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
+                        <SidebarGroupContent className="flex-1 min-h-0 flex flex-col">
+                            <ScrollArea className="flex-1 min-h-0 pr-1">
+                                <div className="flex flex-col gap-1">
+                                    {dummyConversations.map((conversation) => {
+                                        const isActive = activeConversation === conversation.id;
+                                        return (
+                                            <button
+                                                key={conversation.id}
                                                 onClick={() => setActiveConversation(conversation.id)}
-                                                isActive={isActive}
-                                                tooltip={isCollapsed ? conversation.title : ''}
+                                                className={cn(
+                                                    "w-full text-left px-3 py-2 text-sm transition-all duration-200 ease-in-out truncate rounded-r-md border-l-2 select-none cursor-pointer",
+                                                    isActive
+                                                        ? "bg-accent/40 border-primary font-semibold text-foreground"
+                                                        : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                                                )}
                                             >
-                                                <div className="flex flex-1 items-center gap-2 min-w-0">
-                                                    {!isCollapsed && (
-                                                        <div className="flex flex-1 flex-col min-w-0">
-                                                            <span className={cn(
-                                                                "truncate text-sm transition-colors",
-                                                                isActive ? "font-semibold text-foreground" : "font-medium text-foreground"
-                                                            )}>
-                                                                {conversation.title}
-                                                            </span>
-                                                            <span className={cn(
-                                                                "truncate text-sm transition-colors",
-                                                                isActive ? "font-semibold text-foreground" : "font-medium text-foreground"
-                                                            )}>
-                                                                {formatTime(conversation.updatedAt)}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </SidebarMenuButton>
-                                        </SidebarMenuItem>
-                                    );
-                                })}
-                            </SidebarMenu>
-                        </ScrollArea>
-                    </SidebarGroupContent>
-                </SidebarGroup>
+                                                <span className="block truncate">{conversation.title}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </ScrollArea>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
             </SidebarContent>
+
 
             <SidebarFooter className="border-t border-sidebar-border">
                 <SidebarMenu>

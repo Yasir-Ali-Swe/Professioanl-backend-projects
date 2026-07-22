@@ -8,11 +8,21 @@ import {
   getOrganizationSubscriptionDetails,
   updateOrganizationSubscriptionPlan,
   getAllOrganizationSubscriptions,
+  getSuperAdminDashboardStats,
+  getSuperAdminProfile,
+  updateSuperAdminProfile
 } from "../controllers/superAdmin.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.user.middleware.js";
 
 const router = express.Router();
+
+router.get(
+  "/platform-dashboard-stats",
+  authMiddleware,
+  authorize("super_admin"),
+  getSuperAdminDashboardStats,
+);
 
 router.get(
   "/organizations",
@@ -64,6 +74,20 @@ router.patch(
   authMiddleware,
   authorize("super_admin"),
   updateOrganizationStatus,
+);
+
+router.get(
+  "/profile",
+  authMiddleware,
+  authorize("super_admin"),
+  getSuperAdminProfile,
+);
+
+router.patch(
+  "/profile",
+  authMiddleware,
+  authorize("super_admin"),
+  updateSuperAdminProfile,
 );
 
 export default router;

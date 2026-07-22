@@ -96,8 +96,9 @@ export const getSuperAdminDashboardStats = async (req, res) => {
     }
     totalInvoiceProfit = totalInvoiceRevenue - totalInvoiceCost;
 
-    // Monthly subscription revenue trend (last 6 months)
+    // Monthly subscription revenue trend (last 6 months) - matching dummy format
     const monthlyRevenueTrend = [];
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     for (let i = 5; i >= 0; i--) {
       const month = new Date();
       month.setMonth(month.getMonth() - i);
@@ -115,20 +116,16 @@ export const getSuperAdminDashboardStats = async (req, res) => {
       const monthRevenue = monthPremiumCount * (premiumPlan?.price || 0);
 
       monthlyRevenueTrend.push({
-        month: month.toLocaleString("default", {
-          month: "short",
-          year: "numeric",
-        }),
+        month: monthNames[month.getMonth()],
         revenue: monthRevenue,
         premiumCount: monthPremiumCount,
       });
     }
 
-    // Organizations by status
+    // Organizations by status (matching dummy format - no trial field)
     const organizationsByStatus = {
       active: activeOrganizations,
       suspended: suspendedOrganizations,
-      trial: trialOrganizations,
     };
 
     // Calculate growth percentage
@@ -141,10 +138,10 @@ export const getSuperAdminDashboardStats = async (req, res) => {
     const growthPercentage =
       organizationsLastMonth > 0
         ? (
-            ((organizationsThisMonth - organizationsLastMonth) /
-              organizationsLastMonth) *
-            100
-          ).toFixed(2)
+          ((organizationsThisMonth - organizationsLastMonth) /
+            organizationsLastMonth) *
+          100
+        ).toFixed(1)
         : organizationsThisMonth > 0
           ? 100
           : 0;
@@ -155,6 +152,17 @@ export const getSuperAdminDashboardStats = async (req, res) => {
       updatedAt: { $gte: startOfMonth },
     });
 
+    // Format recent organizations - matching dummy format with date string
+    const recentOrganizations = allOrganizations
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 5)
+      .map((org) => ({
+        _id: org._id,
+        name: org.name,
+        status: org.status,
+        createdAt: org.createdAt.toISOString().split('T')[0], // Format as YYYY-MM-DD
+      }));
+
     res.status(200).json({
       success: true,
       data: {
@@ -162,7 +170,6 @@ export const getSuperAdminDashboardStats = async (req, res) => {
           total: totalOrganizations,
           active: activeOrganizations,
           suspended: suspendedOrganizations,
-          trial: trialOrganizations,
           createdThisMonth: organizationsThisMonth,
           growthPercentage: parseFloat(growthPercentage),
           byStatus: organizationsByStatus,
@@ -184,27 +191,17 @@ export const getSuperAdminDashboardStats = async (req, res) => {
           revenue: platformRevenue,
           cost: platformCost,
           profit: platformProfit,
-          profitMargin:
-            platformRevenue > 0
-              ? ((platformProfit / platformRevenue) * 100).toFixed(2)
-              : 0,
+          profitMargin: platformRevenue > 0
+            ? parseFloat(((platformProfit / platformRevenue) * 100).toFixed(2))
+            : 0,
           invoiceRevenue: totalInvoiceRevenue,
           invoiceCost: totalInvoiceCost,
           invoiceProfit: totalInvoiceProfit,
-          invoiceProfitMargin:
-            totalInvoiceRevenue > 0
-              ? ((totalInvoiceProfit / totalInvoiceRevenue) * 100).toFixed(2)
-              : 0,
+          invoiceProfitMargin: totalInvoiceRevenue > 0
+            ? parseFloat(((totalInvoiceProfit / totalInvoiceRevenue) * 100).toFixed(2))
+            : 0,
         },
-        recentOrganizations: allOrganizations
-          .sort((a, b) => b.createdAt - a.createdAt)
-          .slice(0, 5)
-          .map((org) => ({
-            _id: org._id,
-            name: org.name,
-            status: org.status,
-            createdAt: org.createdAt,
-          })),
+        recentOrganizations,
       },
     });
   } catch (error) {
@@ -272,7 +269,7 @@ export const getSalesTrends = async (req, res) => {
       averageOrderValue:
         trends.length > 0
           ? trends.reduce((sum, t) => sum + t.averageOrderValue, 0) /
-            trends.length
+          trends.length
           : 0,
     };
 

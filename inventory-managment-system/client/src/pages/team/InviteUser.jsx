@@ -1,9 +1,11 @@
-// pages/team/InviteUser.jsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
+import { useInviteOrganizationUser } from '@/hooks/useOrganization';
 import {
     Field,
     FieldLabel,
@@ -29,10 +31,6 @@ import {
     Eye,
     EyeOff,
 } from 'lucide-react';
-import { toast } from 'sonner';
-
-// Dummy user role - will come from auth
-const userRole = 'admin'; // or 'manager'
 
 // Zod schema for validation
 const inviteSchema = z.object({
@@ -59,9 +57,14 @@ const getAvailableRoles = (role) => {
 
 const InviteUser = () => {
     const navigate = useNavigate();
-    const [isPending, setIsPending] = useState(false);
+    const { user } = useAuth();
+    const userRole = user?.role || 'staff';
+    const rolePrefix = getRolePrefix(userRole);
     const [showPassword, setShowPassword] = useState(false);
     const availableRoles = getAvailableRoles(userRole);
+
+    const inviteMutation = useInviteOrganizationUser();
+    const isPending = inviteMutation.isPending;
 
     const {
         register,
@@ -83,18 +86,11 @@ const InviteUser = () => {
 
     // Handle form submission
     const onSubmit = async (values) => {
-        setIsPending(true);
-
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success(`User ${values.name} invited successfully! Email with credentials sent.`);
-            navigate('/admin/team');
-        } catch (error) {
-            toast.error(error.message || 'Failed to invite user. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        inviteMutation.mutate(values, {
+            onSuccess: () => {
+                navigate(`/${rolePrefix}/team`);
+            }
+        });
     };
 
     return (
@@ -130,7 +126,7 @@ const InviteUser = () => {
                                         id="name"
                                         type="text"
                                         placeholder="Enter full name"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm "
                                         {...register("name")}
                                         aria-invalid={errors.name ? "true" : "false"}
                                     />
@@ -149,7 +145,7 @@ const InviteUser = () => {
                                         id="email"
                                         type="email"
                                         placeholder="user@example.com"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("email")}
                                         aria-invalid={errors.email ? "true" : "false"}
                                     />
@@ -171,7 +167,7 @@ const InviteUser = () => {
                                         value={selectedRole}
                                         onValueChange={(value) => setValue('role', value)}
                                     >
-                                        <SelectTrigger className="h-10 text-sm rounded-none">
+                                        <SelectTrigger className="h-10 text-sm">
                                             <SelectValue placeholder="Select a role" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -206,7 +202,7 @@ const InviteUser = () => {
                                             id="password"
                                             type={showPassword ? "text" : "password"}
                                             placeholder="Enter temporary password"
-                                            className="h-10 text-sm rounded-none pr-10"
+                                            className="h-10 text-sm pr-10"
                                             {...register("password")}
                                             aria-invalid={errors.password ? "true" : "false"}
                                         />
@@ -233,7 +229,7 @@ const InviteUser = () => {
                         </div>
 
                         {/* Info Box */}
-                        <div className="rounded-md bg-muted p-4">
+                        <div className="bg-muted p-4">
                             <div className="flex items-start gap-3">
                                 <UserPlus className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                                 <div>

@@ -1,6 +1,7 @@
 // pages/billing/BillingPage.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSubscription, useCreateCheckoutSession, useCancelSubscription } from '@/hooks/useBilling';
 import {
     Card,
     CardContent,
@@ -34,34 +35,6 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-// Dummy Data - Free Plan
-const dummyFreeSubscription = {
-    subscriptionPlanId: {
-        name: 'free',
-        price: 0,
-        billingCycle: 'monthly',
-        aiFeatures: false,
-    },
-    stripeCustomerId: null,
-    stripeSubscriptionId: null,
-    status: 'active',
-    createdAt: '2024-07-15T10:30:00Z',
-};
-
-// Dummy Data - Premium Plan
-const dummyPremiumSubscription = {
-    subscriptionPlanId: {
-        name: 'premium',
-        price: 29.99,
-        billingCycle: 'monthly',
-        aiFeatures: true,
-    },
-    stripeCustomerId: 'cus_abc123',
-    stripeSubscriptionId: 'sub_xyz789',
-    status: 'active',
-    createdAt: '2024-07-15T10:30:00Z',
-};
-
 // Status Configuration
 const statusConfig = {
     active: { label: 'Active', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
@@ -72,14 +45,45 @@ const statusConfig = {
 
 const BillingPage = () => {
     const navigate = useNavigate();
-    // Switch between free and premium for demo
-    const [subscription] = useState(dummyFreeSubscription); // Change to dummyPremiumSubscription for premium view
-    const [isUpgrading, setIsUpgrading] = useState(false);
-    const [isCanceling, setIsCanceling] = useState(false);
+    const { data: response, isLoading, isError } = useSubscription();
+    const checkoutMutation = useCreateCheckoutSession();
+    const cancelMutation = useCancelSubscription();
+
     const [showCancelDialog, setShowCancelDialog] = useState(false);
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load subscription details</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const subscription = response.data || {
+        subscriptionPlanId: {
+            name: 'free',
+            price: 0,
+            billingCycle: 'monthly',
+            aiFeatures: false,
+        },
+        status: 'active',
+        stripeCustomerId: null,
+        stripeSubscriptionId: null
+    };
 
     const { subscriptionPlanId, stripeCustomerId, stripeSubscriptionId, status } = subscription;
     const isPremium = subscriptionPlanId.name === 'premium';
+    const isUpgrading = checkoutMutation.isPending;
+    const isCanceling = cancelMutation.isPending;
 
     const statusBadge = statusConfig[status] || statusConfig.active;
 
@@ -96,30 +100,20 @@ const BillingPage = () => {
 
     // Handle upgrade
     const handleUpgrade = async () => {
-        setIsUpgrading(true);
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success('Redirecting to checkout...');
-            // In real app: window.location.href = response.checkoutUrl;
+            await checkoutMutation.mutateAsync();
         } catch (error) {
-            toast.error('Failed to initiate upgrade. Please try again.');
-        } finally {
-            setIsUpgrading(false);
+            // Handled by hook
         }
     };
 
     // Handle cancel
     const handleCancel = async () => {
-        setIsCanceling(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success('Subscription will be canceled at the end of the billing period.');
+            await cancelMutation.mutateAsync();
             setShowCancelDialog(false);
         } catch (error) {
-            toast.error('Failed to cancel subscription. Please try again.');
-        } finally {
-            setIsCanceling(false);
+            // Handled by hook
         }
     };
 

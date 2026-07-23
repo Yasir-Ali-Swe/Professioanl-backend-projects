@@ -1,6 +1,6 @@
-// pages/superAdmin/SuperAdminProfilePage.jsx
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useUserProfile, useUpdateUserProfile, useUploadUserProfileImage } from '@/hooks/useUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Input } from '@/components/ui/input';
@@ -36,10 +36,16 @@ const SuperAdminProfilePage = () => {
     const [previewImage, setPreviewImage] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [originalValues, setOriginalValues] = useState({
-        name: DUMMY_PROFILE.name,
-        email: DUMMY_PROFILE.email
+        name: '',
+        email: ''
     });
-    const [isPending, setIsPending] = useState(false);
+
+    const { data: response, isLoading, isError } = useUserProfile();
+    const updateProfileMutation = useUpdateUserProfile();
+    const uploadImageMutation = useUploadUserProfileImage();
+
+    const isPending = updateProfileMutation.isPending || uploadImageMutation.isPending;
+    const user = response?.data;
 
     const {
         register,
@@ -50,13 +56,30 @@ const SuperAdminProfilePage = () => {
     } = useForm({
         resolver: zodResolver(profileSchema),
         defaultValues: {
-            name: DUMMY_PROFILE.name,
-            email: DUMMY_PROFILE.email,
+            name: '',
+            email: '',
         },
     });
 
     const watchedName = watch('name');
     const watchedEmail = watch('email');
+
+    // Sync form values on user load
+    useEffect(() => {
+        if (user) {
+            reset({
+                name: user.name || '',
+                email: user.email || '',
+            });
+            setOriginalValues({
+                name: user.name || '',
+                email: user.email || '',
+            });
+            if (user.imageUrl) {
+                setPreviewImage(user.imageUrl);
+            }
+        }
+    }, [user, reset]);
 
     // Check if form has changes
     const hasChanges = () => {
@@ -86,37 +109,57 @@ const SuperAdminProfilePage = () => {
 
     // Handle form submission
     const onSubmit = (values) => {
-        setIsPending(true);
-
-        // Simulate API call
-        setTimeout(() => {
-            // Update original values
-            setOriginalValues({
-                name: values.name,
-                email: values.email,
+        if (selectedFile) {
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+            uploadImageMutation.mutate(formData, {
+                onSuccess: () => {
+                    setSelectedFile(null);
+                }
             });
+        }
 
-            // Show success toast
-            toast.success('Profile updated successfully');
+        const hasFieldChanges =
+            values.name !== originalValues.name ||
+            values.email !== originalValues.email;
 
-            // Reset form with new values
-            reset(values);
-
-            // Clear preview and selected file
-            setPreviewImage(null);
-            setSelectedFile(null);
-
-            setIsPending(false);
-        }, 1500);
+        if (hasFieldChanges) {
+            updateProfileMutation.mutate(values, {
+                onSuccess: () => {
+                    setOriginalValues({
+                        name: values.name,
+                        email: values.email,
+                    });
+                    reset(values);
+                }
+            });
+        }
     };
 
-    const avatarImage = previewImage || DUMMY_PROFILE.imageUrl || '';
-    const initials = DUMMY_PROFILE.name
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load profile</p>
+                <p className="text-xs text-muted-foreground">Please check your network and try again.</p>
+            </div>
+        );
+    }
+
+    const avatarImage = previewImage || user?.imageUrl || '';
+    const initials = user?.name
         ?.split(' ')
         .map((n) => n[0])
         .join('')
         .toUpperCase()
-        .slice(0, 2) || 'SA';
+        .slice(0, 2) || 'U';
 
     return (
         <div className="flex items-center justify-center min-h-[60vh] px-4">
@@ -139,7 +182,7 @@ const SuperAdminProfilePage = () => {
                                     className="h-24 w-24 cursor-pointer transition-opacity hover:opacity-90"
                                     onClick={handleAvatarClick}
                                 >
-                                    <AvatarImage src={avatarImage} alt={DUMMY_PROFILE.name} />
+                                    <AvatarImage src={avatarImage} alt={user?.name} />
                                     <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                                         {initials}
                                     </AvatarFallback>
@@ -147,7 +190,7 @@ const SuperAdminProfilePage = () => {
                                 <button
                                     type="button"
                                     className={cn(
-                                        "absolute bottom-0 right-0 rounded-full bg-primary p-2 text-primary-foreground shadow-sm",
+                                        "absolute bottom-0 right-0 bg-primary p-2 text-primary-foreground shadow-sm",
                                         "transition-all hover:bg-primary/90 hover:scale-110",
                                         "ring-2 ring-background"
                                     )}

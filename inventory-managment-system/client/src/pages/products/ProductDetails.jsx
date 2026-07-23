@@ -1,8 +1,11 @@
-// pages/products/ProductDetail.jsx
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useProductById, useToggleProductActive, useUploadProductImage } from '@/hooks/useProduct';
+import { useStockHistory, useStockIn, useStockOut } from '@/hooks/useStock';
+import { useForecastForProduct, useReorderSuggestions, useGenerateReorderSuggestion } from '@/hooks/useForecast';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -130,12 +133,27 @@ const ProductDetail = () => {
 
     const { id } = useParams();
     const navigate = useNavigate();
-    const [product] = useState(dummyProduct);
-    const [stockHistory] = useState(dummyStockHistory);
-    const [forecast] = useState(dummyForecast);
-    const [reorderSuggestion] = useState(dummyReorderSuggestion);
+    const imageInputRef = useRef(null);
+
+    const { data: productResponse, isLoading: isProductLoading, isError: isProductError } = useProductById(id);
+    const { data: stockHistoryResponse } = useStockHistory(id);
+    const { data: forecastResponse } = useForecastForProduct(id);
+    const { data: suggestionsResponse } = useReorderSuggestions();
+
+    const toggleActiveMutation = useToggleProductActive();
+    const uploadImageMutation = useUploadProductImage();
+    const stockInMutation = useStockIn();
+    const stockOutMutation = useStockOut();
+    const generateSuggestionMutation = useGenerateReorderSuggestion();
+
+    const product = productResponse?.data;
+    const stockHistory = stockHistoryResponse?.data?.logs || [];
+    const forecast = forecastResponse?.data || null;
+    const reorderSuggestions = suggestionsResponse?.data || [];
+    const reorderSuggestion = reorderSuggestions.find(s => s.productId?._id === id || s.productId === id);
 
     const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
@@ -146,6 +164,7 @@ const ProductDetail = () => {
     };
 
     const formatDateShort = (dateString) => {
+        if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
@@ -167,11 +186,90 @@ const ProductDetail = () => {
         return { label: 'Healthy', className: 'bg-green-500/10 text-green-500 border-green-500/20' };
     };
 
+    const handleStockIn = () => {
+        const qtyStr = prompt("Enter quantity to Stock In:");
+        if (!qtyStr) return;
+        const qty = parseInt(qtyStr);
+        if (isNaN(qty) || qty <= 0) {
+            toast.error("Please enter a valid positive number.");
+            return;
+        }
+        const reason = prompt("Enter reason for Stock In (optional):") || "Manual stock adjustment";
+        stockInMutation.mutate({
+            productId: product._id,
+            quantity: qty,
+            reason
+        });
+    };
+
+    const handleStockOut = () => {
+        const qtyStr = prompt("Enter quantity to Stock Out:");
+        if (!qtyStr) return;
+        const qty = parseInt(qtyStr);
+        if (isNaN(qty) || qty <= 0) {
+            toast.error("Please enter a valid positive number.");
+            return;
+        }
+        if (qty > product.quantity) {
+            toast.error(`Cannot stock out ${qty} units. Only ${product.quantity} units are in stock.`);
+            return;
+        }
+        const reason = prompt("Enter reason for Stock Out (optional):") || "Manual stock adjustment";
+        stockOutMutation.mutate({
+            productId: product._id,
+            quantity: qty,
+            reason
+        });
+    };
+
+    const handleToggleActive = () => {
+        toggleActiveMutation.mutate({
+            id: product._id,
+            isActive: !product.isActive
+        });
+    };
+
+    const handleImageUploadClick = () => {
+        imageInputRef.current?.click();
+    };
+
+    const handleImageUpload = (event) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append("image", file);
+            uploadImageMutation.mutate({
+                id: product._id,
+                formData
+            });
+        }
+    };
+
+    const handleGenerateSuggestion = () => {
+        generateSuggestionMutation.mutate(id);
+    };
+
+    if (isProductLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isProductError || !product) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load product details</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
     const stockStatus = getStockStatus(product.quantity, product.reorderThreshold);
 
     return (
         <div className="space-y-4 sm:space-y-6 pb-8">
-            {/* Page Header */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3">
                     <Button
@@ -227,23 +325,21 @@ const ProductDetail = () => {
                             </Link>
                         </Button>
                         <DropdownMenu>
-                            <DropdownMenuTrigger
-                                render={
-                                    <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm gap-1">
-                                        Actions
-                                        <ChevronRight className="h-3.5 w-3.5" />
-                                    </Button>
-                                }
-                            />
+                            <DropdownMenuTrigger render={
+                                <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm gap-1">
+                                    Actions
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                </Button>
+                            } />
                             <DropdownMenuContent align="end" className="w-48">
                                 <DropdownMenuGroup>
                                     <DropdownMenuLabel>Stock Actions</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="cursor-pointer">
+                                    <DropdownMenuItem className="cursor-pointer" onClick={handleStockIn}>
                                         <Plus className="mr-2 h-3.5 w-3.5 text-green-500" />
                                         Stock In
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem className="cursor-pointer">
+                                    <DropdownMenuItem className="cursor-pointer" onClick={handleStockOut}>
                                         <Minus className="mr-2 h-3.5 w-3.5 text-destructive" />
                                         Stock Out
                                     </DropdownMenuItem>
@@ -252,11 +348,11 @@ const ProductDetail = () => {
                                 <DropdownMenuGroup>
                                     <DropdownMenuLabel>Product Actions</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="cursor-pointer">
+                                    <DropdownMenuItem className="cursor-pointer" onClick={handleImageUploadClick}>
                                         <Image className="mr-2 h-3.5 w-3.5" />
                                         Upload Image
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem className="cursor-pointer">
+                                    <DropdownMenuItem className="cursor-pointer" onClick={handleToggleActive}>
                                         {product.isActive ? (
                                             <>
                                                 <XCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
@@ -269,22 +365,32 @@ const ProductDetail = () => {
                                             </>
                                         )}
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem className="cursor-pointer" onClick={handleGenerateSuggestion}>
+                                        <TrendingUp className="mr-2 h-3.5 w-3.5 text-primary" />
+                                        Generate AI Reorder
+                                    </DropdownMenuItem>
                                 </DropdownMenuGroup>
                             </DropdownMenuContent>
                         </DropdownMenu>
+                        <input
+                            type="file"
+                            ref={imageInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                        />
                     </div>
                 }
             </div>
 
-            {/* Product Overview Card - Full Width */}
             <Card>
-                <CardContent className="">
+                <CardContent className="pt-6">
                     <div className="flex flex-col sm:flex-row gap-6">
                         <div className="shrink-0 flex justify-center">
                             <img
                                 src={product.imageUrl}
                                 alt={product.name}
-                                className="h-32 w-32 rounded-lg object-cover border"
+                                className="h-32 w-32 object-cover border"
                             />
                         </div>
                         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -311,7 +417,7 @@ const ProductDetail = () => {
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground">Created By</p>
-                                <p className="text-sm font-medium">{product.createdBy?.name} ({product.createdBy?.role})</p>
+                                <p className="text-sm font-medium">{product.createdBy?.name || 'N/A'}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground">Last Updated</p>
@@ -322,9 +428,7 @@ const ProductDetail = () => {
                 </CardContent>
             </Card>
 
-            {/* Stock Info + Pricing & Financials */}
             <div className="grid gap-4 md:grid-cols-2">
-                {/* Stock Info Card */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-sm sm:text-base">Stock Information</CardTitle>
@@ -362,7 +466,6 @@ const ProductDetail = () => {
                     </CardContent>
                 </Card>
 
-                {/* Pricing & Financials Card */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-sm sm:text-base">Pricing & Financials</CardTitle>
@@ -371,33 +474,32 @@ const ProductDetail = () => {
                     <CardContent className="space-y-3">
                         <div className="flex items-center justify-between border-b pb-2">
                             <p className="text-xs text-muted-foreground">Cost Price</p>
-                            <span className="text-sm font-medium">${product.costPrice.toFixed(2)}</span>
+                            <span className="text-sm font-medium">${(product.costPrice || 0).toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between border-b pb-2">
                             <p className="text-xs text-muted-foreground">Selling Price</p>
-                            <span className="text-sm font-medium">${product.sellingPrice.toFixed(2)}</span>
+                            <span className="text-sm font-medium">${(product.sellingPrice || 0).toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between border-b pb-2">
                             <p className="text-xs text-muted-foreground">Profit Margin</p>
-                            <span className="text-sm font-medium text-green-500">${product.profitMargin.toFixed(2)}</span>
+                            <span className="text-sm font-medium text-green-500">${(product.profitMargin || 0).toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between border-b pb-2">
                             <p className="text-xs text-muted-foreground">Profit Margin %</p>
-                            <span className="text-sm font-medium text-green-500">{product.profitMarginPercentage}%</span>
+                            <span className="text-sm font-medium text-green-500">{(product.profitMarginPercentage || 0).toFixed(2)}%</span>
                         </div>
                         <div className="flex items-center justify-between border-b pb-2">
                             <p className="text-xs text-muted-foreground">Total Inventory Value</p>
-                            <span className="text-sm font-medium">${product.totalInventoryValue.toFixed(2)}</span>
+                            <span className="text-sm font-medium">${(product.totalInventoryValue || 0).toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <p className="text-xs text-muted-foreground">Total Sales Value</p>
-                            <span className="text-sm font-medium">${product.totalSalesValue.toFixed(2)}</span>
+                            <span className="text-sm font-medium">${(product.totalSalesValue || 0).toFixed(2)}</span>
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Supplier Info Card - Same style as Pricing & Financials */}
             <Card>
                 <CardHeader>
                     <CardTitle className="text-sm sm:text-base">Supplier Information</CardTitle>
@@ -441,9 +543,8 @@ const ProductDetail = () => {
                 </CardContent>
             </Card>
 
-            {/* Tabs */}
             <Tabs defaultValue="stock-history" className="space-y-4">
-                <TabsList className="sm:w-auto max-w-2xl overflow-x-auto flex-nowrap hide-scrollbar">
+                <TabsList className="sm:w-auto overflow-x-auto flex-nowrap hide-scrollbar">
                     <TabsTrigger value="stock-history" className="text-xs sm:text-sm whitespace-nowrap">
                         Stock History
                     </TabsTrigger>
@@ -455,7 +556,6 @@ const ProductDetail = () => {
                     </TabsTrigger>
                 </TabsList>
 
-                {/* Stock History Tab */}
                 <TabsContent value="stock-history">
                     <Card>
                         <CardHeader>
@@ -476,7 +576,7 @@ const ProductDetail = () => {
                                     </TableHeader>
                                     <TableBody>
                                         {stockHistory.map((item) => (
-                                            <TableRow key={item.id}>
+                                            <TableRow key={item._id}>
                                                 <TableCell>
                                                     <Badge variant={item.type === 'in' ? 'default' : 'destructive'} className="text-[10px]">
                                                         {item.type === 'in' ? 'Stock In' : 'Stock Out'}
@@ -484,9 +584,9 @@ const ProductDetail = () => {
                                                 </TableCell>
                                                 <TableCell className="font-medium">{item.quantity}</TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">{item.reason}</TableCell>
-                                                <TableCell className="text-xs">{item.performedBy}</TableCell>
+                                                <TableCell className="text-xs">{item.performedBy?.name || 'System'}</TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">
-                                                    {formatDateShort(item.date)}
+                                                    {formatDateShort(item.createdAt)}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -504,24 +604,23 @@ const ProductDetail = () => {
                             <CardTitle className="text-sm sm:text-base">Demand Forecast</CardTitle>
                             <CardDescription className="text-xs sm:text-sm">AI-powered demand prediction</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div className="rounded-lg border p-4 text-center">
-                                    <p className="text-xs text-muted-foreground">Predicted Demand</p>
-                                    <p className="text-2xl font-bold">{forecast.predictedDemand}</p>
-                                    <p className="text-[10px] text-muted-foreground">Next 30 days</p>
-                                </div>
-                                <div className="rounded-lg border p-4 text-center">
-                                    <p className="text-xs text-muted-foreground">Days Until Stockout</p>
-                                    <p className="text-2xl font-bold">{forecast.daysUntilStockout}</p>
-                                    <p className="text-[10px] text-muted-foreground">At current consumption rate</p>
-                                </div>
-                                <div className="rounded-lg border p-4 text-center">
-                                    <p className="text-xs text-muted-foreground">Confidence</p>
-                                    <p className="text-2xl font-bold">{forecast.confidence}%</p>
-                                    <p className="text-[10px] text-muted-foreground">Model confidence level</p>
-                                </div>
+                        <CardContent>                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="border p-4 text-center">
+                                <p className="text-xs text-muted-foreground">Predicted Demand</p>
+                                <p className="text-2xl font-bold">{forecast ? forecast.predictedDemand : 'N/A'}</p>
+                                <p className="text-[10px] text-muted-foreground">Next 30 days ({forecast?.forecastPeriod || 'N/A'})</p>
                             </div>
+                            <div className="border p-4 text-center">
+                                <p className="text-xs text-muted-foreground">Days Until Stockout</p>
+                                <p className="text-2xl font-bold">{forecast && forecast.daysUntilStockout !== null ? forecast.daysUntilStockout : 'N/A'}</p>
+                                <p className="text-[10px] text-muted-foreground">At current consumption rate</p>
+                            </div>
+                            <div className="border p-4 text-center">
+                                <p className="text-xs text-muted-foreground">Confidence</p>
+                                <p className="text-2xl font-bold">{forecast ? `${(forecast.confidence * 100).toFixed(0)}%` : 'N/A'}</p>
+                                <p className="text-[10px] text-muted-foreground">Model confidence level ({forecast?.modelUsed || 'N/A'})</p>
+                            </div>
+                        </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -533,30 +632,20 @@ const ProductDetail = () => {
                             <CardTitle className="text-sm sm:text-base">Reorder Suggestions</CardTitle>
                             <CardDescription className="text-xs sm:text-sm">AI-powered reorder recommendations</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div className="rounded-lg border p-4 text-center">
-                                    <p className="text-xs text-muted-foreground">Suggested Quantity</p>
-                                    <p className="text-2xl font-bold">{reorderSuggestion.suggestedQuantity}</p>
-                                </div>
-                                <div className="rounded-lg border p-4 text-center">
-                                    <p className="text-xs text-muted-foreground">Urgency</p>
-                                    <Badge
-                                        variant={
-                                            reorderSuggestion.urgency === 'high' ? 'destructive' :
-                                                reorderSuggestion.urgency === 'moderate' ? 'outline' :
-                                                    'default'
-                                        }
-                                        className="text-[10px] mt-1"
-                                    >
-                                        {reorderSuggestion.urgency?.toUpperCase() || 'N/A'}
-                                    </Badge>
-                                </div>
-                                <div className="rounded-lg border p-4 text-center">
-                                    <p className="text-xs text-muted-foreground">Reason</p>
-                                    <p className="text-sm font-medium">{reorderSuggestion.reason || 'N/A'}</p>
-                                </div>
+                        <CardContent>                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="border p-4 text-center">
+                                <p className="text-xs text-muted-foreground">Suggested Quantity</p>
+                                <p className="text-2xl font-bold">{reorderSuggestion ? reorderSuggestion.suggestedQuantity : 'N/A'}</p>
                             </div>
+                            <div className="border p-4 text-center">
+                                <p className="text-xs text-muted-foreground">Suggested Reorder Date</p>
+                                <p className="text-sm font-medium mt-2">{reorderSuggestion ? formatDateShort(reorderSuggestion.suggestedReorderDate) : 'N/A'}</p>
+                            </div>
+                            <div className="border p-4 text-center">
+                                <p className="text-xs text-muted-foreground">Reasoning</p>
+                                <p className="text-xs font-medium mt-1 leading-relaxed">{reorderSuggestion ? reorderSuggestion.reasoning : 'No suggestions available'}</p>
+                            </div>
+                        </div>
                         </CardContent>
                     </Card>
                 </TabsContent>

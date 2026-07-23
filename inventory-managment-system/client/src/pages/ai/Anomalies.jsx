@@ -273,11 +273,11 @@ const AnomalyDetailDialog = ({ anomaly, open, onOpenChange }) => {
 
                 <div className="space-y-4">
                     {/* Product Info */}
-                    <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-4 p-3 bg-muted/30">
                         <img
                             src={productImages[anomaly.productId.sku] || 'https://ui-avatars.com/api/?name=Unknown&background=6B46C1&color=fff&size=64'}
                             alt={anomaly.productId.name}
-                            className="h-12 w-12 rounded-lg object-cover border"
+                            className="h-12 w-12 object-cover border"
                         />
                         <div>
                             <p className="text-sm font-medium">{anomaly.productId.name}</p>
@@ -290,7 +290,7 @@ const AnomalyDetailDialog = ({ anomaly, open, onOpenChange }) => {
                     </div>
 
                     {/* Description */}
-                    <div className="rounded-lg border p-4">
+                    <div className="border p-4">
                         <p className="text-sm leading-relaxed">{anomaly.description}</p>
                     </div>
 
@@ -555,15 +555,15 @@ const AnomaliesPage = () => {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => updateFilter('severity', 'all')}>All</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => updateFilter('severity', 'high')}>
-                                <span className="h-2 w-2 rounded-full bg-destructive mr-2" />
+                                <span className="h-2 w-2 bg-destructive mr-2" />
                                 High
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => updateFilter('severity', 'medium')}>
-                                <span className="h-2 w-2 rounded-full bg-yellow-500 mr-2" />
+                                <span className="h-2 w-2 bg-yellow-500 mr-2" />
                                 Medium
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => updateFilter('severity', 'low')}>
-                                <span className="h-2 w-2 rounded-full bg-gray-500 mr-2" />
+                                <span className="h-2 w-2 bg-gray-500 mr-2" />
                                 Low
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
@@ -650,7 +650,7 @@ const AnomaliesPage = () => {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
@@ -693,7 +693,7 @@ const AnomaliesPage = () => {
                                                     <img
                                                         src={imageUrl}
                                                         alt={anomaly.productId.name}
-                                                        className="h-8 w-8 rounded-md object-cover border"
+                                                        className="h-8 w-8 object-cover border"
                                                     />
                                                     <span className="text-xs sm:text-sm font-medium truncate max-w-32 sm:max-w-48">
                                                         {anomaly.productId.name}
@@ -886,7 +886,7 @@ const AnomaliesPage = () => {
                         <AlertDialogDescription>
                             Are you sure you want to mark this anomaly as resolved?
                             {selectedAnomaly && (
-                                <div className="mt-2 p-3 bg-muted rounded-md">
+                                <div className="mt-2 p-3 bg-muted">
                                     <p className="text-sm font-medium">{selectedAnomaly.productId?.name}</p>
                                     <p className="text-xs text-muted-foreground">{selectedAnomaly.description}</p>
                                 </div>

@@ -135,10 +135,10 @@ const ProductCard = ({ product, type }) => {
     const bgColor = isTop ? 'bg-green-500/10' : 'bg-red-500/10';
 
     return (
-        <div className={cn("rounded-lg border p-3", bgColor)}>
+        <div className={cn("border p-3", bgColor)}>
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <div className="rounded-full p-1.5 bg-background">
+                    <div className="p-1.5 bg-background">
                         <Icon className={cn("h-4 w-4", color)} />
                     </div>
                     <div>
@@ -195,7 +195,7 @@ const InsightDetailDialog = ({ insight, open, onOpenChange }) => {
 
                 <div className="space-y-4">
                     {/* Summary */}
-                    <div className="rounded-lg bg-muted/30 p-4">
+                    <div className="bg-muted/30 p-4">
                         <p className="text-sm leading-relaxed whitespace-pre-wrap text-justify">
                             {insight.summary || 'No summary available'}
                         </p>
@@ -205,25 +205,25 @@ const InsightDetailDialog = ({ insight, open, onOpenChange }) => {
                     <div>
                         <h4 className="text-sm font-medium mb-2">Key Metrics</h4>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="rounded-lg border p-3">
+                            <div className="border p-3">
                                 <p className="text-xs text-muted-foreground">Total Revenue</p>
                                 <p className="text-lg font-bold text-green-500">
                                     ${totalRevenue.toLocaleString()}
                                 </p>
                             </div>
-                            <div className="rounded-lg border p-3">
+                            <div className="border p-3">
                                 <p className="text-xs text-muted-foreground">Total Orders</p>
                                 <p className="text-lg font-bold text-blue-500">
                                     {totalOrders}
                                 </p>
                             </div>
-                            <div className="rounded-lg border p-3">
+                            <div className="border p-3">
                                 <p className="text-xs text-muted-foreground">Avg Order Value</p>
                                 <p className="text-lg font-bold text-purple-500">
                                     ${averageOrderValue.toFixed(2)}
                                 </p>
                             </div>
-                            <div className="rounded-lg border p-3">
+                            <div className="border p-3">
                                 <p className="text-xs text-muted-foreground">Inventory Turnover</p>
                                 <p className="text-lg font-bold text-green-500">
                                     {inventoryTurnover}x
@@ -255,7 +255,7 @@ const InsightDetailDialog = ({ insight, open, onOpenChange }) => {
                                 {insight.actionableSuggestions.map((suggestion, index) => (
                                     <div
                                         key={index}
-                                        className="flex items-start gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                                        className="flex items-start gap-3 border p-3 hover:bg-muted/50 transition-colors"
                                     >
                                         <Lightbulb className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
                                         <p className="text-sm">{suggestion}</p>
@@ -421,7 +421,7 @@ const InsightsPage = () => {
                         </CardHeader>
                         <CardContent className="space-y-6">
                             {/* Summary */}
-                            <div className="rounded-lg bg-muted/30 p-4 sm:p-6">
+                            <div className="bg-muted/30 p-4 sm:p-6">
                                 <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap text-justify">
                                     {insight.summary || 'No summary available'}
                                 </p>
@@ -481,7 +481,7 @@ const InsightsPage = () => {
                                         {insight.actionableSuggestions.map((suggestion, index) => (
                                             <div
                                                 key={index}
-                                                className="flex items-start gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                                                className="flex items-start gap-3 border p-3 hover:bg-muted/50 transition-colors"
                                             >
                                                 <Lightbulb className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
                                                 <p className="text-sm">{suggestion}</p>
@@ -499,7 +499,7 @@ const InsightsPage = () => {
                             <Clock className="h-5 w-5 text-muted-foreground" />
                             History
                         </h3>
-                        <div className="rounded-md border overflow-hidden">
+                        <div className="border overflow-hidden">
                             <div className="overflow-x-auto">
                                 <Table>
                                     <TableHeader>

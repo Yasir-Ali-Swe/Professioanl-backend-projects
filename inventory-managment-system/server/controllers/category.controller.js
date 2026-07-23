@@ -83,24 +83,34 @@ export const getAllCategories = async (req, res) => {
       .populate("createdBy", "name role") // Populate createdBy with name and role
       .lean();
 
-    // Transform the data to include createdBy as name and role
-    const formattedCategories = categories.map((category) => ({
-      _id: category._id,
-      organizationId: category.organizationId,
-      name: category.name,
-      categorySlug: category.categorySlug,
-      createdBy: category.createdBy
-        ? {
-            name: category.createdBy.name,
-            role: category.createdBy.role,
-          }
-        : null,
-      createdAt: category.createdAt,
-    }));
+    // Fetch products count for each category
+    const categoriesWithProductCounts = await Promise.all(
+      categories.map(async (category) => {
+        const count = await productModel.countDocuments({
+          categoryId: category._id,
+          organizationId,
+        });
+        return {
+          _id: category._id,
+          organizationId: category.organizationId,
+          name: category.name,
+          categorySlug: category.categorySlug,
+          createdBy: category.createdBy
+            ? {
+              name: category.createdBy.name,
+              role: category.createdBy.role,
+            }
+            : null,
+          createdAt: category.createdAt,
+          productsCount: count,
+          isActive: count > 0,
+        };
+      })
+    );
 
     res.status(200).json({
       success: true,
-      data: formattedCategories,
+      data: categoriesWithProductCounts,
     });
   } catch (error) {
     console.error("Error fetching categories:", error.message);
@@ -142,9 +152,9 @@ export const getCategoryById = async (req, res) => {
       categorySlug: category.categorySlug,
       createdBy: category.createdBy
         ? {
-            name: category.createdBy.name,
-            role: category.createdBy.role,
-          }
+          name: category.createdBy.name,
+          role: category.createdBy.role,
+        }
         : null,
       createdAt: category.createdAt,
     };
@@ -192,9 +202,9 @@ export const getCategoryBySlug = async (req, res) => {
       categorySlug: category.categorySlug,
       createdBy: category.createdBy
         ? {
-            name: category.createdBy.name,
-            role: category.createdBy.role,
-          }
+          name: category.createdBy.name,
+          role: category.createdBy.role,
+        }
         : null,
       createdAt: category.createdAt,
     };

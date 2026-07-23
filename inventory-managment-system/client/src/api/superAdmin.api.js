@@ -47,3 +47,9 @@ export const updateOrganizationStatus = (id, data) => {
     .patch(`/api/v1/super-admin/organization/${id}/status`, data)
     .then((res) => res.data);
 };
+
+export const getPlatformDashboardStats = () => {
+  return axiosInstance
+    .get("/api/v1/super-admin/platform-dashboard-stats")
+    .then((res) => res.data);
+};

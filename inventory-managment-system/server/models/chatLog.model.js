@@ -12,6 +12,11 @@ const chatLogSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    conversationId: {
+      type: String,
+      required: true,
+      index: true,
+    },
     query: { type: String, required: true },
     response: { type: String, required: true },
     intent: { type: String, default: null },
@@ -19,6 +24,12 @@ const chatLogSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+chatLogSchema.index({
+  organizationId: 1,
+  userId: 1,
+  conversationId: 1,
+  createdAt: -1,
+});
 chatLogSchema.index({ organizationId: 1, userId: 1, createdAt: -1 });
 
 export default mongoose.model("ChatLog", chatLogSchema);

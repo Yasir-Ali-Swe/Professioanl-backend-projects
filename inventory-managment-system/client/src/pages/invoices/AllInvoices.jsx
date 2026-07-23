@@ -1,8 +1,9 @@
-// pages/invoices/AllInvoices.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useAllInvoices, useVoidInvoice } from '@/hooks/useInvoice';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -158,11 +159,12 @@ const dummyInvoices = {
             voidInvoices: 2,
         },
     },
-};
-
+}
 // Detail Dialog Component
 const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
     if (!invoice) return null;
+
+    const voidMutation = useVoidInvoice();
 
     const getStatusBadge = (status) => {
         const variants = {
@@ -184,13 +186,18 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
     };
 
     const handleVoid = () => {
-        toast.success(`Invoice ${invoice.invoiceNumber} voided successfully! Stock has been restored.`);
-        onOpenChange(false);
+        if (confirm("Are you sure you want to void this invoice? This will restore inventory stocks.")) {
+            voidMutation.mutate(invoice._id, {
+                onSuccess: () => {
+                    onOpenChange(false);
+                }
+            });
+        }
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-auto max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <div className="flex items-center justify-between">
                         <DialogTitle className="text-xl font-bold">
@@ -233,14 +240,15 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                                 {invoice.products.map((item, index) => (
                                     <TableRow key={index}>
                                         <TableCell className="py-1.5 px-2 text-xs font-medium">
-                                            Product {index + 1}
+                                            <div>{item.productId?.name || 'Deleted Product'}</div>
+                                            <div className="text-[10px] text-muted-foreground">{item.productId?.sku || 'N/A'}</div>
                                         </TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-right">
-                                            ${(invoice.total / invoice.products.length).toFixed(2)}
+                                        <TableCell className="py-1.5 px-2 text-xs text-center">{item.quantity}</TableCell>
+                                        <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                            ${(item.sellingPrice || 0).toFixed(2)}
                                         </TableCell>
                                         <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
-                                            ${(invoice.total / invoice.products.length).toFixed(2)}
+                                            ${(item.subtotal || 0).toFixed(2)}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -273,23 +281,21 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                         <div className="p-3 bg-red-500/10 border border-red-500/20">
                             <p className="text-xs text-muted-foreground">Voided By</p>
                             <p className="text-sm font-medium">{invoice.voidedBy.name}</p>
-                            <p className="text-xs text-muted-foreground">{formatDate(invoice.createdAt)}</p>
+                            <p className="text-xs text-muted-foreground">{formatDate(invoice.updatedAt || invoice.createdAt)}</p>
                         </div>
                     )}
                 </div>
 
                 <DialogFooter showCloseButton={false}>
-                    <DialogClose asChild>
-                        <Button variant="outline">Close</Button>
-                    </DialogClose>
+                    <DialogClose render={<Button variant="outline" disabled={voidMutation.isPending}>Close</Button>} />
                     {invoice.status !== 'void' && (
-                        <Button variant="destructive" onClick={handleVoid}>
-                            Void Invoice
+                        <Button variant="destructive" onClick={handleVoid} disabled={voidMutation.isPending}>
+                            {voidMutation.isPending ? 'Voiding...' : 'Void Invoice'}
                         </Button>
                     )}
                 </DialogFooter>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 };
 
@@ -298,7 +304,6 @@ const AllInvoices = () => {
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
     const [searchParams, setSearchParams] = useSearchParams();
-    const [invoicesData] = useState(dummyInvoices);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -312,16 +317,16 @@ const AllInvoices = () => {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
 
-    const { invoices, summary, pagination } = invoicesData.data;
-
-    const filteredInvoices = invoices.filter(inv => {
-        const matchesSearch = inv.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-            inv.customerName.toLowerCase().includes(search.toLowerCase());
-        const matchesStatus = status === 'all' || inv.status === status;
-        const matchesCustomer = !customer || inv.customerName.toLowerCase().includes(customer.toLowerCase());
-        const matchesMinTotal = !minTotal || inv.total >= parseFloat(minTotal);
-        const matchesMaxTotal = !maxTotal || inv.total <= parseFloat(maxTotal);
-        return matchesSearch && matchesStatus && matchesCustomer && matchesMinTotal && matchesMaxTotal;
+    const { data: response, isLoading, isError } = useAllInvoices({
+        page,
+        limit,
+        search,
+        status: status === 'all' ? undefined : status,
+        customerName: customer || undefined,
+        minTotal: minTotal || undefined,
+        maxTotal: maxTotal || undefined,
+        sortBy,
+        order,
     });
 
     const updateFilter = (key, value) => {
@@ -391,10 +396,41 @@ const AllInvoices = () => {
         return pages;
     };
 
-    const paginatedInvoices = filteredInvoices.slice(
-        (page - 1) * limit,
-        page * limit
-    );
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load invoices</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const { invoices = [], summary = {
+        totalRevenue: 0,
+        totalTax: 0,
+        totalDiscount: 0,
+        totalInvoices: 0,
+        paidInvoices: 0,
+        unpaidInvoices: 0,
+        voidInvoices: 0,
+    }, pagination = {
+        total: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
+    } } = response.data || {};
+
+    const paginatedInvoices = invoices;
 
     const openDetailDialog = (invoice) => {
         setSelectedInvoice(invoice);
@@ -411,12 +447,10 @@ const AllInvoices = () => {
                         Manage all invoices across the organization.
                     </p>
                 </div>
-                <Button className="w-full sm:w-auto" asChild>
-                    <Link to={`/${rolePrefix}/invoices/generate`} className="flex items-center justify-center">
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        Generate Invoice
-                    </Link>
-                </Button>
+                <Button className="w-full sm:w-auto" render={<Link to={`/${rolePrefix}/invoices/generate`} className="flex items-center justify-center">
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Generate Invoice
+                </Link>} />
             </div>
 
             {/* Stats Cards */}
@@ -677,8 +711,8 @@ const AllInvoices = () => {
                 <div className="flex items-center justify-between gap-3 border-t px-3 py-3 sm:px-4">
                     <div className="whitespace-nowrap text-xs sm:text-sm text-muted-foreground">
                         Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to{' '}
-                        <span className="font-medium">{Math.min(page * limit, filteredInvoices.length)}</span>{' '}
-                        of <span className="font-medium">{filteredInvoices.length}</span> results
+                        <span className="font-medium">{Math.min(page * limit, pagination.total)}</span>{' '}
+                        of <span className="font-medium">{pagination.total}</span> results
                     </div>
                     <Pagination className="mx-0 w-auto">
                         <PaginationContent>
@@ -738,7 +772,7 @@ const AllInvoices = () => {
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
             />
-        </div>
+        </div >
     );
 };
 

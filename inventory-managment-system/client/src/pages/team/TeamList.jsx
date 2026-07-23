@@ -1,6 +1,7 @@
-// pages/team/TeamList.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useOrganizationUsers, useUpdateOrganizationUser, useDeleteOrganizationUser } from '@/hooks/useOrganization';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -144,13 +145,19 @@ const dummyUsers = {
             invitedBy: { _id: 'u2', name: 'Jane Doe', email: 'jane@techcorp.com', role: 'manager' },
             createdAt: '2024-01-10T09:00:00Z',
         },
-    ],
-};
-
+    ]
+}
 // User Detail Dialog Component
 const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
     const [selectedRole, setSelectedRole] = useState(user?.role || '');
-    const [isUpdating, setIsUpdating] = useState(false);
+    const updateMutation = useUpdateOrganizationUser();
+    const deleteMutation = useDeleteOrganizationUser();
+
+    useEffect(() => {
+        if (user) {
+            setSelectedRole(user.role || '');
+        }
+    }, [user]);
 
     if (!user) return null;
 
@@ -174,6 +181,8 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
     const isAdminUser = user?.role === 'admin';
     const canPerformActions = !(isManager && isAdminUser);
 
+    const isUpdating = updateMutation.isPending || deleteMutation.isPending;
+
     const handleUpdateRole = async () => {
         if (selectedRole === user.role) return;
 
@@ -183,16 +192,14 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
             return;
         }
 
-        setIsUpdating(true);
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success(`User role updated to ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}`);
-            onOpenChange(false);
-        } catch (error) {
-            toast.error('Failed to update role');
-        } finally {
-            setIsUpdating(false);
-        }
+        updateMutation.mutate({
+            id: user._id,
+            data: { role: selectedRole }
+        }, {
+            onSuccess: () => {
+                onOpenChange(false);
+            }
+        });
     };
 
     const handleToggleStatus = async () => {
@@ -202,16 +209,14 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
             return;
         }
 
-        setIsUpdating(true);
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success(`User ${user.isActive ? 'deactivated' : 'activated'} successfully`);
-            onOpenChange(false);
-        } catch (error) {
-            toast.error('Failed to update status');
-        } finally {
-            setIsUpdating(false);
-        }
+        updateMutation.mutate({
+            id: user._id,
+            data: { isActive: !user.isActive }
+        }, {
+            onSuccess: () => {
+                onOpenChange(false);
+            }
+        });
     };
 
     const handleDelete = async () => {
@@ -221,15 +226,12 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
             return;
         }
 
-        setIsUpdating(true);
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success('User deleted successfully');
-            onOpenChange(false);
-        } catch (error) {
-            toast.error('Failed to delete user');
-        } finally {
-            setIsUpdating(false);
+        if (confirm("Are you sure you want to delete this user?")) {
+            deleteMutation.mutate(user._id, {
+                onSuccess: () => {
+                    onOpenChange(false);
+                }
+            });
         }
     };
 
@@ -248,7 +250,7 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
             <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <div className="flex h-12 w-12 items-center justify-center bg-primary/10 text-primary">
                             <User className="h-6 w-6" />
                         </div>
                         <div>
@@ -308,7 +310,7 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
                                 <div className="flex items-center gap-3">
                                     <span className="text-sm font-medium">Update Role</span>
                                     <Select value={selectedRole} onValueChange={setSelectedRole}>
-                                        <SelectTrigger className="h-8 w-32 text-sm rounded-none">
+                                        <SelectTrigger className="h-8 w-32 text-sm">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -372,7 +374,7 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
                                 <div className="flex items-center gap-3">
                                     <span className="text-sm font-medium">Update Role</span>
                                     <Select value={selectedRole} onValueChange={setSelectedRole}>
-                                        <SelectTrigger className="h-8 w-32 text-sm rounded-none">
+                                        <SelectTrigger className="h-8 w-32 text-sm">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -423,7 +425,7 @@ const UserDetailDialog = ({ user, open, onOpenChange, userRole }) => {
                     {/* ✅ Manager viewing admin user - show restricted message */}
                     {userRole === 'manager' && isAdminUser && (
                         <div className="border-t pt-4">
-                            <div className="rounded-md bg-muted p-3 text-center">
+                            <div className="bg-muted p-3 text-center">
                                 <Shield className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
                                 <p className="text-sm text-muted-foreground">
                                     Admin users cannot be modified by Managers
@@ -451,7 +453,6 @@ const TeamList = () => {
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
     const [searchParams, setSearchParams] = useSearchParams();
-    const [usersData] = useState(dummyUsers);
     const [selectedUser, setSelectedUser] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -466,7 +467,42 @@ const TeamList = () => {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
 
-    const { data: users, pagination } = usersData;
+    const { data: response, isLoading, isError } = useOrganizationUsers({
+        page,
+        limit,
+        search,
+        role: roleFilter === 'all' ? undefined : roleFilter,
+        isActive: status === 'all' ? undefined : (status === 'active' ? 'true' : 'false'),
+        sortBy,
+        order,
+    });
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load team members</p>
+                <p className="text-xs text-muted-foreground">Please try again.</p>
+            </div>
+        );
+    }
+
+    const users = response.data || [];
+    const pagination = response.pagination || {
+        currentPage: 1,
+        totalPages: 1,
+        totalUsers: 0,
+        limit: 10,
+        hasNextPage: false,
+        hasPreviousPage: false,
+    };
 
     // Stats calculations
     const totalUsers = pagination.totalUsers;
@@ -475,21 +511,7 @@ const TeamList = () => {
     const staffCount = users.filter(u => u.role === 'staff').length;
     const activeCount = users.filter(u => u.isActive).length;
 
-    // ✅ Filter users - Manager cannot see Admin users
-    const filteredUsers = users.filter(u => {
-        // If user is manager, hide admin users from the list
-        if (userRole === 'manager' && u.role === 'admin') {
-            return false;
-        }
-
-        const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
-            u.email.toLowerCase().includes(search.toLowerCase());
-        const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-        const matchesStatus = status === 'all' ||
-            (status === 'active' && u.isActive) ||
-            (status === 'inactive' && !u.isActive);
-        return matchesSearch && matchesRole && matchesStatus;
-    });
+    const filteredUsers = users;
 
     const updateFilter = (key, value) => {
         const newParams = new URLSearchParams(searchParams);
@@ -549,10 +571,7 @@ const TeamList = () => {
         return pages;
     };
 
-    const paginatedUsers = filteredUsers.slice(
-        (page - 1) * limit,
-        page * limit
-    );
+    const paginatedUsers = filteredUsers;
 
     const openDetailDialog = (user) => {
         setSelectedUser(user);
@@ -776,7 +795,7 @@ const TeamList = () => {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>

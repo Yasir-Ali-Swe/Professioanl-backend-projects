@@ -129,30 +129,52 @@ const statusConfig = {
     },
 };
 
+import { usePlatformDashboardStats } from '@/hooks/useSuperAdmin';
+import { Loader2 } from 'lucide-react';
+
 const STATUS_COLORS = ['var(--chart-1)', 'var(--destructive)'];
 
 const SuperAdminDashboard = () => {
-    const { organizations, platformTotals, subscriptions, platformProfit, recentOrganizations } = dummyStats;
+    const { data: response, isLoading, isError } = usePlatformDashboardStats();
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[50vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load platform stats</p>
+                <p className="text-xs text-muted-foreground">Please verify your session and try again.</p>
+            </div>
+        );
+    }
+
+    const { organizations, platformTotals, subscriptions, platformProfit, recentOrganizations } = response.data;
 
     // Organization status data for pie chart
     const statusData = [
-        { name: 'Active', value: organizations.byStatus.active },
-        { name: 'Suspended', value: organizations.byStatus.suspended },
+        { name: 'Active', value: organizations.byStatus?.active || 0 },
+        { name: 'Suspended', value: organizations.byStatus?.suspended || 0 },
     ];
 
     // Profit data for bar chart
     const profitData = [
         {
             name: 'Platform',
-            revenue: platformProfit.revenue,
-            cost: platformProfit.cost,
-            profit: platformProfit.profit
+            revenue: platformProfit.revenue || 0,
+            cost: platformProfit.cost || 0,
+            profit: platformProfit.profit || 0
         },
         {
             name: 'Invoices',
-            revenue: platformProfit.invoiceRevenue,
-            cost: platformProfit.invoiceCost,
-            profit: platformProfit.invoiceProfit
+            revenue: platformProfit.invoiceRevenue || 0,
+            cost: platformProfit.invoiceCost || 0,
+            profit: platformProfit.invoiceProfit || 0
         },
     ];
 
@@ -413,7 +435,7 @@ const SuperAdminDashboard = () => {
                                     className="flex items-center gap-2"
                                 >
                                     <div
-                                        className="h-3 w-3 rounded-full"
+                                        className="h-3 w-3"
                                         style={{
                                             backgroundColor: STATUS_COLORS[index],
                                         }}

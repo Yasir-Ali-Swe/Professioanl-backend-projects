@@ -141,6 +141,7 @@ export const createProduct = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Product created successfully",
+      data: product,
     });
   } catch (error) {
     console.error("Error creating product:", error.message);
@@ -170,6 +171,30 @@ export const getAllProducts = async (req, res) => {
 
     const query = { organizationId };
 
+    if (categoryName) {
+      const category = await categoryModel.findOne({
+        organizationId,
+        name: { $regex: categoryName, $options: "i" },
+      });
+      if (category) {
+        query.categoryId = category._id;
+      } else {
+        query.categoryId = null;
+      }
+    }
+
+    if (supplierName) {
+      const supplier = await supplierModel.findOne({
+        organizationId,
+        name: { $regex: supplierName, $options: "i" },
+      });
+      if (supplier) {
+        query.supplierId = supplier._id;
+      } else {
+        query.supplierId = null;
+      }
+    }
+
     if (unit) {
       query.unit = unit;
     }
@@ -196,7 +221,7 @@ export const getAllProducts = async (req, res) => {
     const skip = (Number(page) - 1) * Number(limit);
     const totalProducts = await productModel.countDocuments(query);
 
-    let products = await productModel
+    const products = await productModel
       .find(query)
       .populate("categoryId", "name categorySlug")
       .populate("supplierId", "name contactPerson phone email address")
@@ -208,26 +233,6 @@ export const getAllProducts = async (req, res) => {
       .skip(skip)
       .limit(Number(limit))
       .lean();
-
-    if (categoryName) {
-      products = products.filter(
-        (product) =>
-          product.categoryId &&
-          product.categoryId.name
-            .toLowerCase()
-            .includes(categoryName.toLowerCase()),
-      );
-    }
-
-    if (supplierName) {
-      products = products.filter(
-        (product) =>
-          product.supplierId &&
-          product.supplierId.name
-            .toLowerCase()
-            .includes(supplierName.toLowerCase()),
-      );
-    }
 
     const formattedProducts = products.map((product) => ({
       _id: product._id,
@@ -267,15 +272,24 @@ export const getAllProducts = async (req, res) => {
         : null,
     }));
 
-    const filteredTotal = formattedProducts.length;
+    const activeProductsCount = await productModel.countDocuments({
+      organizationId,
+      isActive: true,
+    });
+    const lowStockProductsCount = await productModel.countDocuments({
+      organizationId,
+      $expr: { $lte: ["$quantity", "$reorderThreshold"] },
+    });
 
     res.status(200).json({
       success: true,
       data: formattedProducts,
-      total: filteredTotal,
+      total: totalProducts,
+      activeCount: activeProductsCount,
+      lowStockCount: lowStockProductsCount,
       page: Number(page),
       limit: Number(limit),
-      totalPages: Math.ceil(filteredTotal / Number(limit)),
+      totalPages: Math.ceil(totalProducts / Number(limit)),
     });
   } catch (error) {
     console.error("Error fetching products:", error.message);

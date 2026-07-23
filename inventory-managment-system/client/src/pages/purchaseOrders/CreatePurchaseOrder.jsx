@@ -279,7 +279,7 @@ const CreatePurchaseOrder = () => {
                                         value={supplierId}
                                         onValueChange={(value) => setValue('supplierId', value)}
                                     >
-                                        <SelectTrigger className="h-10 text-sm rounded-none">
+                                        <SelectTrigger className="h-10 text-sm">
                                             <SelectValue placeholder="Select a supplier" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -318,7 +318,7 @@ const CreatePurchaseOrder = () => {
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                             onKeyDown={handleKeyDown}
-                                            className="pl-8 pr-8 h-10 text-sm rounded-none"
+                                            className="pl-8 pr-8 h-10 text-sm"
                                         />
                                         {searchTerm && (
                                             <button
@@ -337,7 +337,7 @@ const CreatePurchaseOrder = () => {
                         {/* Product Results - always visible, shows all products by default */}
                         <div
                             ref={resultsRef}
-                            className="rounded-md border overflow-hidden max-h-75 overflow-y-auto"
+                            className="border overflow-hidden max-h-75 overflow-y-auto"
                         >
                             <Table>
                                 <TableHeader>
@@ -416,7 +416,7 @@ const CreatePurchaseOrder = () => {
 
                     {/* Right Column - 5 Columns */}
                     <div className="lg:col-span-5 space-y-4">
-                        <div className="rounded-md border p-4">
+                        <div className="border p-4">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-sm font-medium">Cart</h3>
                                 <Badge variant="outline" className="text-[10px]">
@@ -480,7 +480,7 @@ const CreatePurchaseOrder = () => {
                                                                 placeholder="0.00"
                                                                 value={item.unitCost || ''}
                                                                 onChange={(e) => updateUnitCost(item.productId, parseFloat(e.target.value) || 0)}
-                                                                className="h-6 w-20 text-xs text-right rounded-none"
+                                                                className="h-6 w-20 text-xs text-right"
                                                             />
                                                         </TableCell>
                                                         <TableCell className="py-1.5 px-2 text-xs text-right font-medium">

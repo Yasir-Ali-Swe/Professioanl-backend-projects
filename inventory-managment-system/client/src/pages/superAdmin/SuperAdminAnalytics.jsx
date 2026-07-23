@@ -1,6 +1,7 @@
-// pages/superAdmin/SuperAdminAnalytics.jsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { usePlatformAnalytics } from '@/hooks/useSuperAdmin';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -169,7 +170,26 @@ const COLORS = ['var(--chart-2)', 'var(--destructive)', 'var(--chart-3)'];
 const ROLE_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)'];
 
 const SuperAdminAnalytics = () => {
-    const [analytics] = useState(dummyAnalytics.data);
+    const { data: response, isLoading, isError } = usePlatformAnalytics();
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[50vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load platform analytics</p>
+                <p className="text-xs text-muted-foreground">Please check your network and try again.</p>
+            </div>
+        );
+    }
+
+    const analytics = response.data;
 
     const {
         totalOrganizations,
@@ -347,7 +367,7 @@ const SuperAdminAnalytics = () => {
 
             {/* Secondary Stats Row */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Avg Products/Org</p>
                         <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
@@ -355,7 +375,7 @@ const SuperAdminAnalytics = () => {
                     <p className="mt-1 text-lg sm:text-2xl font-bold">{averageOrganizationSize.avgProductsPerOrg}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Avg Users/Org</p>
                         <UsersIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
@@ -363,7 +383,7 @@ const SuperAdminAnalytics = () => {
                     <p className="mt-1 text-lg sm:text-2xl font-bold">{averageOrganizationSize.avgUsersPerOrg}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Canceled This Month</p>
                         <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
@@ -371,7 +391,7 @@ const SuperAdminAnalytics = () => {
                     <p className="mt-1 text-lg sm:text-2xl font-bold">{churnData.canceledThisMonth}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Suspended This Month</p>
                         <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
@@ -553,7 +573,7 @@ const SuperAdminAnalytics = () => {
                                     className="flex items-center gap-2"
                                 >
                                     <div
-                                        className="h-3 w-3 rounded-full"
+                                        className="h-3 w-3"
                                         style={{ backgroundColor: COLORS[index] }}
                                     />
 
@@ -628,7 +648,7 @@ const SuperAdminAnalytics = () => {
                                     className="flex items-center gap-2"
                                 >
                                     <div
-                                        className="h-3 w-3 rounded-full"
+                                        className="h-3 w-3"
                                         style={{ backgroundColor: COLORS[index] }}
                                     />
 

@@ -1,8 +1,7 @@
-// pages/suppliers/SupplierDetail.jsx
-import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useSupplierWithProducts } from '@/hooks/useSupplier';
 import {
     Card,
     CardContent,
@@ -33,27 +32,8 @@ import {
     Edit,
     Calendar,
     Building2,
+    Loader2,
 } from 'lucide-react';
-
-// Dummy Supplier Data
-const dummySupplier = {
-    _id: 's1',
-    name: 'TechSupply Co.',
-    contactPerson: 'John Smith',
-    email: 'john@techsupply.com',
-    phone: '+1 234 567 8900',
-    address: '123 Tech Street, Silicon Valley, CA 94025',
-    leadTimeDays: 5,
-    createdBy: 'John Doe (admin)',
-    createdAt: '2024-01-15T10:30:00Z',
-};
-
-// Dummy Products from this supplier
-const dummyProducts = [
-    { _id: 'p1', name: 'Wireless Mouse', sku: 'SKU-001', quantity: 45, sellingPrice: 29.99, isActive: true },
-    { _id: 'p2', name: 'USB-C Charger', sku: 'SKU-002', quantity: 8, sellingPrice: 19.99, isActive: true },
-    { _id: 'p3', name: 'Bluetooth Speaker', sku: 'SKU-003', quantity: 2, sellingPrice: 49.99, isActive: false },
-];
 
 const SupplierDetail = () => {
     const { id } = useParams();
@@ -61,10 +41,11 @@ const SupplierDetail = () => {
     const { role } = useAuth();
     const user = useAuth().user;
     const rolePrefix = getRolePrefix(role);
-    const [supplier] = useState(dummySupplier);
-    const [products] = useState(dummyProducts);
+
+    const { data: response, isLoading, isError } = useSupplierWithProducts(id);
 
     const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
@@ -73,6 +54,26 @@ const SupplierDetail = () => {
             minute: '2-digit',
         });
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load supplier details</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const supplier = response.data?.supplier || {};
+    const products = response.data?.products || [];
 
     return (
         <div className="space-y-4 sm:space-y-6 pb-8">

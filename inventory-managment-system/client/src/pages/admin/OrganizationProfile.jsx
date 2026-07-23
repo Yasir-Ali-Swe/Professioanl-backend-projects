@@ -18,6 +18,7 @@ import { Camera, Loader2, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useRedux';
+import { useOrganizationProfile, useUpdateOrganizationProfile, useUploadOrganizationLogo } from '@/hooks/useOrganization';
 import { Badge } from '@/components/ui/badge';
 
 // Dummy organization profile data
@@ -55,12 +56,18 @@ const OrganizationProfilePage = () => {
     const [previewImage, setPreviewImage] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [originalValues, setOriginalValues] = useState({
-        name: DUMMY_ORG_PROFILE.name,
-        contactEmail: DUMMY_ORG_PROFILE.contactEmail,
-        phone: DUMMY_ORG_PROFILE.phone,
-        address: DUMMY_ORG_PROFILE.address,
+        name: '',
+        contactEmail: '',
+        phone: '',
+        address: '',
     });
-    const [isPending, setIsPending] = useState(false);
+
+    const { data: response, isLoading, isError } = useOrganizationProfile();
+    const updateProfileMutation = useUpdateOrganizationProfile();
+    const uploadLogoMutation = useUploadOrganizationLogo();
+
+    const isPending = updateProfileMutation.isPending || uploadLogoMutation.isPending;
+    const org = response?.data;
 
     const {
         register,
@@ -71,10 +78,10 @@ const OrganizationProfilePage = () => {
     } = useForm({
         resolver: zodResolver(orgProfileSchema),
         defaultValues: {
-            name: DUMMY_ORG_PROFILE.name,
-            contactEmail: DUMMY_ORG_PROFILE.contactEmail,
-            phone: DUMMY_ORG_PROFILE.phone,
-            address: DUMMY_ORG_PROFILE.address,
+            name: '',
+            contactEmail: '',
+            phone: '',
+            address: '',
         },
     });
 
@@ -83,12 +90,26 @@ const OrganizationProfilePage = () => {
     const watchedPhone = watch('phone');
     const watchedAddress = watch('address');
 
-    // Set initial image preview
+    // Sync form values on profile load
     useEffect(() => {
-        if (DUMMY_ORG_PROFILE.logoUrl) {
-            setPreviewImage(DUMMY_ORG_PROFILE.logoUrl);
+        if (org) {
+            reset({
+                name: org.name || '',
+                contactEmail: org.contactEmail || '',
+                phone: org.phone || '',
+                address: org.address || '',
+            });
+            setOriginalValues({
+                name: org.name || '',
+                contactEmail: org.contactEmail || '',
+                phone: org.phone || '',
+                address: org.address || '',
+            });
+            if (org.logoUrl) {
+                setPreviewImage(org.logoUrl);
+            }
         }
-    }, []);
+    }, [org, reset]);
 
     // Check if form has changes (only for admin)
     const hasChanges = () => {
@@ -132,34 +153,57 @@ const OrganizationProfilePage = () => {
             return;
         }
 
-        setIsPending(true);
-
-        // Simulate API call
-        setTimeout(() => {
-            // Update original values
-            setOriginalValues({
-                name: values.name,
-                contactEmail: values.contactEmail,
-                phone: values.phone,
-                address: values.address,
+        // If logo is selected, upload it first
+        if (selectedFile) {
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+            uploadLogoMutation.mutate(formData, {
+                onSuccess: () => {
+                    setSelectedFile(null);
+                }
             });
+        }
 
-            // Show success toast
-            toast.success('Organization profile updated successfully');
+        const hasFieldChanges =
+            values.name !== originalValues.name ||
+            values.contactEmail !== originalValues.contactEmail ||
+            values.phone !== originalValues.phone ||
+            values.address !== originalValues.address;
 
-            // Reset form with new values
-            reset(values);
-
-            // Clear preview and selected file
-            setPreviewImage(null);
-            setSelectedFile(null);
-
-            setIsPending(false);
-        }, 1500);
+        if (hasFieldChanges) {
+            updateProfileMutation.mutate(values, {
+                onSuccess: () => {
+                    setOriginalValues({
+                        name: values.name,
+                        contactEmail: values.contactEmail,
+                        phone: values.phone,
+                        address: values.address,
+                    });
+                    reset(values);
+                }
+            });
+        }
     };
 
-    const avatarImage = previewImage || DUMMY_ORG_PROFILE.logoUrl || '';
-    const initials = DUMMY_ORG_PROFILE.name
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load organization profile</p>
+                <p className="text-xs text-muted-foreground">Please verify your credentials and try again.</p>
+            </div>
+        );
+    }
+
+    const avatarImage = previewImage || org?.logoUrl || '';
+    const initials = org?.name
         ?.split(' ')
         .map((n) => n[0])
         .join('')
@@ -193,7 +237,7 @@ const OrganizationProfilePage = () => {
                                     )}
                                     onClick={handleAvatarClick}
                                 >
-                                    <AvatarImage src={avatarImage} alt={DUMMY_ORG_PROFILE.name} />
+                                    <AvatarImage src={avatarImage} alt={org?.name} />
                                     <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                                         {initials}
                                     </AvatarFallback>
@@ -202,7 +246,7 @@ const OrganizationProfilePage = () => {
                                     <button
                                         type="button"
                                         className={cn(
-                                            "absolute bottom-0 right-0 rounded-full bg-primary p-2 text-primary-foreground shadow-sm",
+                                            "absolute bottom-0 right-0 bg-primary p-2 text-primary-foreground shadow-sm",
                                             "transition-all hover:bg-primary/90 hover:scale-110",
                                             "ring-2 ring-background"
                                         )}

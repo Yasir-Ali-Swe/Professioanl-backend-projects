@@ -1,8 +1,12 @@
-// pages/products/ProductAdd.jsx
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
+import { useCreateProduct, useUploadProductImage } from '@/hooks/useProduct';
+import { useCategories } from '@/hooks/useCategory';
+import { useSuppliers } from '@/hooks/useSupplier';
 import * as z from 'zod';
 import {
     Field,
@@ -31,21 +35,6 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-// Dummy Data for dropdowns
-const dummyCategories = [
-    { _id: 'c1', name: 'Electronics', categorySlug: 'electronics' },
-    { _id: 'c2', name: 'Cables', categorySlug: 'cables' },
-    { _id: 'c3', name: 'Accessories', categorySlug: 'accessories' },
-    { _id: 'c4', name: 'Furniture', categorySlug: 'furniture' },
-];
-
-const dummySuppliers = [
-    { _id: 's1', name: 'TechSupply Co.', contactPerson: 'John Smith', email: 'john@techsupply.com' },
-    { _id: 's2', name: 'PowerTech Ltd.', contactPerson: 'Jane Doe', email: 'jane@powertech.com' },
-    { _id: 's3', name: 'CableMasters Inc.', contactPerson: 'Bob Wilson', email: 'bob@cablemasters.com' },
-    { _id: 's4', name: 'Global Logistics', contactPerson: 'Sarah Johnson', email: 'sarah@globallogistics.com' },
-];
-
 // Zod schema for validation
 const productSchema = z.object({
     name: z.string().min(2, { message: 'Product name must be at least 2 characters' }),
@@ -61,10 +50,22 @@ const productSchema = z.object({
 
 const ProductAdd = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const rolePrefix = getRolePrefix(user?.role || 'admin');
+
     const fileInputRef = useRef(null);
-    const [isPending, setIsPending] = useState(false);
     const [imagePreview, setImagePreview] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
+
+    const createMutation = useCreateProduct();
+    const uploadImageMutation = useUploadProductImage();
+    const isPending = createMutation.isPending || uploadImageMutation.isPending;
+
+    const { data: categoriesResponse } = useCategories();
+    const { data: suppliersResponse } = useSuppliers();
+
+    const categoriesList = categoriesResponse?.data || [];
+    const suppliersList = suppliersResponse?.data || [];
 
     const {
         register,
@@ -116,31 +117,37 @@ const ProductAdd = () => {
 
     // Handle form submission
     const onSubmit = async (values) => {
-        setIsPending(true);
+        const payload = {
+            name: values.name,
+            categoryId: values.categoryId,
+            supplierId: values.supplierId,
+            costPrice: values.costPrice,
+            sellingPrice: values.sellingPrice,
+            unit: values.unit,
+            sku: values.sku || undefined,
+            quantity: values.quantity || 0,
+            reorderThreshold: values.reorderThreshold || 10,
+        };
 
-        // Create FormData for API
-        const formData = new FormData();
-        formData.append('name', values.name);
-        formData.append('categoryId', values.categoryId);
-        formData.append('supplierId', values.supplierId);
-        formData.append('costPrice', values.costPrice);
-        formData.append('sellingPrice', values.sellingPrice);
-        formData.append('unit', values.unit);
-        if (values.sku) formData.append('sku', values.sku);
-        if (values.quantity) formData.append('quantity', values.quantity);
-        if (values.reorderThreshold) formData.append('reorderThreshold', values.reorderThreshold);
-        if (selectedFile) formData.append('image', selectedFile);
-
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success('Product created successfully!');
-            navigate('/admin/products');
-        } catch (error) {
-            toast.error(error.message || 'Failed to create product. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        createMutation.mutate(payload, {
+            onSuccess: (response) => {
+                const newProduct = response?.data;
+                if (selectedFile && newProduct?._id) {
+                    const uploadData = new FormData();
+                    uploadData.append('image', selectedFile);
+                    uploadImageMutation.mutate({
+                        id: newProduct._id,
+                        formData: uploadData,
+                    }, {
+                        onSuccess: () => {
+                            navigate(`/${rolePrefix}/products`);
+                        }
+                    });
+                } else {
+                    navigate(`/${rolePrefix}/products`);
+                }
+            }
+        });
     };
 
     return (
@@ -171,7 +178,7 @@ const ProductAdd = () => {
                             <FieldContent>
                                 <div
                                     className={cn(
-                                        "relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
+                                        "relative border-2 border-dashed p-6 text-center cursor-pointer transition-colors",
                                         imagePreview ? "border-primary" : "border-muted-foreground/25 hover:border-primary/50",
                                         "min-h-37.5 flex flex-col items-center justify-center"
                                     )}
@@ -182,14 +189,14 @@ const ProductAdd = () => {
                                             <img
                                                 src={imagePreview}
                                                 alt="Product preview"
-                                                className="h-32 w-32 object-cover rounded-lg"
+                                                className="h-32 w-32 object-cover"
                                             />
                                             <div className="absolute top-2 right-2">
                                                 <Button
                                                     type="button"
                                                     variant="destructive"
                                                     size="icon"
-                                                    className="h-7 w-7 rounded-full"
+                                                    className="h-7 w-7"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleRemoveImage();
@@ -204,7 +211,7 @@ const ProductAdd = () => {
                                         </>
                                     ) : (
                                         <>
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                                            <div className="flex h-12 w-12 items-center justify-center bg-muted">
                                                 <ImageIcon className="h-6 w-6 text-muted-foreground" />
                                             </div>
                                             <p className="mt-2 text-sm font-medium">Upload Image</p>
@@ -243,7 +250,7 @@ const ProductAdd = () => {
                                         id="name"
                                         type="text"
                                         placeholder="Enter product name"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("name")}
                                         aria-invalid={errors.name ? "true" : "false"}
                                     />
@@ -262,7 +269,7 @@ const ProductAdd = () => {
                                         id="unit"
                                         type="text"
                                         placeholder="e.g., pcs, kg, m"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("unit")}
                                         aria-invalid={errors.unit ? "true" : "false"}
                                     />
@@ -286,7 +293,7 @@ const ProductAdd = () => {
                                         id="sku"
                                         type="text"
                                         placeholder="Auto-generated"
-                                        className="h-10 w-full rounded-none text-sm"
+                                        className="h-10 w-full text-sm"
                                         {...register("sku")}
                                     />
 
@@ -306,7 +313,7 @@ const ProductAdd = () => {
                                         value={selectedCategoryId}
                                         onValueChange={(value) => setValue("categoryId", value)}
                                     >
-                                        <SelectTrigger className=" w-full rounded-none text-sm px-3 py-4.75">
+                                        <SelectTrigger className=" w-full text-sm px-3 py-4.75">
                                             <SelectValue placeholder="Select a category" />
                                         </SelectTrigger>
 
@@ -314,7 +321,7 @@ const ProductAdd = () => {
                                             <SelectGroup>
                                                 <SelectLabel>Categories</SelectLabel>
 
-                                                {dummyCategories.map((category) => (
+                                                {categoriesList.map((category) => (
                                                     <SelectItem
                                                         key={category._id}
                                                         value={category._id}
@@ -333,7 +340,7 @@ const ProductAdd = () => {
                                             <p className="text-xs text-muted-foreground">
                                                 Slug:{" "}
                                                 {
-                                                    dummyCategories.find(
+                                                    categoriesList.find(
                                                         (c) => c._id === selectedCategoryId
                                                     )?.categorySlug
                                                 }
@@ -354,7 +361,7 @@ const ProductAdd = () => {
                                         value={selectedSupplierId}
                                         onValueChange={(value) => setValue("supplierId", value)}
                                     >
-                                        <SelectTrigger className="w-full rounded-none text-sm px-3 py-4.75">
+                                        <SelectTrigger className="w-full text-sm px-3 py-4.75">
                                             <SelectValue placeholder="Select a supplier" />
                                         </SelectTrigger>
 
@@ -362,7 +369,7 @@ const ProductAdd = () => {
                                             <SelectGroup>
                                                 <SelectLabel>Suppliers</SelectLabel>
 
-                                                {dummySuppliers.map((supplier) => (
+                                                {suppliersList.map((supplier) => (
                                                     <SelectItem
                                                         key={supplier._id}
                                                         value={supplier._id}
@@ -382,7 +389,7 @@ const ProductAdd = () => {
                                                 <p>
                                                     Contact:{" "}
                                                     {
-                                                        dummySuppliers.find(
+                                                        suppliersList.find(
                                                             (s) => s._id === selectedSupplierId
                                                         )?.contactPerson
                                                     }
@@ -390,7 +397,7 @@ const ProductAdd = () => {
                                                 <p>
                                                     Email:{" "}
                                                     {
-                                                        dummySuppliers.find(
+                                                        suppliersList.find(
                                                             (s) => s._id === selectedSupplierId
                                                         )?.email
                                                     }
@@ -413,7 +420,7 @@ const ProductAdd = () => {
                                         id="quantity"
                                         type="number"
                                         placeholder="0"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("quantity")}
                                     />
                                 </FieldContent>
@@ -428,7 +435,7 @@ const ProductAdd = () => {
                                         id="reorderThreshold"
                                         type="number"
                                         placeholder="10"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("reorderThreshold")}
                                     />
                                 </FieldContent>
@@ -447,7 +454,7 @@ const ProductAdd = () => {
                                         type="number"
                                         step="0.01"
                                         placeholder="0.00"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("costPrice")}
                                         aria-invalid={errors.costPrice ? "true" : "false"}
                                     />
@@ -467,7 +474,7 @@ const ProductAdd = () => {
                                         type="number"
                                         step="0.01"
                                         placeholder="0.00"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("sellingPrice")}
                                         aria-invalid={errors.sellingPrice ? "true" : "false"}
                                     />
@@ -480,7 +487,7 @@ const ProductAdd = () => {
 
                         {/* Profit Margin Display */}
                         {watch('costPrice') && watch('sellingPrice') && (
-                            <div className="rounded-md bg-muted p-3">
+                            <div className="bg-muted p-3">
                                 <p className="text-sm">
                                     Profit Margin:{' '}
                                     <span className="font-medium text-green-500">

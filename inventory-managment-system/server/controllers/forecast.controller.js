@@ -60,7 +60,7 @@ export const getAllForecasts = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: result.map((f) => f.latest),
+      data: result,
     });
   } catch (error) {
     console.error("Error in getAllForecasts:", error.message);
@@ -120,12 +120,19 @@ export const generateReorderSuggestion = async (req, res) => {
 export const getReorderSuggestions = async (req, res) => {
   try {
     const organizationId = req.organizationId;
+    const { status } = req.query;
+
+    const query = { organizationId };
+    if (status) {
+      if (status !== "all") {
+        query.status = status;
+      }
+    } else {
+      query.status = "pending";
+    }
 
     const suggestions = await reorderSuggestionModel
-      .find({
-        organizationId,
-        status: "pending",
-      })
+      .find(query)
       .populate("productId", "name sku quantity reorderThreshold supplierId")
       .sort({ createdAt: -1 })
       .lean();

@@ -5,6 +5,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useAllStock } from '@/hooks/useStock';
+import { useSuppliers } from '@/hooks/useSupplier';
+import { useCreatePurchaseOrder } from '@/hooks/usePurchaseOrder';
 import * as z from 'zod';
 import {
     Field,
@@ -71,20 +74,27 @@ const CreatePurchaseOrder = () => {
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
     const navigate = useNavigate();
-    const [isPending, setIsPending] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [cartItems, setCartItems] = useState([]);
-    const [products] = useState(dummyProducts);
-    const [suppliers] = useState(dummySuppliers);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const searchInputRef = useRef(null);
     const resultsRef = useRef(null);
+
+    const { data: productsResponse } = useAllStock({ limit: 1000 });
+    const products = productsResponse?.data?.products || [];
+
+    const { data: suppliersResponse } = useSuppliers({ limit: 1000 });
+    const suppliers = suppliersResponse?.data?.suppliers || [];
+
+    const createPOMutation = useCreatePurchaseOrder();
+    const isPending = createPOMutation.isPending;
 
     const {
         register,
         handleSubmit,
         setValue,
         watch,
+        reset,
         formState: { errors },
     } = useForm({
         resolver: zodResolver(purchaseOrderSchema),
@@ -209,7 +219,7 @@ const CreatePurchaseOrder = () => {
     const totalCost = cartItems.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
 
     // Handle form submission
-    const onSubmit = async (values) => {
+    const onSubmit = (values) => {
         if (!supplierId) {
             toast.error('Please select a supplier');
             return;
@@ -218,8 +228,6 @@ const CreatePurchaseOrder = () => {
             toast.error('Please add at least one product to the cart');
             return;
         }
-
-        setIsPending(true);
 
         const poData = {
             supplierId: values.supplierId,
@@ -230,18 +238,17 @@ const CreatePurchaseOrder = () => {
             })),
         };
 
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success('Purchase order created successfully!');
-            setCartItems([]);
-            setSearchTerm('');
-            setHighlightedIndex(-1);
-        } catch (error) {
-            toast.error(error.message || 'Failed to create purchase order. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        createPOMutation.mutate(poData, {
+            onSuccess: () => {
+                setCartItems([]);
+                setSearchTerm('');
+                setHighlightedIndex(-1);
+                reset({
+                    supplierId: '',
+                });
+                navigate(`/${rolePrefix}/purchase-orders`);
+            }
+        });
     };
 
     return (
@@ -298,8 +305,8 @@ const CreatePurchaseOrder = () => {
                                     )}
                                     {supplierId && (
                                         <div className="text-xs text-muted-foreground mt-1">
-                                            Contact: {suppliers.find(s => s._id === supplierId)?.contactPerson}
-                                            {' '}· Email: {suppliers.find(s => s._id === supplierId)?.email}
+                                            Contact: {suppliers?.find(s => s._id === supplierId)?.contactPerson}
+                                            {' '}· Email: {suppliers?.find(s => s._id === supplierId)?.email}
                                         </div>
                                     )}
                                 </FieldContent>

@@ -1,6 +1,8 @@
 // pages/ai/ReorderSuggestionsHistory.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useReorderSuggestions } from '@/hooks/useForecast';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -225,9 +227,28 @@ const HistoryDetailDialog = ({ suggestion, open, onOpenChange }) => {
 
 const ReorderSuggestionsHistory = () => {
     const navigate = useNavigate();
-    const [history] = useState(dummyHistory);
+    const { data: response, isLoading, isError } = useReorderSuggestions({ status: 'all' });
     const [selectedSuggestion, setSelectedSuggestion] = useState(null);
     const [showDetailDialog, setShowDetailDialog] = useState(false);
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load suggestion history</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const history = (response.data || []).filter(s => s.status !== 'pending');
 
     const getRelativeTime = (dateString) => {
         try {

@@ -8,7 +8,8 @@ import {
     BellIcon,
     CreditCardIcon,
     LogOutIcon,
-    Bell
+    Bell,
+    Boxes
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,6 +25,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { selectUser } from '@/store/slices/authSlice';
 import { getDefaultDashboardPath } from '@/routes';
+import { useLogoutUser } from '@/hooks/useAuth';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -37,9 +39,14 @@ export const Navbar = ({ routes }) => {
     const location = useLocation();
     const user = useSelector(selectUser);
     const reduxState = useSelector((state) => state);
+    const logoutMutation = useLogoutUser();
 
     const breadcrumbs = getBreadcrumbs(location.pathname, user?.role, reduxState);
     const pageTitle = breadcrumbs[breadcrumbs.length - 1]?.label || 'Dashboard';
+
+    const handleLogout = () => {
+        logoutMutation.mutate();
+    };
 
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center border-b border-border bg-sidebar px-4 sm:px-6">
@@ -105,7 +112,7 @@ export const Navbar = ({ routes }) => {
                                 <Avatar className="h-8 w-8">
                                     <AvatarImage src="https://github.com/shadcn.png" alt="shadcn" />
                                     <AvatarFallback className="bg-primary text-primary-foreground">
-                                        LR
+                                        {user?.name?.substring(0, 2)?.toUpperCase() || 'LR'}
                                     </AvatarFallback>
                                 </Avatar>
                             </Button>
@@ -117,22 +124,40 @@ export const Navbar = ({ routes }) => {
                         className="w-56 bg-card border-border"
                     >
                         <DropdownMenuGroup>
-                            <DropdownMenuItem className="cursor-pointer rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <BadgeCheckIcon />
-                                Account
+                            <DropdownMenuItem
+                                render={<Link to={`/${user?.role || 'admin'}/profile`} />}
+                                className="cursor-pointer rounded-md hover:bg-accent hover:text-accent-foreground"
+                            >
+                                <BadgeCheckIcon className="mr-2 h-4 w-4" />
+                                Account Profile
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <CreditCardIcon />
-                                Billing
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <BellIcon />
-                                Notifications
-                            </DropdownMenuItem>
+
+                            {user?.role !== 'super-admin' && (
+                                <DropdownMenuItem
+                                    render={<Link to={`/${user?.role || 'admin'}/organization-profile`} />}
+                                    className="cursor-pointer rounded-md hover:bg-accent hover:text-accent-foreground"
+                                >
+                                    <Boxes className="mr-2 h-4 w-4 text-muted-foreground" />
+                                    Organization Profile
+                                </DropdownMenuItem>
+                            )}
+
+                            {user?.role === 'admin' && (
+                                <DropdownMenuItem
+                                    render={<Link to="/admin/billing" />}
+                                    className="cursor-pointer rounded-md hover:bg-accent hover:text-accent-foreground"
+                                >
+                                    <CreditCardIcon className="mr-2 h-4 w-4" />
+                                    Billing & Plan
+                                </DropdownMenuItem>
+                            )}
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
-                            <LogOutIcon />
+                        <DropdownMenuItem
+                            onClick={handleLogout}
+                            className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 rounded-md"
+                        >
+                            <LogOutIcon className="mr-2 h-4 w-4" />
                             Sign Out
                         </DropdownMenuItem>
                     </DropdownMenuContent>

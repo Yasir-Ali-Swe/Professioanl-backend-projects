@@ -5,29 +5,24 @@ import * as chatApi from "@/api/chat.api";
 // ============ QUERY KEYS ============
 const CHAT_KEYS = {
   all: ["chat"],
-  history: (params) => [...CHAT_KEYS.all, "history", { ...params }],
-  analytics: () => [...CHAT_KEYS.all, "analytics"],
+  historyRoot: () => [...CHAT_KEYS.all, "history"],
+  history: (params) => [...CHAT_KEYS.historyRoot(), { ...params }],
+  analyticsRoot: () => [...CHAT_KEYS.all, "analytics"],
+  analytics: () => [...CHAT_KEYS.analyticsRoot()],
 };
 
 // ============ QUERY HOOKS ============
-
-/**
- * Get chat history with optional filters
- * Query Key: ["chat", "history", { limit, intent, startDate, endDate }]
- */
 export const useChatHistory = (params = {}, options = {}) => {
   return useQuery({
     queryKey: CHAT_KEYS.history(params),
     queryFn: () => chatApi.getChatHistory(params),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
     ...options,
   });
 };
 
-/**
- * Get chat analytics (intent distribution)
- * Query Key: ["chat", "analytics"]
- */
 export const useChatAnalytics = (options = {}) => {
   return useQuery({
     queryKey: CHAT_KEYS.analytics(),
@@ -38,26 +33,49 @@ export const useChatAnalytics = (options = {}) => {
 };
 
 // ============ MUTATION HOOKS ============
-
-/**
- * Send a message to the AI chat
- * Invalidates: ["chat", "history"] and ["chat", "analytics"] on success
- */
 export const useChatWithAI = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: chatApi.chatWithAI,
-    onSuccess: (data, variables) => {
-      // Don't show toast for every message, let the component handle it
+    mutationFn: ({
+      query,
+      conversationId,
+      signal,
+      onChunk,
+      onEvent,
+      onComplete,
+      onTool,
+    }) =>
+      chatApi.chatWithAIStream(
+        { query, conversationId, signal },
+        {
+          onChunk,
+          onEvent,
+          onComplete,
+          onTool,
+        },
+      ),
+    onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: CHAT_KEYS.history(),
+        queryKey: CHAT_KEYS.historyRoot(),
       });
       queryClient.invalidateQueries({
-        queryKey: CHAT_KEYS.analytics(),
+        queryKey: CHAT_KEYS.analyticsRoot(),
       });
     },
     onError: (error) => {
+      // Better abort detection – ignore all user‑initiated cancellations
+      const isAbortError =
+        error?.name === "CanceledError" ||
+        error?.code === "ERR_CANCELED" ||
+        error?.name === "AbortError" ||
+        error?.message?.toLowerCase().includes("abort") ||
+        error?.message?.toLowerCase().includes("canceled");
+
+      if (isAbortError) {
+        return;
+      }
+
       toast.error(
         error.response?.data?.message ||
           "Failed to send message. Please try again.",
@@ -66,23 +84,25 @@ export const useChatWithAI = () => {
   });
 };
 
-/**
- * Clear conversation context
- * Invalidates: ["chat", "history"] on success
- */
 export const useClearContext = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: chatApi.clearContext,
-    onSuccess: (data) => {
+    mutationFn: (data = {}) => chatApi.clearContext(data),
+    onSuccess: (data, variables) => {
       toast.success(
         data.message || "Conversation context cleared successfully!",
       );
-
       queryClient.invalidateQueries({
-        queryKey: CHAT_KEYS.history(),
+        queryKey: CHAT_KEYS.historyRoot(),
       });
+      if (variables?.conversationId) {
+        queryClient.removeQueries({
+          queryKey: CHAT_KEYS.history({
+            conversationId: variables.conversationId,
+          }),
+        });
+      }
     },
     onError: (error) => {
       toast.error(

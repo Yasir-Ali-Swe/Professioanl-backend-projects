@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useAllStock, useStockIn } from '@/hooks/useStock';
 import {
     Field,
     FieldLabel,
@@ -49,9 +50,18 @@ const StockIn = () => {
     const rolePrefix = getRolePrefix(role);
 
     const navigate = useNavigate();
-    const [isPending, setIsPending] = useState(false);
-    const [products] = useState(dummyProducts);
     const [selectedProduct, setSelectedProduct] = useState(null);
+
+    const { data: productsResponse } = useAllStock({ limit: 1000 });
+    const products = (productsResponse?.data?.products || []).map(p => ({
+        _id: p._id,
+        name: p.name,
+        sku: p.sku,
+        currentStock: p.quantity,
+    }));
+
+    const stockInMutation = useStockIn();
+    const isPending = stockInMutation.isPending;
 
     const {
         register,
@@ -79,19 +89,18 @@ const StockIn = () => {
     };
 
     // Handle form submission
-    const onSubmit = async (values) => {
-        setIsPending(true);
-
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success(`Stock In successful! ${values.quantity} units added.`);
-            navigate(`/${rolePrefix}/stock/overview`);
-        } catch (error) {
-            toast.error(error.message || 'Failed to add stock. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+    const onSubmit = (values) => {
+        stockInMutation.mutate({
+            productId: values.productId,
+            quantity: values.quantity,
+            reason: values.reason,
+            notes: values.notes,
+        }, {
+            onSuccess: () => {
+                toast.success(`Stock In successful! ${values.quantity} units added.`);
+                navigate(`/${rolePrefix}/stock/overview`);
+            }
+        });
     };
 
     return (
@@ -126,7 +135,7 @@ const StockIn = () => {
                                     value={selectedProductId}
                                     onValueChange={handleProductSelect}
                                 >
-                                    <SelectTrigger className="h-10 text-sm rounded-none">
+                                    <SelectTrigger className="h-10 text-sm">
                                         <SelectValue placeholder="Select a product" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -164,7 +173,7 @@ const StockIn = () => {
                                         type="number"
                                         min="1"
                                         placeholder="Enter quantity"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("quantity")}
                                         aria-invalid={errors.quantity ? "true" : "false"}
                                     />
@@ -183,7 +192,7 @@ const StockIn = () => {
                                         id="reason"
                                         type="text"
                                         placeholder="e.g., Purchase order, Return"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("reason")}
                                         aria-invalid={errors.reason ? "true" : "false"}
                                     />
@@ -203,7 +212,7 @@ const StockIn = () => {
                                 <Textarea
                                     id="notes"
                                     placeholder="Additional notes about this stock in"
-                                    className="min-h-20 text-sm rounded-none resize-none"
+                                    className="min-h-20 text-sm resize-none"
                                     {...register("notes")}
                                 />
                             </FieldContent>

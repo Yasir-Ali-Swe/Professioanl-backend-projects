@@ -1,10 +1,10 @@
-// pages/categories/CategoryEdit.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useCategoryById, useUpdateCategory } from '@/hooks/useCategory';
 
 import * as z from 'zod';
 import {
@@ -20,17 +20,6 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Loader2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Dummy Category Data
-const dummyCategory = {
-    _id: 'c1',
-    name: 'Electronics',
-    categorySlug: 'electronics',
-    createdBy: { name: 'John Doe', role: 'admin' },
-    createdAt: '2024-01-15T10:30:00Z',
-    productsCount: 45,
-    isActive: true,
-};
-
 // Zod schema for validation
 const categorySchema = z.object({
     name: z.string().min(2, { message: 'Category name must be at least 2 characters' }),
@@ -42,10 +31,15 @@ const CategoryEdit = () => {
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
     const navigate = useNavigate();
-    const [isPending, setIsPending] = useState(false);
-    const [category] = useState(dummyCategory);
+
+    const { data: response, isLoading, isError } = useCategoryById(id);
+    const updateMutation = useUpdateCategory();
+
+    const isPending = updateMutation.isPending;
+    const category = response?.data;
+
     const [originalValues, setOriginalValues] = useState({
-        name: category.name,
+        name: '',
     });
 
     const {
@@ -57,11 +51,23 @@ const CategoryEdit = () => {
     } = useForm({
         resolver: zodResolver(categorySchema),
         defaultValues: {
-            name: category.name,
+            name: '',
         },
     });
 
     const watchedName = watch('name');
+
+    // Sync form values on data load
+    useEffect(() => {
+        if (category) {
+            reset({
+                name: category.name || '',
+            });
+            setOriginalValues({
+                name: category.name || '',
+            });
+        }
+    }, [category, reset]);
 
     // Generate slug from name
     const generateSlug = (name) => {
@@ -73,7 +79,7 @@ const CategoryEdit = () => {
     };
 
     const slug = generateSlug(watchedName);
-    const originalSlug = category.categorySlug;
+    const originalSlug = category?.categorySlug;
 
     // Check if form has changes
     const hasChanges = () => {
@@ -82,21 +88,34 @@ const CategoryEdit = () => {
 
     // Handle form submission
     const onSubmit = async (values) => {
-        setIsPending(true);
-
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            setOriginalValues({ name: values.name });
-            reset(values);
-            toast.success('Category updated successfully!');
-            navigate(`/${rolePrefix}/categories/${category._id}`);
-        } catch (error) {
-            toast.error(error.message || 'Failed to update category. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        updateMutation.mutate({
+            id: category._id,
+            data: values
+        }, {
+            onSuccess: () => {
+                setOriginalValues({ name: values.name });
+                reset(values);
+                navigate(`/${rolePrefix}/categories/${category._id}`);
+            }
+        });
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load category</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex justify-center px-4 py-6 sm:py-8">
@@ -139,7 +158,7 @@ const CategoryEdit = () => {
                                     id="name"
                                     type="text"
                                     placeholder="Enter category name"
-                                    className="h-10 text-sm rounded-none"
+                                    className="h-10 text-sm"
                                     {...register("name")}
                                     aria-invalid={errors.name ? "true" : "false"}
                                 />
@@ -150,7 +169,7 @@ const CategoryEdit = () => {
                         </Field>
 
                         {/* Slug Preview */}
-                        <div className="rounded-md bg-muted p-3">
+                        <div className="bg-muted p-3">
                             <p className="text-sm">
                                 Current Slug:{' '}
                                 <span className="font-mono text-sm font-medium">

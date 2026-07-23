@@ -135,7 +135,7 @@ export const loginUser = async (req, res) => {
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: NODE_ENV === "production",
-      sameSite: "none",
+      sameSite: NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -278,7 +278,7 @@ export const logoutUser = async (req, res) => {
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: NODE_ENV === "production",
-      sameSite: "none",
+      sameSite: NODE_ENV === "production" ? "none" : "lax",
     });
     user.tokenVersion += 1; // Increment the token version to invalidate existing tokens
     await user.save();
@@ -371,7 +371,7 @@ export const refreshAuth = async (req, res) => {
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
       secure: NODE_ENV === "production",
-      sameSite: "none",
+      sameSite: NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     await user.save(); // Save the updated tokenVersion to the database

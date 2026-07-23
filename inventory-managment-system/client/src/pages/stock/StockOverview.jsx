@@ -1,5 +1,7 @@
 // pages/stock/StockOverview.jsx
 import { useState } from 'react';
+import { useStockSummary } from '@/hooks/useStock';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -74,15 +76,34 @@ const dummyStats = {
 const COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
 
 const StockOverview = () => {
-    const [stats] = useState(dummyStats);
+    const { data: response, isLoading, isError } = useStockSummary();
 
-    const stockByCategoryConfig = {
-        electronics: { label: 'Electronics', color: 'var(--chart-1)' },
-        cables: { label: 'Cables', color: 'var(--chart-2)' },
-        accessories: { label: 'Accessories', color: 'var(--chart-3)' },
-        furniture: { label: 'Furniture', color: 'var(--chart-4)' },
-        stationery: { label: 'Stationery', color: 'var(--chart-5)' },
-    };
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load stock overview</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const stats = response.data || {};
+
+    const stockByCategoryConfig = {};
+    (stats.stockByCategory || []).forEach((item, index) => {
+        stockByCategoryConfig[item.name.toLowerCase()] = {
+            label: item.name,
+            color: COLORS[index % COLORS.length]
+        };
+    });
 
     const stockMovementConfig = {
         stockIn: { label: 'Stock In', color: 'var(--chart-2)' },
@@ -133,7 +154,7 @@ const StockOverview = () => {
                         <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-lg sm:text-2xl font-bold text-yellow-500">{stats.lowStockItems}</div>
+                        <div className="text-lg sm:text-2xl font-bold text-yellow-500">{stats.lowStockProducts}</div>
                         <p className="text-[10px] sm:text-xs text-muted-foreground">Need attention</p>
                     </CardContent>
                 </Card>
@@ -144,7 +165,7 @@ const StockOverview = () => {
                         <PackageOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-lg sm:text-2xl font-bold text-destructive">{stats.outOfStockItems}</div>
+                        <div className="text-lg sm:text-2xl font-bold text-destructive">{stats.outOfStockProducts}</div>
                         <p className="text-[10px] sm:text-xs text-muted-foreground">Completely out</p>
                     </CardContent>
                 </Card>
@@ -152,31 +173,31 @@ const StockOverview = () => {
 
             {/* Stock Movement Stats */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Stock In (This Month)</p>
                         <ArrowDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
                     </div>
-                    <p className="mt-1 text-lg sm:text-2xl font-bold text-green-500">{stats.stockMovement.stockIn}</p>
+                    <p className="mt-1 text-lg sm:text-2xl font-bold text-green-500">{stats.stockMovement?.stockIn || 0}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Stock Out (This Month)</p>
                         <ArrowUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
                     </div>
-                    <p className="mt-1 text-lg sm:text-2xl font-bold text-destructive">{stats.stockMovement.stockOut}</p>
+                    <p className="mt-1 text-lg sm:text-2xl font-bold text-destructive">{stats.stockMovement?.stockOut || 0}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Total Movements</p>
                         <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                     </div>
-                    <p className="mt-1 text-lg sm:text-2xl font-bold text-primary">{stats.stockMovement.thisMonth}</p>
+                    <p className="mt-1 text-lg sm:text-2xl font-bold text-primary">{stats.stockMovement?.thisMonth || 0}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Turnover Rate</p>
                         <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
@@ -310,7 +331,7 @@ const StockOverview = () => {
                                     className="flex items-center gap-2"
                                 >
                                     <div
-                                        className="h-3 w-3 rounded-full"
+                                        className="h-3 w-3"
                                         style={{
                                             backgroundColor: COLORS[index],
                                         }}
@@ -349,36 +370,39 @@ const StockOverview = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr className="border-b last:border-0">
-                                    <td className="py-2 px-2 font-medium">Wireless Mouse</td>
-                                    <td className="py-2 px-2">
-                                        <Badge variant="default" className="text-[10px]">Stock In</Badge>
-                                    </td>
-                                    <td className="py-2 px-2">+20</td>
-                                    <td className="py-2 px-2 text-muted-foreground">PO #PO-001</td>
-                                    <td className="py-2 px-2">John Doe</td>
-                                    <td className="py-2 px-2 text-muted-foreground">2024-07-14</td>
-                                </tr>
-                                <tr className="border-b last:border-0">
-                                    <td className="py-2 px-2 font-medium">USB-C Charger</td>
-                                    <td className="py-2 px-2">
-                                        <Badge variant="destructive" className="text-[10px]">Stock Out</Badge>
-                                    </td>
-                                    <td className="py-2 px-2">-5</td>
-                                    <td className="py-2 px-2 text-muted-foreground">Invoice #INV-001</td>
-                                    <td className="py-2 px-2">Jane Smith</td>
-                                    <td className="py-2 px-2 text-muted-foreground">2024-07-13</td>
-                                </tr>
-                                <tr className="border-b last:border-0">
-                                    <td className="py-2 px-2 font-medium">Bluetooth Speaker</td>
-                                    <td className="py-2 px-2">
-                                        <Badge variant="default" className="text-[10px]">Stock In</Badge>
-                                    </td>
-                                    <td className="py-2 px-2">+50</td>
-                                    <td className="py-2 px-2 text-muted-foreground">Initial stock</td>
-                                    <td className="py-2 px-2">John Doe</td>
-                                    <td className="py-2 px-2 text-muted-foreground">2024-07-12</td>
-                                </tr>
+                                {(!stats.recentActivity || stats.recentActivity.length === 0) ? (
+                                    <tr>
+                                        <td colSpan={6} className="text-center py-8 text-muted-foreground text-sm">
+                                            No recent stock activity logs found.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    stats.recentActivity.map((log) => {
+                                        const date = new Date(log.createdAt).toLocaleDateString('en-US', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                        });
+                                        return (
+                                            <tr key={log._id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                                <td className="py-2 px-2 font-medium">
+                                                    {log.productId?.name || 'Deleted Product'}
+                                                </td>
+                                                <td className="py-2 px-2">
+                                                    <Badge variant={log.type === 'in' ? 'default' : 'destructive'} className="text-[10px]">
+                                                        {log.type === 'in' ? 'Stock In' : 'Stock Out'}
+                                                    </Badge>
+                                                </td>
+                                                <td className="py-2 px-2">
+                                                    {log.type === 'in' ? '+' : '-'}{log.quantity}
+                                                </td>
+                                                <td className="py-2 px-2 text-muted-foreground">{log.reason}</td>
+                                                <td className="py-2 px-2">{log.performedBy?.name || 'System'}</td>
+                                                <td className="py-2 px-2 text-muted-foreground">{date}</td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
                         </table>
                     </div>

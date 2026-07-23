@@ -1,5 +1,8 @@
 // pages/ai/InsightsPage.jsx
 import { useState } from 'react';
+import { useLatestInsight, useInsightsHistory, useGenerateInsightNow } from '@/hooks/useInsights';
+import { Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
     Card,
     CardContent,
@@ -275,14 +278,54 @@ const InsightDetailDialog = ({ insight, open, onOpenChange }) => {
         </Dialog>
     );
 };
-
 const InsightsPage = () => {
     const [period, setPeriod] = useState('weekly');
-    const [insight, setInsight] = useState(dummyInsight);
-    const [history, setHistory] = useState(dummyHistory);
-    const [isGenerating, setIsGenerating] = useState(false);
+    const { data: latestResponse, isLoading: isLatestLoading, error: latestError } = useLatestInsight({ period });
+    const { data: historyResponse, isLoading: isHistoryLoading, error: historyError } = useInsightsHistory();
+    const generateMutation = useGenerateInsightNow();
     const [selectedInsight, setSelectedInsight] = useState(null);
     const [showDetailDialog, setShowDetailDialog] = useState(false);
+
+    const isPremiumUpgradeRequired = latestError?.response?.status === 403 || historyError?.response?.status === 403;
+    const isLatestError = latestError && latestError.response?.status !== 404 && latestError.response?.status !== 403;
+
+    if (isLatestLoading || isHistoryLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isPremiumUpgradeRequired) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-4 max-w-md mx-auto text-center px-4">
+                <Sparkles className="h-12 w-12 text-primary animate-pulse" />
+                <h3 className="text-xl font-bold tracking-tight">Unlock AI Insights</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                    Automated performance summaries, sales velocity spike detection, and actionable business recommendations are exclusive to Premium Plan subscribers.
+                </p>
+                <Button asChild>
+                    <Link to="/admin/billing" className="font-semibold shadow-sm">
+                        Upgrade to Premium
+                    </Link>
+                </Button>
+            </div>
+        );
+    }
+
+    if (isLatestError) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load AI insights</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const insight = latestResponse?.data || null;
+    const history = historyResponse?.data || [];
+    const isGenerating = generateMutation.isPending;
 
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -304,18 +347,13 @@ const InsightsPage = () => {
 
     const handlePeriodChange = (value) => {
         setPeriod(value);
-        toast.info(`Loading ${value} insights...`);
     };
 
     const handleGenerateInsight = async () => {
-        setIsGenerating(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            toast.success('New insight generated successfully!');
+            await generateMutation.mutateAsync({ period });
         } catch (error) {
-            toast.error('Failed to generate insight. Please try again.');
-        } finally {
-            setIsGenerating(false);
+            // error is handled in hook
         }
     };
 
@@ -513,8 +551,8 @@ const InsightsPage = () => {
                                     <TableBody>
                                         {history.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
-                                                    No past insights available.
+                                                <TableCell colSpan={4} className="text-center text-xs text-muted-foreground py-8 font-medium">
+                                                    No history available for the last 7 days.
                                                 </TableCell>
                                             </TableRow>
                                         ) : (

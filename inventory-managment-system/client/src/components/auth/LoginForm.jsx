@@ -2,9 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Boxes } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +13,8 @@ import {
   FieldGroup,
   FieldContent,
 } from "@/components/ui/field";
+import { useLoginUserMutation } from "@/hooks/useAuth";
+import { getRolePrefix } from "@/lib/rolePaths";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
@@ -22,7 +23,8 @@ const formSchema = z.object({
 
 export const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const loginMutation = useLoginUserMutation();
 
   const {
     register,
@@ -38,19 +40,14 @@ export const LoginForm = () => {
   });
 
   const onSubmit = async (data) => {
-    console.log("📤 Form submitted with data:", data);
-
-    setIsLoading(true);
-    try {
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      toast.success("Login successful! 🎉");
-      reset();
-    } catch (error) {
-      toast.error(error.message || "Login failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+    loginMutation.mutate(data, {
+      onSuccess: (res) => {
+        reset();
+        const role = res.loginUser?.role || "admin";
+        const prefix = getRolePrefix(role);
+        navigate(`/${prefix}/dashboard`);
+      },
+    });
   };
 
   return (
@@ -141,11 +138,11 @@ export const LoginForm = () => {
             <Button
               type="submit"
               className="w-full h-9 sm:h-10 text-sm mt-1"
-              disabled={isLoading}
+              disabled={loginMutation.isPending}
             >
-              {isLoading ? (
+              {loginMutation.isPending ? (
                 <>
-                  <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin border-2 border-current border-t-transparent" />
                   Logging in...
                 </>
               ) : (

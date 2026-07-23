@@ -1,8 +1,9 @@
-// pages/invoices/MyInvoices.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useMyInvoices } from '@/hooks/useInvoice';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -231,14 +232,15 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange, userRole }) => {
                                 {invoice.products.map((item, index) => (
                                     <TableRow key={index}>
                                         <TableCell className="py-1.5 px-2 text-xs font-medium">
-                                            Product {index + 1}
+                                            <div>{item.productId?.name || 'Deleted Product'}</div>
+                                            <div className="text-[10px] text-muted-foreground">{item.productId?.sku || 'N/A'}</div>
                                         </TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-right">
-                                            ${(invoice.total / invoice.products.length).toFixed(2)}
+                                        <TableCell className="py-1.5 px-2 text-xs text-center">{item.quantity}</TableCell>
+                                        <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                            ${(item.sellingPrice || 0).toFixed(2)}
                                         </TableCell>
                                         <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
-                                            ${(invoice.total / invoice.products.length).toFixed(2)}
+                                            ${(item.subtotal || 0).toFixed(2)}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -310,7 +312,6 @@ const MyInvoices = () => {
     const role = user?.role || 'staff';
     const rolePrefix = getRolePrefix(role);
     const [searchParams, setSearchParams] = useSearchParams();
-    const [invoicesData] = useState(dummyMyInvoices);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -326,15 +327,15 @@ const MyInvoices = () => {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
 
-    const { invoices, summary, pagination } = invoicesData.data;
-
-    const filteredInvoices = invoices.filter(inv => {
-        const matchesSearch = inv.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-            inv.customerName.toLowerCase().includes(search.toLowerCase());
-        const matchesStatus = status === 'all' || inv.status === status;
-        const matchesMinTotal = !minTotal || inv.total >= parseFloat(minTotal);
-        const matchesMaxTotal = !maxTotal || inv.total <= parseFloat(maxTotal);
-        return matchesSearch && matchesStatus && matchesMinTotal && matchesMaxTotal;
+    const { data: response, isLoading, isError } = useMyInvoices({
+        page,
+        limit,
+        search,
+        status: status === 'all' ? undefined : status,
+        minTotal: minTotal || undefined,
+        maxTotal: maxTotal || undefined,
+        sortBy,
+        order,
     });
 
     const updateFilter = (key, value) => {
@@ -404,10 +405,41 @@ const MyInvoices = () => {
         return pages;
     };
 
-    const paginatedInvoices = filteredInvoices.slice(
-        (page - 1) * limit,
-        page * limit
-    );
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load invoices</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const { invoices = [], summary = {
+        totalRevenue: 0,
+        totalTax: 0,
+        totalDiscount: 0,
+        totalInvoices: 0,
+        paidInvoices: 0,
+        unpaidInvoices: 0,
+        voidInvoices: 0,
+    }, pagination = {
+        total: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
+    } } = response.data || {};
+
+    const paginatedInvoices = invoices;
 
     const openDetailDialog = (invoice) => {
         setSelectedInvoice(invoice);
@@ -667,8 +699,8 @@ const MyInvoices = () => {
                 <div className="flex items-center justify-between gap-3 border-t px-3 py-3 sm:px-4">
                     <div className="whitespace-nowrap text-xs sm:text-sm text-muted-foreground">
                         Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to{' '}
-                        <span className="font-medium">{Math.min(page * limit, filteredInvoices.length)}</span>{' '}
-                        of <span className="font-medium">{filteredInvoices.length}</span> results
+                        <span className="font-medium">{Math.min(page * limit, pagination.total)}</span>{' '}
+                        of <span className="font-medium">{pagination.total}</span> results
                     </div>
                     <Pagination className="mx-0 w-auto">
                         <PaginationContent>

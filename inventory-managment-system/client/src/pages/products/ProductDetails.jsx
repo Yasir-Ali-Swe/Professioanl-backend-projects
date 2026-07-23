@@ -575,21 +575,29 @@ const ProductDetail = () => {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {stockHistory.map((item) => (
-                                            <TableRow key={item._id}>
-                                                <TableCell>
-                                                    <Badge variant={item.type === 'in' ? 'default' : 'destructive'} className="text-[10px]">
-                                                        {item.type === 'in' ? 'Stock In' : 'Stock Out'}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="font-medium">{item.quantity}</TableCell>
-                                                <TableCell className="text-xs text-muted-foreground">{item.reason}</TableCell>
-                                                <TableCell className="text-xs">{item.performedBy?.name || 'System'}</TableCell>
-                                                <TableCell className="text-xs text-muted-foreground">
-                                                    {formatDateShort(item.createdAt)}
+                                        {stockHistory.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-xs font-medium">
+                                                    No stock history available for this product.
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        ) : (
+                                            stockHistory.map((item) => (
+                                                <TableRow key={item._id}>
+                                                    <TableCell>
+                                                        <Badge variant={item.type === 'in' ? 'default' : 'destructive'} className="text-[10px]">
+                                                            {item.type === 'in' ? 'Stock In' : 'Stock Out'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="font-medium">{item.quantity}</TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground">{item.reason}</TableCell>
+                                                    <TableCell className="text-xs">{item.performedBy?.name || 'System'}</TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground">
+                                                        {formatDateShort(item.createdAt)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>

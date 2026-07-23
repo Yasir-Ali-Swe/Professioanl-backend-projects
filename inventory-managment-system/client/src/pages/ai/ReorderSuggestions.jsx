@@ -1,6 +1,8 @@
 // pages/ai/ReorderSuggestionsPage.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useReorderSuggestions, useApproveReorderSuggestion, useDismissReorderSuggestion } from '@/hooks/useForecast';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -239,28 +241,44 @@ const SuggestionDetailDialog = ({ suggestion, open, onOpenChange }) => {
 
 const ReorderSuggestionsPage = () => {
     const navigate = useNavigate();
-    const [suggestions, setSuggestions] = useState(dummySuggestions);
+    const { data: pendingResponse, isLoading: isPendingLoading, isError: isPendingError } = useReorderSuggestions();
+    const { data: allResponse } = useReorderSuggestions({ status: 'all' });
+    const approveMutation = useApproveReorderSuggestion();
+    const dismissMutation = useDismissReorderSuggestion();
+
     const [processingId, setProcessingId] = useState(null);
     const [selectedSuggestion, setSelectedSuggestion] = useState(null);
     const [showDetailDialog, setShowDetailDialog] = useState(false);
     const [showApproveDialog, setShowApproveDialog] = useState(false);
     const [showDismissDialog, setShowDismissDialog] = useState(false);
 
-    const pendingSuggestions = suggestions.filter(
-        s => s.status === 'pending' && s.suggestedQuantity > 0
-    );
+    if (isPendingLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isPendingError || !pendingResponse?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load reorder suggestions</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const pendingSuggestions = pendingResponse.data || [];
+    const allSuggestions = allResponse?.data || [];
 
     const handleApprove = async (id) => {
         setProcessingId(id);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            setSuggestions(suggestions.map(s =>
-                s._id === id ? { ...s, status: 'actioned' } : s
-            ));
-            toast.success('Purchase order created successfully! 🎉');
+            await approveMutation.mutateAsync(id);
             setShowApproveDialog(false);
         } catch (error) {
-            toast.error('Failed to approve suggestion. Please try again.');
+            // Error handled in hook
         } finally {
             setProcessingId(null);
         }
@@ -269,14 +287,10 @@ const ReorderSuggestionsPage = () => {
     const handleDismiss = async (id) => {
         setProcessingId(id);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setSuggestions(suggestions.map(s =>
-                s._id === id ? { ...s, status: 'dismissed' } : s
-            ));
-            toast.success('Suggestion dismissed successfully.');
+            await dismissMutation.mutateAsync(id);
             setShowDismissDialog(false);
         } catch (error) {
-            toast.error('Failed to dismiss suggestion. Please try again.');
+            // Error handled in hook
         } finally {
             setProcessingId(null);
         }
@@ -342,7 +356,7 @@ const ReorderSuggestionsPage = () => {
                         <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-lg sm:text-2xl font-bold">{suggestions.length}</div>
+                        <div className="text-lg sm:text-2xl font-bold">{allSuggestions.length}</div>
                     </CardContent>
                 </Card>
 
@@ -369,7 +383,7 @@ const ReorderSuggestionsPage = () => {
                     </CardHeader>
                     <CardContent>
                         <div className="text-lg sm:text-2xl font-bold text-green-500">
-                            {suggestions.filter(s => s.status === 'actioned').length}
+                            {allSuggestions.filter(s => s.status === 'actioned').length}
                         </div>
                     </CardContent>
                 </Card>
@@ -383,7 +397,7 @@ const ReorderSuggestionsPage = () => {
                     </CardHeader>
                     <CardContent>
                         <div className="text-lg sm:text-2xl font-bold text-muted-foreground">
-                            {suggestions.filter(s => s.status === 'dismissed').length}
+                            {allSuggestions.filter(s => s.status === 'dismissed').length}
                         </div>
                     </CardContent>
                 </Card>

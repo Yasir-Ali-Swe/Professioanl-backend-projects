@@ -1,6 +1,7 @@
-// pages/superAdmin/Subscriptions.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useOrganizationSubscriptions } from '@/hooks/useSuperAdmin';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -163,7 +164,6 @@ const dummySubscriptions = {
 
 const Subscriptions = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const [subscriptions] = useState(dummySubscriptions);
 
     // Get current filter values from URL
     const page = parseInt(searchParams.get('page') || '1');
@@ -171,6 +171,33 @@ const Subscriptions = () => {
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'all';
     const plan = searchParams.get('plan') || 'all';
+
+    const { data: response, isLoading, isError } = useOrganizationSubscriptions({
+        page,
+        limit,
+        search,
+        status,
+        plan,
+    });
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[50vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load subscriptions</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const subscriptions = response;
 
     const { summary, data, total, totalPages } = subscriptions;
 
@@ -426,7 +453,7 @@ const Subscriptions = () => {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>

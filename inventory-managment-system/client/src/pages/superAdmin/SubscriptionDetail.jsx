@@ -1,6 +1,7 @@
-// pages/superAdmin/SubscriptionDetail.jsx
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useOrganizationSubscriptionDetails, useUpdateOrganizationSubscription } from '@/hooks/useSuperAdmin';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -110,11 +111,30 @@ const dummySubscriptionDetail = {
 const SubscriptionDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [detail] = useState(dummySubscriptionDetail.data);
     const [selectedPlan, setSelectedPlan] = useState('');
-    const [isUpdating, setIsUpdating] = useState(false);
 
-    const { organization, currentPlan, subscription, availablePlans } = detail;
+    const { data: response, isLoading, isError } = useOrganizationSubscriptionDetails(id);
+    const updateSubscriptionMutation = useUpdateOrganizationSubscription();
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[50vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load subscription details</p>
+                <p className="text-xs text-muted-foreground">Please try again.</p>
+            </div>
+        );
+    }
+
+    const { organization, currentPlan, subscription, availablePlans } = response.data;
+    const isUpdating = updateSubscriptionMutation.isPending;
 
     // Format date
     const formatDate = (dateString) => {
@@ -184,19 +204,10 @@ const SubscriptionDetail = () => {
             return;
         }
 
-        setIsUpdating(true);
-        try {
-            // TODO: Replace with actual API call
-            // const response = await updateSubscription(id, { subscriptionPlanId: selectedPlan });
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success(`Plan updated to ${capitalize(availablePlans.find(p => p._id === selectedPlan)?.name)} successfully!`);
-            // Refresh data
-            window.location.reload();
-        } catch (error) {
-            toast.error('Failed to update plan. Please try again.');
-        } finally {
-            setIsUpdating(false);
-        }
+        updateSubscriptionMutation.mutate({
+            id,
+            data: { subscriptionPlanId: selectedPlan }
+        });
     };
 
     return (

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useCategories, useDeleteCategory } from '@/hooks/useCategory';
 import {
     Card,
     CardContent,
@@ -48,6 +49,7 @@ import {
     MoreVertical,
     CheckCircle,
     XCircle,
+    Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -103,14 +105,35 @@ const dummyCategories = [
 
 const CategoriesList = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const [categories] = useState(dummyCategories);
     const { user } = useAuth();
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
 
+    const { data: response, isLoading, isError } = useCategories();
+    const deleteMutation = useDeleteCategory();
+
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load categories</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const categories = response.data || [];
 
     const totalCategories = categories.length;
     const activeCategories = categories.filter(c => c.isActive).length;
@@ -189,7 +212,9 @@ const CategoriesList = () => {
             toast.error(`Cannot delete "${category.name}". ${category.productsCount} product(s) are associated with this category.`);
             return;
         }
-        toast.success(`Category "${category.name}" deleted successfully!`);
+        if (confirm(`Are you sure you want to delete category "${category.name}"?`)) {
+            deleteMutation.mutate(category._id);
+        }
     };
 
     return (
@@ -280,7 +305,7 @@ const CategoriesList = () => {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>

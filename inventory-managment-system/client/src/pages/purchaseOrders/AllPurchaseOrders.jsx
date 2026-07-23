@@ -1,8 +1,9 @@
-// pages/purchaseOrders/AllPurchaseOrders.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { usePurchaseOrders, useApprovePurchaseOrder, useRejectPurchaseOrder, useFulfillPurchaseOrder } from '@/hooks/usePurchaseOrder';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -154,6 +155,10 @@ const statusConfig = {
 const PurchaseOrderDetailDialog = ({ order, open, onOpenChange, userRole }) => {
     if (!order) return null;
 
+    const approveMutation = useApprovePurchaseOrder();
+    const rejectMutation = useRejectPurchaseOrder();
+    const fulfillMutation = useFulfillPurchaseOrder();
+
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
@@ -165,18 +170,21 @@ const PurchaseOrderDetailDialog = ({ order, open, onOpenChange, userRole }) => {
     };
 
     const handleApprove = () => {
-        toast.success(`Purchase order ${order.poNumber} approved successfully!`);
-        onOpenChange(false);
+        approveMutation.mutate(order._id, {
+            onSuccess: () => onOpenChange(false)
+        });
     };
 
     const handleReject = () => {
-        toast.success(`Purchase order ${order.poNumber} rejected successfully!`);
-        onOpenChange(false);
+        rejectMutation.mutate(order._id, {
+            onSuccess: () => onOpenChange(false)
+        });
     };
 
     const handleFulfill = () => {
-        toast.success(`Purchase order ${order.poNumber} fulfilled successfully! Stock has been added.`);
-        onOpenChange(false);
+        fulfillMutation.mutate(order._id, {
+            onSuccess: () => onOpenChange(false)
+        });
     };
 
     const statusBadge = statusConfig[order.status] || statusConfig.pending;
@@ -226,14 +234,15 @@ const PurchaseOrderDetailDialog = ({ order, open, onOpenChange, userRole }) => {
                                 {order.items.map((item, index) => (
                                     <TableRow key={index}>
                                         <TableCell className="py-1.5 px-2 text-xs font-medium">
-                                            Product {index + 1}
+                                            <div>{item.productId?.name || 'Deleted Product'}</div>
+                                            <div className="text-[10px] text-muted-foreground">{item.productId?.sku || 'N/A'}</div>
                                         </TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
+                                        <TableCell className="py-1.5 px-2 text-xs text-center">{item.quantity}</TableCell>
                                         <TableCell className="py-1.5 px-2 text-xs text-right">
-                                            ${(order.totalCost / order.items.length).toFixed(2)}
+                                            ${(item.unitCost || 0).toFixed(2)}
                                         </TableCell>
                                         <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
-                                            ${(order.totalCost / order.items.length).toFixed(2)}
+                                            ${((item.quantity || 0) * (item.unitCost || 0)).toFixed(2)}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -252,25 +261,25 @@ const PurchaseOrderDetailDialog = ({ order, open, onOpenChange, userRole }) => {
 
                 <DialogFooter showCloseButton={false}>
                     <DialogClose asChild>
-                        <Button variant="outline">Close</Button>
+                        <Button variant="outline" disabled={approveMutation.isPending || rejectMutation.isPending || fulfillMutation.isPending}>Close</Button>
                     </DialogClose>
 
                     {/* ✅ Only Admin can Approve/Reject */}
                     {userRole === 'admin' && order.status === 'pending' && (
                         <>
-                            <Button variant="outline" onClick={handleReject}>
-                                Reject
+                            <Button variant="outline" onClick={handleReject} disabled={approveMutation.isPending || rejectMutation.isPending}>
+                                {rejectMutation.isPending ? 'Rejecting...' : 'Reject'}
                             </Button>
-                            <Button onClick={handleApprove}>
-                                Approve
+                            <Button onClick={handleApprove} disabled={approveMutation.isPending || rejectMutation.isPending}>
+                                {approveMutation.isPending ? 'Approving...' : 'Approve'}
                             </Button>
                         </>
                     )}
 
                     {/* ✅ Admin and Manager both can Fulfill */}
                     {(userRole === 'admin' || userRole === 'manager') && order.status === 'approved' && (
-                        <Button onClick={handleFulfill}>
-                            Fulfill
+                        <Button onClick={handleFulfill} disabled={fulfillMutation.isPending}>
+                            {fulfillMutation.isPending ? 'Fulfilling...' : 'Fulfill'}
                         </Button>
                     )}
                 </DialogFooter>
@@ -284,7 +293,6 @@ const AllPurchaseOrders = () => {
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
     const [searchParams, setSearchParams] = useSearchParams();
-    const [ordersData] = useState(dummyPurchaseOrders);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -301,15 +309,16 @@ const AllPurchaseOrders = () => {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
 
-    const { orders, summary, pagination } = ordersData.data;
-
-    const filteredOrders = orders.filter(po => {
-        const matchesSearch = po.poNumber.toLowerCase().includes(search.toLowerCase());
-        const matchesStatus = status === 'all' || po.status === status;
-        const matchesSupplier = !supplier || po.supplierId.name.toLowerCase().includes(supplier.toLowerCase());
-        const matchesMinTotal = !minTotal || po.totalCost >= parseFloat(minTotal);
-        const matchesMaxTotal = !maxTotal || po.totalCost <= parseFloat(maxTotal);
-        return matchesSearch && matchesStatus && matchesSupplier && matchesMinTotal && matchesMaxTotal;
+    const { data: response, isLoading, isError } = usePurchaseOrders({
+        page,
+        limit,
+        search,
+        status: status === 'all' ? undefined : status,
+        supplierId: supplier || undefined,
+        minTotal: minTotal || undefined,
+        maxTotal: maxTotal || undefined,
+        sortBy,
+        order,
     });
 
     const updateFilter = (key, value) => {
@@ -370,10 +379,40 @@ const AllPurchaseOrders = () => {
         return pages;
     };
 
-    const paginatedOrders = filteredOrders.slice(
-        (page - 1) * limit,
-        page * limit
-    );
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load purchase orders</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const { orders = [], summary = {
+        totalOrders: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        fulfilled: 0,
+        totalCost: 0,
+    }, pagination = {
+        total: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
+    } } = response.data || {};
+
+    const paginatedOrders = orders;
 
     const openDetailDialog = (order) => {
         setSelectedOrder(order);
@@ -653,8 +692,8 @@ const AllPurchaseOrders = () => {
                 <div className="flex items-center justify-between gap-3 border-t px-3 py-3 sm:px-4">
                     <div className="whitespace-nowrap text-xs sm:text-sm text-muted-foreground">
                         Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to{' '}
-                        <span className="font-medium">{Math.min(page * limit, filteredOrders.length)}</span>{' '}
-                        of <span className="font-medium">{filteredOrders.length}</span> results
+                        <span className="font-medium">{Math.min(page * limit, pagination.total)}</span>{' '}
+                        of <span className="font-medium">{pagination.total}</span> results
                     </div>
                     <Pagination className="mx-0 w-auto">
                         <PaginationContent>

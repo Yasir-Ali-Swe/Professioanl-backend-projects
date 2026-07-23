@@ -145,11 +145,11 @@ export const getStockHistory = async (req, res) => {
       quantity: log.quantity,
       performedBy: log.performedBy
         ? {
-            _id: log.performedBy._id,
-            name: log.performedBy.name,
-            email: log.performedBy.email,
-            role: log.performedBy.role,
-          }
+          _id: log.performedBy._id,
+          name: log.performedBy.name,
+          email: log.performedBy.email,
+          role: log.performedBy.role,
+        }
         : null,
       relatedPurchaseOrder: log.relatedPurchaseOrderId || null,
       relatedInvoice: log.relatedInvoiceId || null,
@@ -265,6 +265,89 @@ export const getStockSummary = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10);
 
+    // Distribution by category
+    const stockByCategory = await productModel.aggregate([
+      { $match: { organizationId } },
+      {
+        $group: {
+          _id: "$categoryId",
+          value: { $sum: "$quantity" },
+        },
+      },
+    ]);
+
+    const stockByCategoryWithNames = await categoryModel.populate(stockByCategory, {
+      path: "_id",
+      select: "name",
+    });
+
+    const formattedStockByCategory = stockByCategoryWithNames
+      .filter((item) => item._id)
+      .map((item) => ({
+        name: item._id.name,
+        value: item.value,
+      }));
+
+    // Monthly stock movements (last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const monthlyTrendData = await stockLogModel.aggregate([
+      {
+        $match: {
+          organizationId,
+          createdAt: { $gte: sixMonthsAgo },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: "$createdAt" },
+            year: { $year: "$createdAt" },
+            type: "$type",
+          },
+          totalQuantity: { $sum: "$quantity" },
+        },
+      },
+    ]);
+
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const trendsMap = {};
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+      trendsMap[key] = {
+        month: monthNames[d.getMonth()],
+        stockIn: 0,
+        stockOut: 0,
+      };
+    }
+
+    monthlyTrendData.forEach((item) => {
+      const key = `${item._id.year}-${item._id.month}`;
+      if (trendsMap[key]) {
+        if (item._id.type === "in") {
+          trendsMap[key].stockIn += item.totalQuantity;
+        } else if (item._id.type === "out") {
+          trendsMap[key].stockOut += item.totalQuantity;
+        }
+      }
+    });
+
+    const monthlyTrend = Object.values(trendsMap);
+
+    // Current month stock movements
+    const currentMonthTrend = monthlyTrend[monthlyTrend.length - 1] || { stockIn: 0, stockOut: 0 };
+    const stockMovement = {
+      stockIn: currentMonthTrend.stockIn,
+      stockOut: currentMonthTrend.stockOut,
+      thisMonth: currentMonthTrend.stockIn + currentMonthTrend.stockOut,
+    };
+
     res.status(200).json({
       success: true,
       data: {
@@ -273,6 +356,9 @@ export const getStockSummary = async (req, res) => {
         outOfStockProducts,
         totalStockValue: totalStockValue[0]?.total || 0,
         recentActivity,
+        stockByCategory: formattedStockByCategory,
+        monthlyTrend,
+        stockMovement,
       },
     });
   } catch (error) {

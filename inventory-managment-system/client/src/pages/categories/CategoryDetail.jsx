@@ -1,8 +1,7 @@
-// pages/categories/CategoryDetail.jsx
-import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useCategoryById, useCategoryProducts } from '@/hooks/useCategory';
 import {
     Card,
     CardContent,
@@ -25,27 +24,8 @@ import {
     Package,
     Edit,
     Eye,
+    Loader2,
 } from 'lucide-react';
-
-// Dummy Category Data
-const dummyCategory = {
-    _id: 'c1',
-    name: 'Electronics',
-    categorySlug: 'electronics',
-    createdBy: { name: 'John Doe', role: 'admin' },
-    createdAt: '2024-01-15T10:30:00Z',
-    updatedAt: '2024-07-14T10:30:00Z',
-    productsCount: 45,
-    isActive: true,
-};
-
-// Dummy Products in this category
-const dummyProducts = [
-    { _id: 'p1', name: 'Wireless Mouse', sku: 'SKU-001', quantity: 45, sellingPrice: 29.99, isActive: true },
-    { _id: 'p2', name: 'USB-C Charger', sku: 'SKU-002', quantity: 8, sellingPrice: 19.99, isActive: true },
-    { _id: 'p3', name: 'Bluetooth Speaker', sku: 'SKU-003', quantity: 2, sellingPrice: 49.99, isActive: false },
-    { _id: 'p4', name: 'Wireless Keyboard', sku: 'SKU-005', quantity: 15, sellingPrice: 59.99, isActive: true },
-];
 
 const CategoryDetail = () => {
     const { user } = useAuth();
@@ -53,8 +33,12 @@ const CategoryDetail = () => {
     const rolePrefix = getRolePrefix(role);
     const { id } = useParams();
     const navigate = useNavigate();
-    const [category] = useState(dummyCategory);
-    const [products] = useState(dummyProducts);
+
+    const { data: categoryResponse, isLoading: isCategoryLoading, isError: isCategoryError } = useCategoryById(id);
+    const { data: productsResponse, isLoading: isProductsLoading, isError: isProductsError } = useCategoryProducts(id);
+
+    const isLoading = isCategoryLoading || isProductsLoading;
+    const isError = isCategoryError || isProductsError;
 
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -65,6 +49,26 @@ const CategoryDetail = () => {
             minute: '2-digit',
         });
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !categoryResponse?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load category details</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const category = categoryResponse.data || {};
+    const products = productsResponse?.data || [];
 
     return (
         <div className="space-y-4 sm:space-y-6 pb-8">
@@ -129,7 +133,7 @@ const CategoryDetail = () => {
                     </div>
                     <div className="flex items-center justify-between border-b pb-2">
                         <p className="text-xs text-muted-foreground">Products Count</p>
-                        <p className="text-sm font-medium">{category.productsCount}</p>
+                        <p className="text-sm font-medium">{products.length}</p>
                     </div>
                     <div className="flex items-center justify-between border-b pb-2">
                         <p className="text-xs text-muted-foreground">Created By</p>
@@ -149,7 +153,7 @@ const CategoryDetail = () => {
                         <div>
                             <CardTitle className="text-sm sm:text-base">Products in this Category</CardTitle>
                             <CardDescription className="text-xs sm:text-sm">
-                                {category.productsCount} products in this category
+                                {products.length} products in this category
                             </CardDescription>
                         </div>
                         {

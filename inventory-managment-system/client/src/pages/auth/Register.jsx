@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff, Boxes } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +14,7 @@ import {
     FieldGroup,
     FieldContent,
 } from "@/components/ui/field";
+import { useRegisterOrganization } from "@/hooks/useAuth";
 
 // Registration Form Schema
 const registerSchema = z.object({
@@ -29,7 +29,7 @@ const registerSchema = z.object({
 
 export const RegisterForm = () => {
     const [showPassword, setShowPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+    const registerMutation = useRegisterOrganization();
 
     const {
         register,
@@ -50,19 +50,11 @@ export const RegisterForm = () => {
     });
 
     const onSubmit = async (data) => {
-        console.log("📤 Registration form submitted with data:", data);
-
-        setIsLoading(true);
-        try {
-            // TODO: Replace with actual API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success("Registration successful! 🎉");
-            reset();
-        } catch (error) {
-            toast.error(error.message || "Registration failed. Please try again.");
-        } finally {
-            setIsLoading(false);
-        }
+        registerMutation.mutate(data, {
+            onSuccess: () => {
+                reset();
+            },
+        });
     };
 
     return (
@@ -246,11 +238,11 @@ export const RegisterForm = () => {
                         <Button
                             type="submit"
                             className="w-full h-9 sm:h-10 text-sm mt-1"
-                            disabled={isLoading}
+                            disabled={registerMutation.isPending}
                         >
-                            {isLoading ? (
+                            {registerMutation.isPending ? (
                                 <>
-                                    <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                    <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin border-2 border-current border-t-transparent" />
                                     Registering...
                                 </>
                             ) : (

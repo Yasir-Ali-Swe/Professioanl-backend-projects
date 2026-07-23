@@ -1,8 +1,9 @@
-// pages/products/ProductsList.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useProducts, useToggleProductActive } from '@/hooks/useProduct';
+import { useCategories } from '@/hooks/useCategory';
 import {
     Card,
     CardContent,
@@ -52,6 +53,7 @@ import {
     XCircle,
     Plus,
     ArrowUpDown,
+    Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -181,7 +183,6 @@ const ProductsList = () => {
     const rolePrefix = getRolePrefix(role);
 
     const [searchParams, setSearchParams] = useSearchParams();
-    const [products] = useState(dummyProducts);
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -192,9 +193,28 @@ const ProductsList = () => {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
 
-    const totalProducts = products.total;
-    const activeProducts = products.data.filter(p => p.isActive).length;
-    const lowStockProducts = products.data.filter(p => p.needsReorder).length;
+    const { data: response, isLoading, isError } = useProducts({
+        page,
+        limit,
+        search,
+        categoryName: category === 'all' ? undefined : category,
+        minPrice,
+        maxPrice,
+        sortBy,
+        order,
+    });
+
+    const { data: categoriesResponse } = useCategories();
+    const categoriesList = categoriesResponse?.data || [];
+
+    const toggleActiveMutation = useToggleProductActive();
+
+    const handleToggleActive = (product) => {
+        toggleActiveMutation.mutate({
+            id: product._id,
+            isActive: !product.isActive,
+        });
+    };
 
     const updateFilter = (key, value) => {
         const newParams = new URLSearchParams(searchParams);
@@ -208,6 +228,29 @@ const ProductsList = () => {
         }
         setSearchParams(newParams);
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load products</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const products = response.data || [];
+    const totalProducts = response.total || 0;
+    const activeProducts = response.activeCount || 0;
+    const lowStockProducts = response.lowStockCount || 0;
+    const totalPages = response.totalPages || 1;
 
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -237,7 +280,7 @@ const ProductsList = () => {
     };
 
     const getPageNumbers = () => {
-        const total = products.totalPages;
+        const total = totalPages;
         const current = page;
         const pages = [];
         const maxVisible = 5;
@@ -354,9 +397,11 @@ const ProductsList = () => {
                             <DropdownMenuLabel>Category</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => updateFilter('category', 'all')}>All</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateFilter('category', 'electronics')}>Electronics</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateFilter('category', 'cables')}>Cables</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateFilter('category', 'accessories')}>Accessories</DropdownMenuItem>
+                            {categoriesList.map((cat) => (
+                                <DropdownMenuItem key={cat._id} onClick={() => updateFilter('category', cat.name)}>
+                                    {cat.name}
+                                </DropdownMenuItem>
+                            ))}
                         </DropdownMenuGroup>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -443,7 +488,7 @@ const ProductsList = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {products.data.map((product) => {
+                            {products.map((product) => {
                                 const stockStatus = getStockStatus(product.quantity, product.reorderThreshold);
                                 return (
                                     <TableRow key={product._id}>
@@ -451,7 +496,7 @@ const ProductsList = () => {
                                             <img
                                                 src={product.imageUrl}
                                                 alt={product.name}
-                                                className="h-8 w-8 rounded-md object-cover"
+                                                className="h-8 w-8 object-cover"
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium">
@@ -532,7 +577,10 @@ const ProductsList = () => {
                                                         }
                                                         {
                                                             user && (user.role === 'admin' || user.role === 'manager') &&
-                                                            <DropdownMenuItem className="cursor-pointer">
+                                                            <DropdownMenuItem
+                                                                className="cursor-pointer"
+                                                                onClick={() => handleToggleActive(product)}
+                                                            >
                                                                 {product.isActive ? (
                                                                     <XCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
                                                                 ) : (
@@ -600,11 +648,11 @@ const ProductsList = () => {
                                     href="#"
                                     onClick={(e) => {
                                         e.preventDefault();
-                                        if (page < products.totalPages) updateFilter('page', page + 1);
+                                        if (page < totalPages) updateFilter('page', page + 1);
                                     }}
                                     className={cn(
                                         'h-8 sm:h-9 text-xs sm:text-sm',
-                                        page >= products.totalPages && 'pointer-events-none opacity-50'
+                                        page >= totalPages && 'pointer-events-none opacity-50'
                                     )}
                                 />
                             </PaginationItem>

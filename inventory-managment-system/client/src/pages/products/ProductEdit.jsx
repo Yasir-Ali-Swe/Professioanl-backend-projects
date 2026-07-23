@@ -127,8 +127,8 @@ const ProductEdit = () => {
                 name: product.name || '',
                 unit: product.unit || '',
                 sku: product.sku || '',
-                categoryId: product.category?._id || '',
-                supplierId: product.supplier?._id || '',
+                categoryId: product.categoryId?._id || product.categoryId || '',
+                supplierId: product.supplierId?._id || product.supplierId || '',
                 quantity: product.quantity?.toString() || '',
                 reorderThreshold: product.reorderThreshold?.toString() || '10',
                 costPrice: product.costPrice?.toString() || '',
@@ -412,7 +412,9 @@ const ProductEdit = () => {
                                         onValueChange={(value) => setValue("categoryId", value)}
                                     >
                                         <SelectTrigger className="w-full text-sm px-3 py-4.75">
-                                            <SelectValue placeholder="Select a category" />
+                                            <SelectValue placeholder="Select a category">
+                                                {categoriesList.find(c => c._id === selectedCategoryId)?.name || product?.categoryId?.name || ''}
+                                            </SelectValue>
                                         </SelectTrigger>
 
                                         <SelectContent>
@@ -460,7 +462,9 @@ const ProductEdit = () => {
                                         onValueChange={(value) => setValue("supplierId", value)}
                                     >
                                         <SelectTrigger className="w-full text-sm px-3 py-4.75">
-                                            <SelectValue placeholder="Select a supplier" />
+                                            <SelectValue placeholder="Select a supplier">
+                                                {suppliersList.find(s => s._id === selectedSupplierId)?.name || product?.supplierId?.name || ''}
+                                            </SelectValue>
                                         </SelectTrigger>
 
                                         <SelectContent>
@@ -605,7 +609,7 @@ const ProductEdit = () => {
                                 type="button"
                                 variant="outline"
                                 className="w-full sm:w-auto order-2 sm:order-1"
-                                onClick={() => navigate(`/admin/products/${dummyProduct._id}`)}
+                                onClick={() => navigate(`/${rolePrefix}/products/${product._id}`)}
                             >
                                 Cancel
                             </Button>

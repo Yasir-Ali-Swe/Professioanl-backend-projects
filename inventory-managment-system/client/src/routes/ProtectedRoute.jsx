@@ -24,11 +24,9 @@ import { selectIsAuthenticated } from '@/store/slices/authSlice';
 export const ProtectedRoute = () => {
     const isAuthenticated = useSelector(selectIsAuthenticated);
 
-    // TEMPORARILY DISABLED FOR UI DEVELOPMENT
-    // Uncomment when ready to integrate with real API
-    // if (!isAuthenticated) {
-    //   return <Navigate to="/login" replace />;
-    // }
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
 
     return <Outlet />;
 };

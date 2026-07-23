@@ -1,6 +1,8 @@
 // pages/staff/StaffDashboard.jsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useStaffDashboard } from '@/hooks/useDashboard';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -270,18 +272,27 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                <TableRow>
-                                    <TableCell className="py-1.5 px-2 text-xs font-medium">Product 1</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right">${(invoice.total / 2).toFixed(2)}</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right font-medium">${(invoice.total / 2).toFixed(2)}</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                    <TableCell className="py-1.5 px-2 text-xs font-medium">Product 2</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right">${(invoice.total / 2).toFixed(2)}</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right font-medium">${(invoice.total / 2).toFixed(2)}</TableCell>
-                                </TableRow>
+                                {invoice.products?.map ? (
+                                    invoice.products.map((item, index) => (
+                                        <TableRow key={item._id || index}>
+                                            <TableCell className="py-1.5 px-2 text-xs font-medium">
+                                                <div>{item.productId?.name || 'Deleted Product'}</div>
+                                                <div className="text-[10px] text-muted-foreground">{item.productId?.sku || 'N/A'}</div>
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-center">{item.quantity}</TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${(item.sellingPrice || 0).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${(item.subtotal || 0).toFixed(2)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center text-xs text-muted-foreground py-4">No product details available</TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </div>
@@ -367,13 +378,30 @@ const StockActionDetailDialog = ({ action, open, onOpenChange }) => {
 };
 
 const StaffDashboard = () => {
-    const [dashboard] = useState(dummyStaffDashboard);
+    const { data: response, isLoading, isError } = useStaffDashboard();
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [selectedStockAction, setSelectedStockAction] = useState(null);
     const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
     const [stockActionDialogOpen, setStockActionDialogOpen] = useState(false);
 
-    const { myActivity, alerts, performance } = dashboard.data;
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load staff dashboard statistics</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const { myActivity, alerts, performance } = response.data;
 
     // Invoice status data for chart
     const statusData = myActivity.invoiceStatuses.map((item) => ({

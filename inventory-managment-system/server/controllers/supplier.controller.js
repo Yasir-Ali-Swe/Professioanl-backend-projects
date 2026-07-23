@@ -56,25 +56,35 @@ export const getAllSuppliers = async (req, res) => {
       .populate("createdBy", "name role")
       .lean();
 
-    // Format with createdBy as string
-    const formattedSuppliers = suppliers.map((supplier) => ({
-      _id: supplier._id,
-      organizationId: supplier.organizationId,
-      name: supplier.name,
-      contactPerson: supplier.contactPerson,
-      email: supplier.email,
-      phone: supplier.phone,
-      address: supplier.address,
-      leadTimeDays: supplier.leadTimeDays,
-      createdBy: supplier.createdBy
-        ? `${supplier.createdBy.name} (${supplier.createdBy.role})`
-        : null,
-      createdAt: supplier.createdAt,
-    }));
+    // Fetch products count for each supplier
+    const suppliersWithProductCounts = await Promise.all(
+      suppliers.map(async (supplier) => {
+        const count = await productModel.countDocuments({
+          supplierId: supplier._id,
+          organizationId,
+        });
+        return {
+          _id: supplier._id,
+          organizationId: supplier.organizationId,
+          name: supplier.name,
+          contactPerson: supplier.contactPerson,
+          email: supplier.email,
+          phone: supplier.phone,
+          address: supplier.address,
+          leadTimeDays: supplier.leadTimeDays,
+          createdBy: supplier.createdBy
+            ? `${supplier.createdBy.name} (${supplier.createdBy.role})`
+            : null,
+          createdAt: supplier.createdAt,
+          productsCount: count,
+          isActive: count > 0,
+        };
+      })
+    );
 
     res.status(200).json({
       success: true,
-      data: formattedSuppliers,
+      data: suppliersWithProductCounts,
     });
   } catch (error) {
     console.error("Error fetching suppliers:", error.message);
@@ -139,10 +149,10 @@ export const getSupplierByIdWithProducts = async (req, res) => {
       name: product.name,
       category: product.categoryId
         ? {
-            _id: product.categoryId._id,
-            name: product.categoryId.name,
-            categorySlug: product.categoryId.categorySlug,
-          }
+          _id: product.categoryId._id,
+          name: product.categoryId.name,
+          categorySlug: product.categoryId.categorySlug,
+        }
         : null,
       sku: product.sku,
       quantity: product.quantity,

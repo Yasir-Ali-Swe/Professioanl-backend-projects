@@ -10,6 +10,7 @@ import {
     CardDescription,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     ChartContainer,
     ChartTooltip,
@@ -77,6 +78,8 @@ const COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--cha
 
 const StockOverview = () => {
     const { data: response, isLoading, isError } = useStockSummary();
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5;
 
     if (isLoading) {
         return (
@@ -96,6 +99,11 @@ const StockOverview = () => {
     }
 
     const stats = response.data || {};
+    const recentLogs = stats.recentActivity || [];
+    const totalItems = recentLogs.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const currentActivity = recentLogs.slice(startIndex, startIndex + itemsPerPage);
 
     const stockByCategoryConfig = {};
     (stats.stockByCategory || []).forEach((item, index) => {
@@ -333,7 +341,7 @@ const StockOverview = () => {
                                     <div
                                         className="h-3 w-3"
                                         style={{
-                                            backgroundColor: COLORS[index],
+                                            backgroundColor: COLORS[index % COLORS.length],
                                         }}
                                     />
 
@@ -350,13 +358,14 @@ const StockOverview = () => {
                     </CardContent>
                 </Card>
             </div>
-            {/* Recent Stock Activity */}
+
+            {/* Recent Activity Table */}
             <Card>
                 <CardHeader>
                     <CardTitle className="text-sm sm:text-base">Recent Stock Activity</CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Latest stock movements</CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">Latest stock adjustments logs</CardDescription>
                 </CardHeader>
-                <CardContent className="px-2 sm:px-4 overflow-x-auto">
+                <CardContent className="px-2 sm:px-4">
                     <div className="min-w-125">
                         <table className="w-full text-xs sm:text-sm">
                             <thead>
@@ -377,7 +386,7 @@ const StockOverview = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    stats.recentActivity.map((log) => {
+                                    currentActivity.map((log) => {
                                         const date = new Date(log.createdAt).toLocaleDateString('en-US', {
                                             year: 'numeric',
                                             month: 'short',
@@ -406,6 +415,39 @@ const StockOverview = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between gap-3 border-t px-3 py-3 sm:px-4 mt-4">
+                            <div className="whitespace-nowrap text-xs text-muted-foreground">
+                                Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
+                                <span className="font-medium">{Math.min(startIndex + itemsPerPage, totalItems)}</span>{' '}
+                                of <span className="font-medium">{totalItems}</span> logs
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="h-8 text-xs"
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-xs text-muted-foreground px-2">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="h-8 text-xs"
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div >

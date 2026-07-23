@@ -2,27 +2,32 @@ import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Boxes, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-
+import { useVerifyEmail } from "@/hooks/useAuth";
 
 const VerifyEmailForm = () => {
     const [searchParams] = useSearchParams();
     const token = searchParams.get("token");
     const [isLoading, setIsLoading] = useState(true);
     const [verificationStatus, setVerificationStatus] = useState(null); // 'success' | 'error'
+    const verifyMutation = useVerifyEmail();
 
     useEffect(() => {
         if (!token) {
             setVerificationStatus('error');
-            setErrorMessage("No verification token found in the URL");
             setIsLoading(false);
             return;
         }
 
-        const verifyEmail = async () => {
-            console.log("Verifying email with token:", token);
-        }
-        verifyEmail();
+        verifyMutation.mutate(token, {
+            onSuccess: () => {
+                setVerificationStatus('success');
+                setIsLoading(false);
+            },
+            onError: () => {
+                setVerificationStatus('error');
+                setIsLoading(false);
+            }
+        });
     }, [token]);
 
     // Loading State
@@ -49,7 +54,7 @@ const VerifyEmailForm = () => {
                     <p className="text-muted-foreground mb-6">
                         Your email has been successfully verified. You can now login to your account.
                     </p>
-                    <Button asChild className="w-full h-10 rounded-none">
+                    <Button asChild className="w-full h-10">
                         <Link to="/login">Go to Login</Link>
                     </Button>
                 </div>
@@ -70,10 +75,10 @@ const VerifyEmailForm = () => {
                     }
                 </p>
                 <div className="space-y-3">
-                    <Button asChild className="w-full h-10 rounded-none">
+                    <Button asChild className="w-full h-10">
                         <Link to="/login">Go to Login</Link>
                     </Button>
-                    <Button asChild variant="outline" className="w-full h-10 rounded-none">
+                    <Button asChild variant="outline" className="w-full h-10">
                         <Link to="/resend-verification">Resend Verification Email</Link>
                     </Button>
                 </div>

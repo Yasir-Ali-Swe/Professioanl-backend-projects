@@ -1,6 +1,8 @@
 // pages/dashboard/ManagerDashboard.jsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useManagerDashboard } from '@/hooks/useDashboard';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -250,18 +252,27 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                <TableRow>
-                                    <TableCell className="py-1.5 px-2 text-xs font-medium">Product 1</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right">${(invoice.total / 2).toFixed(2)}</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right font-medium">${(invoice.total / 2).toFixed(2)}</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                    <TableCell className="py-1.5 px-2 text-xs font-medium">Product 2</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right">${(invoice.total / 2).toFixed(2)}</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right font-medium">${(invoice.total / 2).toFixed(2)}</TableCell>
-                                </TableRow>
+                                {invoice.products?.map ? (
+                                    invoice.products.map((item, index) => (
+                                        <TableRow key={item._id || index}>
+                                            <TableCell className="py-1.5 px-2 text-xs font-medium">
+                                                <div>{item.productId?.name || 'Deleted Product'}</div>
+                                                <div className="text-[10px] text-muted-foreground">{item.productId?.sku || 'N/A'}</div>
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-center">{item.quantity}</TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${(item.sellingPrice || 0).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${(item.subtotal || 0).toFixed(2)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center text-xs text-muted-foreground py-4">No product details available</TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </div>
@@ -338,18 +349,27 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                <TableRow>
-                                    <TableCell className="py-1.5 px-2 text-xs font-medium">Product 1</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right">${(po.totalCost / 2).toFixed(2)}</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right font-medium">${(po.totalCost / 2).toFixed(2)}</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                    <TableCell className="py-1.5 px-2 text-xs font-medium">Product 2</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right">${(po.totalCost / 2).toFixed(2)}</TableCell>
-                                    <TableCell className="py-1.5 px-2 text-xs text-right font-medium">${(po.totalCost / 2).toFixed(2)}</TableCell>
-                                </TableRow>
+                                {po.items?.map ? (
+                                    po.items.map((item, index) => (
+                                        <TableRow key={item._id || index}>
+                                            <TableCell className="py-1.5 px-2 text-xs font-medium">
+                                                <div>{item.productId?.name || 'Deleted Product'}</div>
+                                                <div className="text-[10px] text-muted-foreground">{item.productId?.sku || 'N/A'}</div>
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-center">{item.quantity}</TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${(item.unitCost || 0).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${((item.quantity || 0) * (item.unitCost || 0)).toFixed(2)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center text-xs text-muted-foreground py-4">No item details available</TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </div>
@@ -373,13 +393,30 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
 };
 
 const ManagerDashboard = () => {
-    const [dashboard] = useState(dummyManagerDashboard);
+    const { data: response, isLoading, isError } = useManagerDashboard();
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [selectedPO, setSelectedPO] = useState(null);
     const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
     const [poDialogOpen, setPODialogOpen] = useState(false);
 
-    const { inventory, purchaseOrders, salesActivity } = dashboard.data;
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load manager dashboard statistics</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const { inventory, purchaseOrders, salesActivity } = response.data;
 
     // Format date
     const formatDate = (dateString) => {

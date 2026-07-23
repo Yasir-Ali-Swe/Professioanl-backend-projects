@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import * as userApi from "@/api/user.api";
+import * as userApi from "../api/users.api";
 
 // ============ QUERY KEYS ============
 const USER_KEYS = {
@@ -47,7 +47,7 @@ export const useUploadUserProfileImage = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-          "Failed to upload profile image. Please try again.",
+        "Failed to upload profile image. Please try again.",
       );
     },
   });
@@ -75,7 +75,7 @@ export const useUpdateUserProfile = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-          "Failed to update profile. Please try again.",
+        "Failed to update profile. Please try again.",
       );
     },
   });

@@ -88,7 +88,7 @@ export const useGenerateReorderSuggestion = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-          "Failed to generate reorder suggestion. Please try again.",
+        "Failed to generate reorder suggestion. Please try again.",
       );
     },
   });
@@ -125,7 +125,7 @@ export const useApproveReorderSuggestion = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-          "Failed to approve suggestion. Please try again.",
+        "Failed to approve suggestion. Please try again.",
       );
     },
   });
@@ -150,7 +150,31 @@ export const useDismissReorderSuggestion = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-          "Failed to dismiss suggestion. Please try again.",
+        "Failed to dismiss suggestion. Please try again.",
+      );
+    },
+  });
+};
+
+/**
+ * Refresh/regenerate forecast for a specific product
+ * Invalidates: ["forecast"] on success
+ */
+export const useRefreshForecast = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (productId) => forecastApi.getForecastForProduct(productId),
+    onSuccess: (data) => {
+      toast.success(data.message || "Forecast refreshed successfully!");
+      queryClient.invalidateQueries({
+        queryKey: FORECAST_KEYS.all,
+      });
+    },
+    onError: (error) => {
+      toast.error(
+        error.response?.data?.message ||
+        "Failed to refresh forecast. Please try again."
       );
     },
   });

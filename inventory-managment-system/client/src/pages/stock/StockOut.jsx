@@ -5,7 +5,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useAllStock, useStockOut } from '@/hooks/useStock';
 import * as z from 'zod';
+import { toast } from 'sonner';
 import {
     Field,
     FieldLabel,
@@ -26,7 +28,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { ArrowLeft, Loader2, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
+
 
 // Dummy Data
 const dummyProducts = [
@@ -45,12 +47,21 @@ const stockOutSchema = z.object({
 
 const StockOut = () => {
     const navigate = useNavigate();
-    const [isPending, setIsPending] = useState(false);
-    const [products] = useState(dummyProducts);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const { user } = useAuth();
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
+
+    const { data: productsResponse } = useAllStock({ limit: 1000 });
+    const products = (productsResponse?.data?.products || []).map(p => ({
+        _id: p._id,
+        name: p.name,
+        sku: p.sku,
+        currentStock: p.quantity,
+    }));
+
+    const stockOutMutation = useStockOut();
+    const isPending = stockOutMutation.isPending;
 
     const {
         register,
@@ -82,24 +93,23 @@ const StockOut = () => {
     const exceedsStock = selectedProduct && parseInt(quantity) > selectedProduct.currentStock;
 
     // Handle form submission
-    const onSubmit = async (values) => {
+    const onSubmit = (values) => {
         if (exceedsStock) {
             toast.error(`Insufficient stock! Available: ${selectedProduct.currentStock}`);
             return;
         }
 
-        setIsPending(true);
-
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success(`Stock Out successful! ${values.quantity} units removed.`);
-            navigate(`/${rolePrefix}/stock/overview`);
-        } catch (error) {
-            toast.error(error.message || 'Failed to remove stock. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        stockOutMutation.mutate({
+            productId: values.productId,
+            quantity: values.quantity,
+            reason: values.reason,
+            notes: values.notes,
+        }, {
+            onSuccess: () => {
+                toast.success(`Stock Out successful! ${values.quantity} units removed.`);
+                navigate(`/${rolePrefix}/stock/overview`);
+            }
+        });
     };
 
     return (
@@ -134,7 +144,7 @@ const StockOut = () => {
                                     value={selectedProductId}
                                     onValueChange={handleProductSelect}
                                 >
-                                    <SelectTrigger className="h-10 text-sm rounded-none">
+                                    <SelectTrigger className="h-10 text-sm">
                                         <SelectValue placeholder="Select a product" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -172,7 +182,7 @@ const StockOut = () => {
                                         type="number"
                                         min="1"
                                         placeholder="Enter quantity"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("quantity")}
                                         aria-invalid={errors.quantity ? "true" : "false"}
                                     />
@@ -197,7 +207,7 @@ const StockOut = () => {
                                         id="reason"
                                         type="text"
                                         placeholder="e.g., Sale, Damage, Return"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("reason")}
                                         aria-invalid={errors.reason ? "true" : "false"}
                                     />
@@ -217,7 +227,7 @@ const StockOut = () => {
                                 <Textarea
                                     id="notes"
                                     placeholder="Additional notes about this stock out"
-                                    className="min-h-20 text-sm rounded-none resize-none"
+                                    className="min-h-20 text-sm resize-none"
                                     {...register("notes")}
                                 />
                             </FieldContent>

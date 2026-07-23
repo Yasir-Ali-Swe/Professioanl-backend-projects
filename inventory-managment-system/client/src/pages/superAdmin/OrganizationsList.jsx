@@ -1,6 +1,7 @@
-// pages/superAdmin/OrganizationsList.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useOrganizations, useUpdateOrganizationStatus } from '@/hooks/useSuperAdmin';
+import { Loader2 } from 'lucide-react';
 import {
     Badge,
 } from '@/components/ui/badge';
@@ -160,7 +161,6 @@ const dummyOrganizations = {
 
 const OrganizationsList = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const [organizations] = useState(dummyOrganizations);
 
     // Get current filter values from URL
     const page = parseInt(searchParams.get('page') || '1');
@@ -170,6 +170,42 @@ const OrganizationsList = () => {
     const subscriptionPlan = searchParams.get('subscriptionPlan') || 'all';
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
+
+    const { data: response, isLoading, isError } = useOrganizations({
+        page,
+        limit,
+        search,
+        status,
+        subscriptionPlan,
+        sortBy,
+        order,
+    });
+
+    const updateStatusMutation = useUpdateOrganizationStatus();
+
+    const handleUpdateStatus = (id, newStatus) => {
+        updateStatusMutation.mutate({ id, data: { status: newStatus } });
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[50vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load organizations</p>
+                <p className="text-xs text-muted-foreground">Please check your network and try again.</p>
+            </div>
+        );
+    }
+
+    const organizations = response;
+
     const {
         totalOrganizations,
         activeOrganizations,
@@ -490,7 +526,7 @@ const OrganizationsList = () => {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
@@ -577,12 +613,12 @@ const OrganizationsList = () => {
                                                             />
                                                             <DropdownMenuSeparator />
                                                             {org.status === 'active' ? (
-                                                                <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
+                                                                <DropdownMenuItem onClick={() => handleUpdateStatus(org._id, 'suspended')} className="cursor-pointer text-destructive focus:text-destructive">
                                                                     <Ban className="mr-2 h-3.5 w-3.5" />
                                                                     Suspend
                                                                 </DropdownMenuItem>
                                                             ) : (
-                                                                <DropdownMenuItem className="cursor-pointer text-primary focus:text-primary">
+                                                                <DropdownMenuItem onClick={() => handleUpdateStatus(org._id, 'active')} className="cursor-pointer text-primary focus:text-primary">
                                                                     <CheckCircle className="mr-2 h-3.5 w-3.5" />
                                                                     Activate
                                                                 </DropdownMenuItem>

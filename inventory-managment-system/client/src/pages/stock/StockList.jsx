@@ -1,8 +1,10 @@
-// pages/stock/StockList.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useAllStock, useStockSummary, useStockIn, useStockOut } from '@/hooks/useStock';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -53,7 +55,6 @@ const dummyStock = [
 
 const StockList = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const [stock] = useState(dummyStock);
     const { user } = useAuth();
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
@@ -61,6 +62,18 @@ const StockList = () => {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
+
+    const { data: response, isLoading, isError } = useAllStock({
+        search,
+        page,
+        limit,
+    });
+
+    const { data: summaryResponse } = useStockSummary();
+    const summary = summaryResponse?.data || {};
+
+    const stockInMutation = useStockIn();
+    const stockOutMutation = useStockOut();
 
     const updateFilter = (key, value) => {
         const newParams = new URLSearchParams(searchParams);
@@ -75,6 +88,12 @@ const StockList = () => {
         setSearchParams(newParams);
     };
 
+    const getStatus = (quantity, reorderThreshold) => {
+        if (quantity === 0) return 'out';
+        if (quantity <= reorderThreshold) return 'low';
+        return 'healthy';
+    };
+
     const getStatusBadge = (status) => {
         const variants = {
             healthy: { label: 'Healthy', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
@@ -84,47 +103,66 @@ const StockList = () => {
         return variants[status] || variants.healthy;
     };
 
-    const filteredStock = stock.filter(item =>
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.sku.toLowerCase().includes(search.toLowerCase())
-    );
-
-    const getPageNumbers = () => {
-        const total = Math.ceil(filteredStock.length / limit);
-        const current = page;
-        const pages = [];
-        const maxVisible = 5;
-
-        if (total <= maxVisible) {
-            for (let i = 1; i <= total; i++) {
-                pages.push(i);
-            }
-        } else {
-            pages.push(1);
-            if (current > 3) {
-                pages.push('ellipsis');
-            }
-            const start = Math.max(2, current - 1);
-            const end = Math.min(total - 1, current + 1);
-            for (let i = start; i <= end; i++) {
-                if (!pages.includes(i)) {
-                    pages.push(i);
-                }
-            }
-            if (current < total - 2) {
-                pages.push('ellipsis');
-            }
-            if (!pages.includes(total)) {
-                pages.push(total);
-            }
+    const handleStockIn = (item) => {
+        const qtyStr = prompt(`Enter quantity to Stock In for "${item.name}":`);
+        if (!qtyStr) return;
+        const qty = parseInt(qtyStr);
+        if (isNaN(qty) || qty <= 0) {
+            toast.error("Please enter a valid positive number.");
+            return;
         }
-        return pages;
+        const reason = prompt("Enter reason for Stock In (optional):") || "Manual stock adjustment";
+        stockInMutation.mutate({
+            productId: item._id,
+            quantity: qty,
+            reason
+        });
     };
 
-    const paginatedStock = filteredStock.slice(
-        (page - 1) * limit,
-        page * limit
-    );
+    const handleStockOut = (item) => {
+        const qtyStr = prompt(`Enter quantity to Stock Out for "${item.name}":`);
+        if (!qtyStr) return;
+        const qty = parseInt(qtyStr);
+        if (isNaN(qty) || qty <= 0) {
+            toast.error("Please enter a valid positive number.");
+            return;
+        }
+        if (qty > item.quantity) {
+            toast.error(`Cannot stock out ${qty} units. Only ${item.quantity} units are in stock.`);
+            return;
+        }
+        const reason = prompt("Enter reason for Stock Out (optional):") || "Manual stock adjustment";
+        stockOutMutation.mutate({
+            productId: item._id,
+            quantity: qty,
+            reason
+        });
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load stock list</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const { products = [], total = 0, totalPages = 1 } = response.data || {};
+    const paginatedStock = products;
+
+    const totalItems = summary.totalProducts || 0;
+    const healthyItems = totalItems - (summary.lowStockProducts || 0);
+    const lowStockItems = (summary.lowStockProducts || 0) - (summary.outOfStockProducts || 0);
+    const outOfStockItems = summary.outOfStockProducts || 0;
 
     return (
         <div className="space-y-4 sm:space-y-6 pb-8">
@@ -140,26 +178,26 @@ const StockList = () => {
 
             {/* Stats */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-muted-foreground">Total Items</p>
-                    <p className="mt-1 text-lg sm:text-2xl font-bold">{stock.length}</p>
+                    <p className="mt-1 text-lg sm:text-2xl font-bold">{totalItems}</p>
                 </div>
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-muted-foreground">Healthy Stock</p>
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-green-500">
-                        {stock.filter(s => s.status === 'healthy').length}
+                        {healthyItems}
                     </p>
                 </div>
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-muted-foreground">Low Stock</p>
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-yellow-500">
-                        {stock.filter(s => s.status === 'low').length}
+                        {lowStockItems}
                     </p>
                 </div>
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-muted-foreground">Out of Stock</p>
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-destructive">
-                        {stock.filter(s => s.status === 'out').length}
+                        {outOfStockItems}
                     </p>
                 </div>
             </div>
@@ -193,7 +231,7 @@ const StockList = () => {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
@@ -216,7 +254,7 @@ const StockList = () => {
                                 </TableRow>
                             ) : (
                                 paginatedStock.map((item) => {
-                                    const status = getStatusBadge(item.status);
+                                    const status = getStatusBadge(getStatus(item.quantity, item.reorderThreshold));
                                     return (
                                         <TableRow key={item._id}>
                                             <TableCell className="font-medium">
@@ -242,10 +280,10 @@ const StockList = () => {
                                                 </div>
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell text-xs">
-                                                {item.category}
+                                                {item.categoryId?.name || 'N/A'}
                                             </TableCell>
                                             <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                                                {item.supplier}
+                                                {item.supplierId?.name || 'N/A'}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={status.className}>
@@ -272,11 +310,11 @@ const StockList = () => {
                                                                 }
                                                             />
                                                             <DropdownMenuSeparator />
-                                                            <DropdownMenuItem className="cursor-pointer">
+                                                            <DropdownMenuItem className="cursor-pointer" onClick={() => handleStockIn(item)}>
                                                                 <ArrowDown className="mr-2 h-3.5 w-3.5 text-green-500" />
                                                                 Stock In
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem className="cursor-pointer">
+                                                            <DropdownMenuItem className="cursor-pointer" onClick={() => handleStockOut(item)}>
                                                                 <ArrowUp className="mr-2 h-3.5 w-3.5 text-destructive" />
                                                                 Stock Out
                                                             </DropdownMenuItem>
@@ -294,8 +332,8 @@ const StockList = () => {
                 <div className="flex items-center justify-between gap-3 border-t px-3 py-3 sm:px-4">
                     <div className="whitespace-nowrap text-xs sm:text-sm text-muted-foreground">
                         Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to{' '}
-                        <span className="font-medium">{Math.min(page * limit, filteredStock.length)}</span>{' '}
-                        of <span className="font-medium">{filteredStock.length}</span> results
+                        <span className="font-medium">{Math.min(page * limit, total)}</span>{' '}
+                        of <span className="font-medium">{total}</span> results
                     </div>
                     <Pagination className="mx-0 w-auto">
                         <PaginationContent>
@@ -336,11 +374,11 @@ const StockList = () => {
                                     href="#"
                                     onClick={(e) => {
                                         e.preventDefault();
-                                        if (page < Math.ceil(filteredStock.length / limit)) updateFilter('page', page + 1);
+                                        if (page < totalPages) updateFilter('page', page + 1);
                                     }}
                                     className={cn(
                                         'h-8 sm:h-9 text-xs sm:text-sm',
-                                        page >= Math.ceil(filteredStock.length / limit) && 'pointer-events-none opacity-50'
+                                        page >= totalPages && 'pointer-events-none opacity-50'
                                     )}
                                 />
                             </PaginationItem>

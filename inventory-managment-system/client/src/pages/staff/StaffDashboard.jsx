@@ -248,7 +248,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30">
                         <div>
                             <p className="text-xs text-muted-foreground">Customer</p>
                             <p className="text-sm font-medium">{invoice.customerName}</p>
@@ -259,7 +259,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                         </div>
                     </div>
 
-                    <div className="rounded-md border overflow-hidden">
+                    <div className="border overflow-hidden">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -334,7 +334,7 @@ const StockActionDetailDialog = ({ action, open, onOpenChange }) => {
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30">
                         <div>
                             <p className="text-xs text-muted-foreground">Product</p>
                             <p className="text-sm font-medium">{action.productId.name}</p>
@@ -533,7 +533,7 @@ const StaffDashboard = () => {
 
             {/* Stock Actions Breakdown */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Stock In (Count)</p>
                         <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
@@ -541,7 +541,7 @@ const StaffDashboard = () => {
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-green-500">{stockInCount}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Stock Out (Count)</p>
                         <PackageOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
@@ -549,7 +549,7 @@ const StaffDashboard = () => {
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-destructive">{stockOutCount}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Stock In (Qty)</p>
                         <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
@@ -557,7 +557,7 @@ const StaffDashboard = () => {
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-green-500">{stockInQty}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Stock Out (Qty)</p>
                         <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
@@ -697,7 +697,7 @@ const StaffDashboard = () => {
                                     className="flex items-center gap-2"
                                 >
                                     <div
-                                        className="h-3 w-3 rounded-full"
+                                        className="h-3 w-3"
                                         style={{
                                             backgroundColor: COLORS[index],
                                         }}
@@ -716,73 +716,6 @@ const StaffDashboard = () => {
                     </CardContent>
                 </Card>
             </div>
-            {/* <div className="grid gap-4 md:grid-cols-2">
-                //Monthly Performance 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Monthly Performance</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Your invoices, revenue & stock actions</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-50 sm:h-62.5 lg:h-70 w-full">
-                            <ChartContainer config={monthlyConfig} className="h-full w-full">
-                                <BarChart data={performance.monthlyTrend}>
-                                    <XAxis
-                                        dataKey="month"
-                                        tick={false}
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-                                    <ChartTooltip content={<ChartTooltipContent />} />
-                                    <Bar dataKey="invoices" fill="var(--color-invoices)" radius={4} />
-                                    <Bar dataKey="stockActions" fill="var(--color-stockActions)" radius={4} />
-                                </BarChart>
-                            </ChartContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-
-            Invoice Status Distribution 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-sm sm:text-base">Invoice Status Distribution</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Your invoices by status</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-50 sm:h-62.5 w-full">
-                            <ChartContainer config={invoiceStatusConfig} className="h-full w-full">
-                                <PieChart>
-                                    <Pie
-                                        data={statusData}
-                                        cx="50%"
-                                        cy="45%"
-                                        innerRadius={60}
-                                        outerRadius={100}
-                                        paddingAngle={2}
-                                        dataKey="value"
-                                    >
-                                        {statusData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <ChartTooltip content={<ChartTooltipContent />} />
-                                </PieChart>
-                            </ChartContainer>
-                        </div>
-                        <div className="flex justify-center gap-3 sm:gap-4 mt-1 flex-wrap">
-                            {statusData.map((item, index) => (
-                                <div key={item.name} className="flex items-center gap-1.5">
-                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-                                    <span className="text-[10px] sm:text-xs">{item.name}</span>
-                                    <span className="text-[10px] sm:text-xs font-medium">{item.value}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div> */}
-
-            {/* Recent Invoices + Recent Stock Actions */}
             <div className="grid gap-4 md:grid-cols-2">
                 {/* Recent Invoices */}
                 <Card>

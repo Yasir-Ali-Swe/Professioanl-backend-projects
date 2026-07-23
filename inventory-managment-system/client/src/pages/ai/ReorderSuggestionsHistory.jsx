@@ -162,11 +162,11 @@ const HistoryDetailDialog = ({ suggestion, open, onOpenChange }) => {
 
                 <div className="space-y-4">
                     {/* Product Info */}
-                    <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-4 p-3 bg-muted/30 ">
                         <img
                             src={imageUrl}
                             alt={product.name}
-                            className="h-12 w-12 rounded-lg object-cover border"
+                            className="h-12 w-12 object-cover border"
                         />
                         <div>
                             <p className="text-sm font-medium">{product.name}</p>
@@ -179,7 +179,7 @@ const HistoryDetailDialog = ({ suggestion, open, onOpenChange }) => {
                     </div>
 
                     {/* Suggested Quantity */}
-                    <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+                    <div className="bg-primary/5 border border-primary/20 p-3">
                         <div className="flex items-center gap-3">
                             <TrendingUp className="h-5 w-5 text-primary" />
                             <div>
@@ -190,7 +190,7 @@ const HistoryDetailDialog = ({ suggestion, open, onOpenChange }) => {
                     </div>
 
                     {/* AI Reasoning */}
-                    <div className="rounded-lg border p-4">
+                    <div className="border p-4">
                         <div className="flex items-start gap-2">
                             <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                             <div>
@@ -308,7 +308,7 @@ const ReorderSuggestionsHistory = () => {
             </div>
 
             {/* History Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
@@ -345,7 +345,7 @@ const ReorderSuggestionsHistory = () => {
                                                     <img
                                                         src={imageUrl}
                                                         alt={product.name}
-                                                        className="h-8 w-8 rounded-md object-cover border"
+                                                        className="h-8 w-8 object-cover border"
                                                     />
                                                     <span className="text-xs sm:text-sm font-medium truncate max-w-32 sm:max-w-48">
                                                         {product.name}

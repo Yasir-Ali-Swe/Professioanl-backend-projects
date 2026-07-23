@@ -234,7 +234,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
 
                 <div className="space-y-4">
                     {/* Customer Info */}
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30">
                         <div>
                             <p className="text-xs text-muted-foreground">Customer</p>
                             <p className="text-sm font-medium">{invoice.customer}</p>
@@ -246,7 +246,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                     </div>
 
                     {/* Invoice Items */}
-                    <div className="rounded-md border overflow-hidden">
+                    <div className="border overflow-hidden">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -335,7 +335,7 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
 
                 <div className="space-y-4">
                     {/* Supplier Info */}
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30">
                         <div>
                             <p className="text-xs text-muted-foreground">Supplier</p>
                             <p className="text-sm font-medium">{po.supplier}</p>
@@ -347,7 +347,7 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
                     </div>
 
                     {/* PO Items */}
-                    <div className="rounded-md border overflow-hidden">
+                    <div className="border overflow-hidden">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -562,7 +562,7 @@ const AdminDashboard = () => {
 
             {/* Secondary Financial Stats */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Gross Profit</p>
                         <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
@@ -572,7 +572,7 @@ const AdminDashboard = () => {
                     </p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Profit Margin</p>
                         <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
@@ -582,7 +582,7 @@ const AdminDashboard = () => {
                     </p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Net Profit</p>
                         <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
@@ -592,7 +592,7 @@ const AdminDashboard = () => {
                     </p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Net Profit Margin</p>
                         <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
@@ -613,19 +613,19 @@ const AdminDashboard = () => {
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="rounded-lg border p-3 text-center">
+                            <div className="border p-3 text-center">
                                 <p className="text-xs text-muted-foreground">Total POs</p>
                                 <p className="text-xl sm:text-2xl font-bold">{purchaseOrders.totalPOs}</p>
                             </div>
-                            <div className="rounded-lg border p-3 text-center">
+                            <div className="border p-3 text-center">
                                 <p className="text-xs text-muted-foreground">Pending</p>
                                 <p className="text-xl sm:text-2xl font-bold text-yellow-500">{purchaseOrders.pendingPOs}</p>
                             </div>
-                            <div className="rounded-lg border p-3 text-center">
+                            <div className="border p-3 text-center">
                                 <p className="text-xs text-muted-foreground">Fulfilled</p>
                                 <p className="text-xl sm:text-2xl font-bold text-green-500">{purchaseOrders.fulfilledPOs}</p>
                             </div>
-                            <div className="rounded-lg border p-3 text-center">
+                            <div className="border p-3 text-center">
                                 <p className="text-xs text-muted-foreground">Completion Rate</p>
                                 <p className="text-xl sm:text-2xl font-bold text-primary">{purchaseOrders.completionRate}%</p>
                             </div>
@@ -641,19 +641,19 @@ const AdminDashboard = () => {
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="rounded-lg border p-3 text-center">
+                            <div className="border p-3 text-center">
                                 <p className="text-xs text-muted-foreground">Total Invoices</p>
                                 <p className="text-xl sm:text-2xl font-bold">{invoices.total}</p>
                             </div>
-                            <div className="rounded-lg border p-3 text-center">
+                            <div className="border p-3 text-center">
                                 <p className="text-xs text-muted-foreground">Paid</p>
                                 <p className="text-xl sm:text-2xl font-bold text-green-500">{invoices.paid}</p>
                             </div>
-                            <div className="rounded-lg border p-3 text-center">
+                            <div className="border p-3 text-center">
                                 <p className="text-xs text-muted-foreground">Unpaid</p>
                                 <p className="text-xl sm:text-2xl font-bold text-destructive">{invoices.unpaid}</p>
                             </div>
-                            <div className="rounded-lg border p-3 text-center">
+                            <div className="border p-3 text-center">
                                 <p className="text-xs text-muted-foreground">Void</p>
                                 <p className="text-xl sm:text-2xl font-bold text-muted-foreground">{invoices.void}</p>
                             </div>
@@ -863,7 +863,7 @@ const AdminDashboard = () => {
                                     className="flex items-center gap-2"
                                 >
                                     <div
-                                        className="h-3 w-3 rounded-full"
+                                        className="h-3 w-3"
                                         style={{
                                             backgroundColor: COLORS[index],
                                         }}

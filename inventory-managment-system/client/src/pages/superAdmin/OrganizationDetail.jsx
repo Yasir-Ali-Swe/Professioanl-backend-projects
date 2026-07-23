@@ -1,6 +1,7 @@
-// pages/superAdmin/OrganizationDetail.jsx
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useOrganizationById, useUpdateOrganizationStatus } from '@/hooks/useSuperAdmin';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -110,9 +111,32 @@ const dummyOrganizationData = {
 const OrganizationDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [orgData] = useState(dummyOrganizationData.data);
 
-    const { organizationData, adminUser, allUsers, organizationUsersCount, organizationProductsCount, organizationSuppliersCount, organizationCategoriesCount, subscription } = orgData;
+    const { data: response, isLoading, isError } = useOrganizationById(id);
+    const updateStatusMutation = useUpdateOrganizationStatus();
+
+    const handleUpdateStatus = (newStatus) => {
+        updateStatusMutation.mutate({ id, data: { status: newStatus } });
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[50vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load organization details</p>
+                <p className="text-xs text-muted-foreground">Please try again.</p>
+            </div>
+        );
+    }
+
+    const { organizationData, adminUser, allUsers, organizationUsersCount, organizationProductsCount, organizationSuppliersCount, organizationCategoriesCount, subscription } = response.data;
 
     const org = organizationData;
 
@@ -163,7 +187,7 @@ const OrganizationDetail = () => {
                             </h1>
                             <Badge variant={getStatusBadge(org.status)} className="gap-1 text-[10px] sm:text-xs shrink-0">
                                 <span
-                                    className={`h-1.5 w-1.5 rounded-full ${org.status === 'active' ? 'bg-emerald-300' : 'bg-current'
+                                    className={`h-1.5 w-1.5 ${org.status === 'active' ? 'bg-emerald-300' : 'bg-current'
                                         }`}
                                 />
                                 {org.status.charAt(0).toUpperCase() + org.status.slice(1)}
@@ -174,12 +198,12 @@ const OrganizationDetail = () => {
 
                 <div className="flex items-center gap-2 self-start sm:self-auto">
                     {org.status === 'active' ? (
-                        <Button variant="destructive" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
+                        <Button onClick={() => handleUpdateStatus('suspended')} variant="destructive" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
                             <Ban className="mr-1.5 h-3.5 w-3.5" />
                             Suspend
                         </Button>
                     ) : (
-                        <Button variant="default" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
+                        <Button onClick={() => handleUpdateStatus('active')} variant="default" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
                             <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
                             Activate
                         </Button>
@@ -401,7 +425,7 @@ const OrganizationDetail = () => {
                                     </TableCell>
                                     <TableCell className="py-2 sm:py-3 px-2 sm:px-3">
                                         <Badge variant={user.isActive ? 'default' : 'secondary'} className="gap-1 text-[10px] sm:text-xs">
-                                            <span className={`h-1.5 w-1.5 rounded-full ${user.isActive ? 'bg-emerald-300' : 'bg-current'}`} />
+                                            <span className={`h-1.5 w-1.5 ${user.isActive ? 'bg-emerald-300' : 'bg-current'}`} />
                                             {user.isActive ? 'Active' : 'Inactive'}
                                         </Badge>
                                     </TableCell>

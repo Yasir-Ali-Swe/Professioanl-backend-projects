@@ -1,6 +1,7 @@
 // controllers/stock.controller.js
 import stockLogModel from "../models/stockLog.model.js";
 import productModel from "../models/product.model.js";
+import categoryModel from "../models/category.model.js";
 import { performStockIn, performStockOut } from "../services/stock.service.js";
 
 export const stockIn = async (req, res) => {

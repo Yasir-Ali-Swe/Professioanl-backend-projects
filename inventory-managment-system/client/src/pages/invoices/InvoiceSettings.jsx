@@ -15,6 +15,7 @@ import {
 import { Loader2, Receipt, Percent, DollarSign, Hash, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useRedux';
+import { useOrganizationInvoiceDetails, useUpdateOrganizationInvoiceDetails } from '@/hooks/useOrganization';
 import { Badge } from '@/components/ui/badge';
 
 // Dummy invoice settings data
@@ -47,11 +48,14 @@ const InvoiceSettingsPage = () => {
     // ✅ Check if user is admin (only admin can edit)
     const isAdmin = userRole === 'admin';
 
-    const [isPending, setIsPending] = useState(false);
+    const { data: response, isLoading, isError } = useOrganizationInvoiceDetails();
+    const updateInvoiceMutation = useUpdateOrganizationInvoiceDetails();
+
+    const isPending = updateInvoiceMutation.isPending;
     const [originalValues, setOriginalValues] = useState({
-        taxRate: DUMMY_INVOICE_SETTINGS.taxRate.toString(),
-        defaultDiscount: DUMMY_INVOICE_SETTINGS.defaultDiscount.toString(),
-        invoicePrefix: DUMMY_INVOICE_SETTINGS.invoicePrefix,
+        taxRate: '',
+        defaultDiscount: '',
+        invoicePrefix: '',
     });
 
     const {
@@ -63,15 +67,32 @@ const InvoiceSettingsPage = () => {
     } = useForm({
         resolver: zodResolver(invoiceSettingsSchema),
         defaultValues: {
-            taxRate: DUMMY_INVOICE_SETTINGS.taxRate.toString(),
-            defaultDiscount: DUMMY_INVOICE_SETTINGS.defaultDiscount.toString(),
-            invoicePrefix: DUMMY_INVOICE_SETTINGS.invoicePrefix,
+            taxRate: '',
+            defaultDiscount: '',
+            invoicePrefix: '',
         },
     });
 
     const watchedTaxRate = watch('taxRate');
     const watchedDiscount = watch('defaultDiscount');
     const watchedPrefix = watch('invoicePrefix');
+
+    // Sync values on data load
+    const invoice = response?.data;
+    useEffect(() => {
+        if (invoice) {
+            reset({
+                taxRate: invoice.taxRate?.toString() || '0',
+                defaultDiscount: invoice.defaultDiscount?.toString() || '0',
+                invoicePrefix: invoice.invoicePrefix || '',
+            });
+            setOriginalValues({
+                taxRate: invoice.taxRate?.toString() || '0',
+                defaultDiscount: invoice.defaultDiscount?.toString() || '0',
+                invoicePrefix: invoice.invoicePrefix || '',
+            });
+        }
+    }, [invoice, reset]);
 
     // Check if form has changes (only for admin)
     const hasChanges = () => {
@@ -94,26 +115,34 @@ const InvoiceSettingsPage = () => {
             return;
         }
 
-        setIsPending(true);
-
-        // Simulate API call
-        setTimeout(() => {
-            // Update original values
-            setOriginalValues({
-                taxRate: values.taxRate,
-                defaultDiscount: values.defaultDiscount,
-                invoicePrefix: values.invoicePrefix,
-            });
-
-            // Show success toast
-            toast.success('Invoice settings updated successfully');
-
-            // Reset form with new values
-            reset(values);
-
-            setIsPending(false);
-        }, 1500);
+        updateInvoiceMutation.mutate(values, {
+            onSuccess: () => {
+                setOriginalValues({
+                    taxRate: values.taxRate.toString(),
+                    defaultDiscount: values.defaultDiscount.toString(),
+                    invoicePrefix: values.invoicePrefix,
+                });
+                reset(values);
+            }
+        });
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load invoice settings</p>
+                <p className="text-xs text-muted-foreground">Please check your network and try again.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center justify-center min-h-[60vh] px-4">
@@ -222,7 +251,7 @@ const InvoiceSettingsPage = () => {
                         </div>
 
                         {/* Info Box */}
-                        <div className="rounded-md bg-muted p-4">
+                        <div className="bg-muted p-4">
                             <div className="flex items-start gap-3">
                                 <Receipt className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                                 <div>

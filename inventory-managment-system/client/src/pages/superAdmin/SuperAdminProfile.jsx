@@ -147,7 +147,7 @@ const SuperAdminProfilePage = () => {
                                 <button
                                     type="button"
                                     className={cn(
-                                        "absolute bottom-0 right-0 rounded-full bg-primary p-2 text-primary-foreground shadow-sm",
+                                        "absolute bottom-0 right-0 bg-primary p-2 text-primary-foreground shadow-sm",
                                         "transition-all hover:bg-primary/90 hover:scale-110",
                                         "ring-2 ring-background"
                                     )}

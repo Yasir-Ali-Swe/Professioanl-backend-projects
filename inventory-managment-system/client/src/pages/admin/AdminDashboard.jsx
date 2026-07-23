@@ -1,5 +1,7 @@
 // pages/dashboard/AdminDashboard.jsx
 import { useState } from 'react';
+import { useAdminDashboard } from '@/hooks/useDashboard';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -221,14 +223,14 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                 <DialogHeader>
                     <div className="flex items-center justify-between">
                         <DialogTitle className="text-xl font-bold">
-                            {invoice.id}
+                            {invoice.invoiceNumber || invoice.id}
                         </DialogTitle>
                         <Badge variant={getStatusBadge(invoice.status)} className="text-[10px]">
                             {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                         </Badge>
                     </div>
                     <DialogDescription>
-                        Created by {invoice.createdBy} on {formatDate(invoice.date)}
+                        Created by {invoice.createdBy?.name || invoice.createdBy} on {formatDate(invoice.createdAt || invoice.date)}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -237,11 +239,11 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                     <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30">
                         <div>
                             <p className="text-xs text-muted-foreground">Customer</p>
-                            <p className="text-sm font-medium">{invoice.customer}</p>
+                            <p className="text-sm font-medium">{invoice.customerName || invoice.customer}</p>
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground">Total Items</p>
-                            <p className="text-sm font-medium">{invoice.items}</p>
+                            <p className="text-sm font-medium">{invoice.products?.length || invoice.items}</p>
                         </div>
                     </div>
 
@@ -257,20 +259,38 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {[...Array(invoice.items)].map((_, index) => (
-                                    <TableRow key={index}>
-                                        <TableCell className="py-1.5 px-2 text-xs font-medium">
-                                            Product {index + 1}
-                                        </TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-right">
-                                            ${(invoice.total / invoice.items).toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
-                                            ${(invoice.total / invoice.items).toFixed(2)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                {invoice.products?.map ? (
+                                    invoice.products.map((item, index) => (
+                                        <TableRow key={item._id || index}>
+                                            <TableCell className="py-1.5 px-2 text-xs font-medium">
+                                                <div>{item.productId?.name || 'Deleted Product'}</div>
+                                                <div className="text-[10px] text-muted-foreground">{item.productId?.sku || 'N/A'}</div>
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-center">{item.quantity}</TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${(item.sellingPrice || 0).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${(item.subtotal || 0).toFixed(2)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    [...Array(invoice.items || 0)].map((_, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell className="py-1.5 px-2 text-xs font-medium">
+                                                Product {index + 1}
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right">
+                                                ${((invoice.total || 0) / (invoice.items || 1)).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${((invoice.total || 0) / (invoice.items || 1)).toFixed(2)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
                             </TableBody>
                         </Table>
                     </div>
@@ -322,14 +342,14 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
                 <DialogHeader>
                     <div className="flex items-center justify-between">
                         <DialogTitle className="text-xl font-bold">
-                            {po.id}
+                            {po.poNumber || po.id}
                         </DialogTitle>
                         <Badge variant={getStatusBadge(po.status)} className="text-[10px]">
                             {po.status.charAt(0).toUpperCase() + po.status.slice(1)}
                         </Badge>
                     </div>
                     <DialogDescription>
-                        Created by {po.createdBy} on {formatDate(po.date)}
+                        Created by {po.createdBy?.name || po.createdBy} on {formatDate(po.createdAt || po.date)}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -338,11 +358,11 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
                     <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30">
                         <div>
                             <p className="text-xs text-muted-foreground">Supplier</p>
-                            <p className="text-sm font-medium">{po.supplier}</p>
+                            <p className="text-sm font-medium">{po.supplierId?.name || po.supplier}</p>
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground">Total Items</p>
-                            <p className="text-sm font-medium">{po.items}</p>
+                            <p className="text-sm font-medium">{po.items?.length || po.items}</p>
                         </div>
                     </div>
 
@@ -358,20 +378,38 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {[...Array(po.items)].map((_, index) => (
-                                    <TableRow key={index}>
-                                        <TableCell className="py-1.5 px-2 text-xs font-medium">
-                                            Product {index + 1}
-                                        </TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-right">
-                                            ${(po.totalCost / po.items).toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
-                                            ${(po.totalCost / po.items).toFixed(2)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                {po.items?.map ? (
+                                    po.items.map((item, index) => (
+                                        <TableRow key={item._id || index}>
+                                            <TableCell className="py-1.5 px-2 text-xs font-medium">
+                                                <div>{item.productId?.name || 'Deleted Product'}</div>
+                                                <div className="text-[10px] text-muted-foreground">{item.productId?.sku || 'N/A'}</div>
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-center">{item.quantity}</TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${(item.unitCost || 0).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${((item.quantity || 0) * (item.unitCost || 0)).toFixed(2)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    [...Array(po.items || 0)].map((_, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell className="py-1.5 px-2 text-xs font-medium">
+                                                Product {index + 1}
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-center">1</TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right">
+                                                ${((po.totalCost || 0) / (po.items || 1)).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
+                                                ${((po.totalCost || 0) / (po.items || 1)).toFixed(2)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
                             </TableBody>
                         </Table>
                     </div>
@@ -396,11 +434,30 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
 };
 
 const AdminDashboard = () => {
-    const [dashboard] = useState(dummyDashboard);
+    const { data: response, isLoading, isError } = useAdminDashboard();
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [selectedPO, setSelectedPO] = useState(null);
     const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
     const [poDialogOpen, setPODialogOpen] = useState(false);
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load admin dashboard statistics</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const dashboard = response.data;
 
     const {
         inventory,
@@ -940,16 +997,16 @@ const AdminDashboard = () => {
                                 </TableHeader>
                                 <TableBody>
                                     {recentActivity.invoices.map((inv) => (
-                                        <TableRow key={inv.id}>
-                                            <TableCell className="py-1.5 px-2 text-xs font-medium">{inv.id}</TableCell>
+                                        <TableRow key={inv._id}>
+                                            <TableCell className="py-1.5 px-2 text-xs font-medium">{inv.invoiceNumber}</TableCell>
                                             <TableCell className="py-1.5 px-2 text-xs hidden sm:table-cell text-muted-foreground">
-                                                {inv.customer}
+                                                {inv.customerName}
                                             </TableCell>
                                             <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
                                                 ${inv.total.toLocaleString()}
                                             </TableCell>
                                             <TableCell className="py-1.5 px-2 text-xs hidden md:table-cell text-muted-foreground">
-                                                {inv.date}
+                                                {new Date(inv.createdAt).toLocaleDateString()}
                                             </TableCell>
                                             <TableCell className="py-1.5 px-2 text-xs text-center">
                                                 <Button
@@ -989,10 +1046,10 @@ const AdminDashboard = () => {
                                 </TableHeader>
                                 <TableBody>
                                     {recentActivity.purchaseOrders.map((po) => (
-                                        <TableRow key={po.id}>
-                                            <TableCell className="py-1.5 px-2 text-xs font-medium">{po.id}</TableCell>
+                                        <TableRow key={po._id}>
+                                            <TableCell className="py-1.5 px-2 text-xs font-medium">{po.poNumber}</TableCell>
                                             <TableCell className="py-1.5 px-2 text-xs hidden sm:table-cell text-muted-foreground">
-                                                {po.supplier}
+                                                {po.supplierId?.name || 'N/A'}
                                             </TableCell>
                                             <TableCell className="py-1.5 px-2 text-xs text-right font-medium">
                                                 ${po.totalCost.toLocaleString()}

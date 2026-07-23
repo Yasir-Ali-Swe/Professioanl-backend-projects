@@ -1,7 +1,7 @@
-// routes/chat.routes.js
 import express from "express";
 import {
   chatWithAI,
+  chatWithAIStream,
   getChatHistory,
   clearContext,
 } from "../controllers/chat.controller.js";
@@ -12,9 +12,8 @@ import { requirePremium } from "../middleware/featureAccess.middleware.js";
 const router = express.Router();
 
 router.post("/chat", authMiddleware, requirePremium, chatWithAI);
-
+router.post("/chat/stream", authMiddleware, requirePremium, chatWithAIStream);
 router.get("/chat/history", authMiddleware, requirePremium, getChatHistory);
-
 router.delete("/chat/context", authMiddleware, requirePremium, clearContext);
 
 router.get(
@@ -28,11 +27,12 @@ router.get(
 
       const stats = await chatLogModel.aggregate([
         { $match: { organizationId, userId } },
+        { $sort: { createdAt: -1 } },
         {
           $group: {
             _id: "$intent",
             count: { $sum: 1 },
-            lastQuery: { $last: "$query" },
+            lastQuery: { $first: "$query" },
           },
         },
         { $sort: { count: -1 } },

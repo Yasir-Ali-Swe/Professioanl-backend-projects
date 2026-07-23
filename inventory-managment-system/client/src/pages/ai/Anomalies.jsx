@@ -1,6 +1,8 @@
 // pages/ai/Anomalies.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useAnomalies, useResolveAnomaly, useRunAnomalyDetection } from '@/hooks/useAnomaly';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -77,121 +79,6 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-// Dummy Data
-const dummyAnomalies = {
-    data: [
-        {
-            _id: 'a1',
-            type: 'dead_stock',
-            severity: 'high',
-            productId: {
-                _id: 'p1',
-                name: 'Bluetooth Speaker',
-                sku: 'SKU-003',
-                quantity: 2,
-                sellingPrice: 49.99,
-                unit: 'pcs',
-                imageUrl: 'https://ui-avatars.com/api/?name=BS&background=6B46C1&color=fff&size=64',
-            },
-            description: 'Product has been in stock for 45+ days with zero sales. Dead stock detected.',
-            isResolved: false,
-            createdAt: '2024-07-15T10:30:00Z',
-        },
-        {
-            _id: 'a2',
-            type: 'sales_spike',
-            severity: 'medium',
-            productId: {
-                _id: 'p2',
-                name: 'Wireless Mouse',
-                sku: 'SKU-001',
-                quantity: 45,
-                sellingPrice: 29.99,
-                unit: 'pcs',
-                imageUrl: 'https://ui-avatars.com/api/?name=WM&background=6B46C1&color=fff&size=64',
-            },
-            description: 'Unusual sales spike detected: 45 units sold in last 7 days vs average of 8 units.',
-            isResolved: false,
-            createdAt: '2024-07-14T14:20:00Z',
-        },
-        {
-            _id: 'a3',
-            type: 'suspicious_adjustment',
-            severity: 'high',
-            productId: {
-                _id: 'p3',
-                name: 'USB-C Charger',
-                sku: 'SKU-002',
-                quantity: 8,
-                sellingPrice: 19.99,
-                unit: 'pcs',
-                imageUrl: 'https://ui-avatars.com/api/?name=UC&background=6B46C1&color=fff&size=64',
-            },
-            description: 'Large stock adjustment detected: -50 units in a single transaction. Manual review recommended.',
-            isResolved: false,
-            createdAt: '2024-07-13T09:15:00Z',
-        },
-        {
-            _id: 'a4',
-            type: 'unusual_return',
-            severity: 'low',
-            productId: {
-                _id: 'p4',
-                name: 'HDMI Cable',
-                sku: 'SKU-004',
-                quantity: 120,
-                sellingPrice: 9.99,
-                unit: 'pcs',
-                imageUrl: 'https://ui-avatars.com/api/?name=HC&background=6B46C1&color=fff&size=64',
-            },
-            description: 'Unusually high return rate: 15 returns this week vs average of 3. Quality control recommended.',
-            isResolved: false,
-            createdAt: '2024-07-12T16:45:00Z',
-        },
-        {
-            _id: 'a5',
-            type: 'dead_stock',
-            severity: 'low',
-            productId: {
-                _id: 'p5',
-                name: 'Wireless Keyboard',
-                sku: 'SKU-005',
-                quantity: 15,
-                sellingPrice: 59.99,
-                unit: 'pcs',
-                imageUrl: 'https://ui-avatars.com/api/?name=WK&background=6B46C1&color=fff&size=64',
-            },
-            description: 'Product has been in stock for 30+ days with zero sales. Dead stock detected.',
-            isResolved: true,
-            createdAt: '2024-07-11T11:00:00Z',
-        },
-    ],
-    pagination: {
-        total: 25,
-        page: 1,
-        limit: 10,
-        totalPages: 3,
-        hasNextPage: true,
-        hasPrevPage: false,
-    },
-    summary: {
-        total: 25,
-        unresolved: 4,
-        resolved: 1,
-        byType: {
-            dead_stock: 2,
-            sales_spike: 1,
-            suspicious_adjustment: 1,
-            unusual_return: 0,
-        },
-        bySeverity: {
-            low: 2,
-            medium: 1,
-            high: 2,
-        },
-    },
-};
-
 // Type configuration
 const typeConfig = {
     dead_stock: { label: 'Dead Stock', icon: XCircle, color: 'text-gray-500' },
@@ -219,6 +106,10 @@ const productImages = {
 // Anomaly Detail Dialog Component
 const AnomalyDetailDialog = ({ anomaly, open, onOpenChange }) => {
     if (!anomaly) return null;
+
+    const product = anomaly.product || anomaly.productId || {};
+    const imageUrl = productImages[product.sku] || product.imageUrl ||
+        `https://ui-avatars.com/api/?name=${(product.name || 'U').charAt(0)}&background=6B46C1&color=fff&size=80`;
 
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -275,16 +166,16 @@ const AnomalyDetailDialog = ({ anomaly, open, onOpenChange }) => {
                     {/* Product Info */}
                     <div className="flex items-center gap-4 p-3 bg-muted/30">
                         <img
-                            src={productImages[anomaly.productId.sku] || 'https://ui-avatars.com/api/?name=Unknown&background=6B46C1&color=fff&size=64'}
-                            alt={anomaly.productId.name}
+                            src={imageUrl}
+                            alt={product.name || 'Product'}
                             className="h-12 w-12 object-cover border"
                         />
                         <div>
-                            <p className="text-sm font-medium">{anomaly.productId.name}</p>
-                            <p className="text-xs text-muted-foreground">SKU: {anomaly.productId.sku}</p>
+                            <p className="text-sm font-medium">{product.name || 'Deleted Product'}</p>
+                            <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
                             <div className="flex items-center gap-3 mt-1">
-                                <span className="text-xs text-muted-foreground">Stock: {anomaly.productId.quantity}</span>
-                                <span className="text-xs text-muted-foreground">Price: ${anomaly.productId.sellingPrice}</span>
+                                <span className="text-xs text-muted-foreground">Stock: {product.quantity ?? 0}</span>
+                                <span className="text-xs text-muted-foreground">Price: ${product.sellingPrice ?? 0}</span>
                             </div>
                         </div>
                     </div>
@@ -327,11 +218,15 @@ const AnomalyDetailDialog = ({ anomaly, open, onOpenChange }) => {
 
 const AnomaliesPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const [anomaliesData] = useState(dummyAnomalies);
+    const { data: response, isLoading, isError } = useAnomalies({ resolved: 'all', limit: 1000 });
+    const resolveMutation = useResolveAnomaly();
+    const runDetectionMutation = useRunAnomalyDetection();
+
     const [selectedAnomaly, setSelectedAnomaly] = useState(null);
     const [showDetailDialog, setShowDetailDialog] = useState(false);
     const [showResolveDialog, setShowResolveDialog] = useState(false);
     const [resolvingId, setResolvingId] = useState(null);
+    const [runningDetection, setRunningDetection] = useState(false);
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -340,12 +235,37 @@ const AnomaliesPage = () => {
     const type = searchParams.get('type') || 'all';
     const resolved = searchParams.get('resolved') || 'false';
 
-    const { data: anomalies, summary, pagination } = anomaliesData;
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load AI anomalies</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const anomalies = response.data || [];
+    const summary = response.summary || {
+        total: 0,
+        unresolved: 0,
+        resolved: 0,
+        bySeverity: { high: 0, medium: 0, low: 0 }
+    };
+    const pagination = response.pagination || { totalPages: 1 };
 
     // Filter anomalies
     const filteredAnomalies = anomalies.filter(a => {
-        const matchesSearch = a.productId.name.toLowerCase().includes(search.toLowerCase()) ||
-            a.productId.sku.toLowerCase().includes(search.toLowerCase());
+        const prod = a.product || a.productId || {};
+        const matchesSearch = (prod.name || '').toLowerCase().includes(search.toLowerCase()) ||
+            (prod.sku || '').toLowerCase().includes(search.toLowerCase());
         const matchesSeverity = severity === 'all' || a.severity === severity;
         const matchesType = type === 'all' || a.type === type;
         const matchesResolved = resolved === 'all' || a.isResolved === (resolved === 'true');
@@ -391,14 +311,23 @@ const AnomaliesPage = () => {
 
         setResolvingId(selectedAnomaly._id);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success('Anomaly resolved successfully!');
+            await resolveMutation.mutateAsync({ id: selectedAnomaly._id });
             setShowResolveDialog(false);
-            selectedAnomaly.isResolved = true;
         } catch (error) {
-            toast.error('Failed to resolve anomaly. Please try again.');
+            // error is handled in hook
         } finally {
             setResolvingId(null);
+        }
+    };
+
+    const handleRunDetection = async () => {
+        setRunningDetection(true);
+        try {
+            await runDetectionMutation.mutateAsync();
+        } catch (error) {
+            // error is handled in hook
+        } finally {
+            setRunningDetection(false);
         }
     };
 
@@ -462,9 +391,15 @@ const AnomaliesPage = () => {
                         Monitor and resolve inventory anomalies automatically detected by AI.
                     </p>
                 </div>
-                <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
-                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                    Run Detection
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 sm:h-9 text-xs sm:text-sm"
+                    onClick={handleRunDetection}
+                    disabled={runningDetection}
+                >
+                    <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", runningDetection && "animate-spin")} />
+                    {runningDetection ? 'Running Detection...' : 'Run Detection'}
                 </Button>
             </div>
 
@@ -689,29 +624,44 @@ const AnomaliesPage = () => {
                                             anomaly.isResolved && "opacity-60"
                                         )}>
                                             <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <img
-                                                        src={imageUrl}
-                                                        alt={anomaly.productId.name}
-                                                        className="h-8 w-8 object-cover border"
-                                                    />
-                                                    <span className="text-xs sm:text-sm font-medium truncate max-w-32 sm:max-w-48">
-                                                        {anomaly.productId.name}
-                                                    </span>
-                                                </div>
+                                                {(() => {
+                                                    const prod = anomaly.product || anomaly.productId || {};
+                                                    const imageUrl = productImages[prod.sku] || prod.imageUrl ||
+                                                        'https://ui-avatars.com/api/?name=Unknown&background=6B46C1&color=fff&size=40';
+                                                    return (
+                                                        <div className="flex items-center gap-3">
+                                                            <img
+                                                                src={imageUrl}
+                                                                alt={prod.name || 'Product'}
+                                                                className="h-8 w-8 object-cover border"
+                                                            />
+                                                            <span className="text-xs sm:text-sm font-medium truncate max-w-32 sm:max-w-48">
+                                                                {prod.name || 'Deleted Product'}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-                                                {anomaly.productId.sku}
+                                                {(() => {
+                                                    const prod = anomaly.product || anomaly.productId || {};
+                                                    return prod.sku || 'N/A';
+                                                })()}
                                             </TableCell>
                                             <TableCell className="text-center">
-                                                <span className={cn(
-                                                    "text-xs font-medium",
-                                                    anomaly.productId.quantity === 0 ? "text-destructive" :
-                                                        anomaly.productId.quantity <= 10 ? "text-yellow-500" :
-                                                            "text-green-500"
-                                                )}>
-                                                    {anomaly.productId.quantity}
-                                                </span>
+                                                {(() => {
+                                                    const prod = anomaly.product || anomaly.productId || {};
+                                                    return (
+                                                        <span className={cn(
+                                                            "text-xs font-medium",
+                                                            prod.quantity === 0 ? "text-destructive" :
+                                                                prod.quantity <= 10 ? "text-yellow-500" :
+                                                                    "text-green-500"
+                                                        )}>
+                                                            {prod.quantity ?? 0}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-1.5">
@@ -777,10 +727,15 @@ const AnomaliesPage = () => {
                                                             <DropdownMenuGroup>
                                                                 <DropdownMenuItem
                                                                     render={
-                                                                        <Link to={`/admin/products/${anomaly.productId._id}`} className="cursor-pointer">
-                                                                            <Eye className="mr-2 h-3.5 w-3.5" />
-                                                                            View Product
-                                                                        </Link>
+                                                                        (() => {
+                                                                            const prod = anomaly.product || anomaly.productId || {};
+                                                                            return prod._id ? (
+                                                                                <Link to={`/admin/products/${prod._id}`} className="cursor-pointer">
+                                                                                    <Eye className="mr-2 h-3.5 w-3.5" />
+                                                                                    View Product
+                                                                                </Link>
+                                                                            ) : null;
+                                                                        })()
                                                                     }
                                                                 />
                                                                 <DropdownMenuItem
@@ -886,8 +841,10 @@ const AnomaliesPage = () => {
                         <AlertDialogDescription>
                             Are you sure you want to mark this anomaly as resolved?
                             {selectedAnomaly && (
-                                <div className="mt-2 p-3 bg-muted">
-                                    <p className="text-sm font-medium">{selectedAnomaly.productId?.name}</p>
+                                <div className="mt-2 p-3 bg-muted text-left">
+                                    <p className="text-sm font-medium">
+                                        {(selectedAnomaly.product || selectedAnomaly.productId)?.name || 'Deleted Product'}
+                                    </p>
                                     <p className="text-xs text-muted-foreground">{selectedAnomaly.description}</p>
                                 </div>
                             )}

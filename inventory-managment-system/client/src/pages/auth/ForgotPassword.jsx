@@ -1,10 +1,8 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Boxes } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,13 +12,14 @@ import {
     FieldGroup,
     FieldContent,
 } from "@/components/ui/field";
+import { useForgetPassword } from "@/hooks/useAuth";
 
 const forgotPasswordSchema = z.object({
     email: z.string().email({ message: "Invalid email address" }),
 });
 
 const ForgotPasswordForm = () => {
-    const [isLoading, setIsLoading] = useState(false);
+    const forgetPasswordMutation = useForgetPassword();
 
     const {
         register,
@@ -35,7 +34,11 @@ const ForgotPasswordForm = () => {
     });
 
     const onSubmit = async (data) => {
-        console.log("📤 Forgot password form submitted with data:", data);
+        forgetPasswordMutation.mutate(data, {
+            onSuccess: () => {
+                reset();
+            },
+        });
     };
 
     return (
@@ -95,11 +98,11 @@ const ForgotPasswordForm = () => {
                         <Button
                             type="submit"
                             className="w-full h-9 sm:h-10 text-sm mt-1"
-                            disabled={isLoading}
+                            disabled={forgetPasswordMutation.isPending}
                         >
-                            {isLoading ? (
+                            {forgetPasswordMutation.isPending ? (
                                 <>
-                                    <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                    <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin border-2 border-current border-t-transparent" />
                                     Sending...
                                 </>
                             ) : (

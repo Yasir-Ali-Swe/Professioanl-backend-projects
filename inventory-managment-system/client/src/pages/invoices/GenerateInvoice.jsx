@@ -5,6 +5,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useAllStock } from '@/hooks/useStock';
+import { useCreateInvoice } from '@/hooks/useInvoice';
+import { useOrganizationInvoiceDetails } from '@/hooks/useOrganization';
 import * as z from 'zod';
 import {
     Field,
@@ -58,31 +61,49 @@ const GenerateInvoice = () => {
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
     const navigate = useNavigate();
-    const [isPending, setIsPending] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [cartItems, setCartItems] = useState([]);
-    const [products] = useState(dummyProducts);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const searchInputRef = useRef(null);
     const resultsRef = useRef(null);
+
+    const { data: productsResponse } = useAllStock({ limit: 1000 });
+    const products = productsResponse?.data?.products || [];
+
+    const createInvoiceMutation = useCreateInvoice();
+    const isPending = createInvoiceMutation.isPending;
+
+    const { data: orgInvoiceResponse } = useOrganizationInvoiceDetails();
+    const orgInvoice = orgInvoiceResponse?.data;
 
     const {
         register,
         handleSubmit,
         watch,
+        reset,
         formState: { errors },
     } = useForm({
         resolver: zodResolver(invoiceSchema),
         defaultValues: {
             customerName: '',
-            tax: '10',
-            discount: '5',
+            tax: '0',
+            discount: '0',
         },
     });
 
     const customerName = watch('customerName');
     const tax = watch('tax');
     const discount = watch('discount');
+
+    useEffect(() => {
+        if (orgInvoice) {
+            reset({
+                customerName: '',
+                tax: orgInvoice.taxRate?.toString() || '0',
+                discount: orgInvoice.defaultDiscount?.toString() || '0',
+            });
+        }
+    }, [orgInvoice, reset]);
 
     // Determine which invoice list link to show
     const isAdminOrManager = role === ROLES.ADMIN || role === ROLES.MANAGER;
@@ -209,13 +230,11 @@ const GenerateInvoice = () => {
     const total = subtotal + taxAmount - discountAmountTotal;
 
     // Handle form submission
-    const onSubmit = async (values) => {
+    const onSubmit = (values) => {
         if (cartItems.length === 0) {
             toast.error('Please add at least one product to the cart');
             return;
         }
-
-        setIsPending(true);
 
         const invoiceData = {
             customerName: values.customerName,
@@ -224,23 +243,24 @@ const GenerateInvoice = () => {
                 quantity: item.quantity,
                 sellingPrice: item.sellingPrice,
             })),
-            tax: parseFloat(values.tax) || 0,
-            discount: parseFloat(values.discount) || 0,
+            tax: taxAmount,
+            discount: discountAmountTotal,
         };
 
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success(`Invoice created successfully! Total: $${total.toFixed(2)}`);
-            // Reset form and cart after successful creation
-            setCartItems([]);
-            setSearchTerm('');
-            setHighlightedIndex(-1);
-        } catch (error) {
-            toast.error(error.message || 'Failed to create invoice. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        createInvoiceMutation.mutate(invoiceData, {
+            onSuccess: () => {
+                toast.success(`Invoice created successfully! Total: $${total.toFixed(2)}`);
+                setCartItems([]);
+                setSearchTerm('');
+                setHighlightedIndex(-1);
+                reset({
+                    customerName: '',
+                    tax: orgInvoice?.taxRate?.toString() || '0',
+                    discount: orgInvoice?.defaultDiscount?.toString() || '0',
+                });
+                navigate(`/${rolePrefix}/invoices`);
+            }
+        });
     };
 
     return (

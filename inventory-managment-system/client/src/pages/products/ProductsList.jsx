@@ -56,127 +56,6 @@ import {
     Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-// Dummy Data
-const dummyProducts = {
-    data: [
-        {
-            _id: '1',
-            name: 'Wireless Mouse',
-            sku: 'SKU-001',
-            imageUrl: 'https://ui-avatars.com/api/?name=WM&background=6B46C1&color=fff&size=64',
-            category: { _id: 'c1', name: 'Electronics', categorySlug: 'electronics' },
-            supplier: { _id: 's1', name: 'TechSupply Co.' },
-            quantity: 45,
-            reorderThreshold: 10,
-            costPrice: 15,
-            sellingPrice: 29.99,
-            unit: 'pcs',
-            isActive: true,
-            needsReorder: false,
-            profitMargin: 14.99,
-            profitMarginPercentage: 50.0,
-            totalInventoryValue: 675,
-            totalSalesValue: 1349.55,
-            createdBy: { _id: 'u1', name: 'John Doe', role: 'admin' },
-            createdAt: '2024-01-15T10:30:00Z',
-            updatedAt: '2024-07-14T10:30:00Z',
-        },
-        {
-            _id: '2',
-            name: 'USB-C Charger',
-            sku: 'SKU-002',
-            imageUrl: 'https://ui-avatars.com/api/?name=UC&background=6B46C1&color=fff&size=64',
-            category: { _id: 'c1', name: 'Electronics', categorySlug: 'electronics' },
-            supplier: { _id: 's2', name: 'PowerTech Ltd.' },
-            quantity: 8,
-            reorderThreshold: 15,
-            costPrice: 8,
-            sellingPrice: 19.99,
-            unit: 'pcs',
-            isActive: true,
-            needsReorder: true,
-            profitMargin: 11.99,
-            profitMarginPercentage: 59.98,
-            totalInventoryValue: 64,
-            totalSalesValue: 159.92,
-            createdBy: { _id: 'u2', name: 'Jane Smith', role: 'manager' },
-            createdAt: '2024-01-14T14:20:00Z',
-            updatedAt: '2024-07-13T14:20:00Z',
-        },
-        {
-            _id: '3',
-            name: 'Bluetooth Speaker',
-            sku: 'SKU-003',
-            imageUrl: 'https://ui-avatars.com/api/?name=BS&background=6B46C1&color=fff&size=64',
-            category: { _id: 'c1', name: 'Electronics', categorySlug: 'electronics' },
-            supplier: { _id: 's1', name: 'TechSupply Co.' },
-            quantity: 2,
-            reorderThreshold: 5,
-            costPrice: 25,
-            sellingPrice: 49.99,
-            unit: 'pcs',
-            isActive: false,
-            needsReorder: true,
-            profitMargin: 24.99,
-            profitMarginPercentage: 49.99,
-            totalInventoryValue: 50,
-            totalSalesValue: 99.98,
-            createdBy: { _id: 'u1', name: 'John Doe', role: 'admin' },
-            createdAt: '2024-01-13T09:15:00Z',
-            updatedAt: '2024-07-12T09:15:00Z',
-        },
-        {
-            _id: '4',
-            name: 'HDMI Cable',
-            sku: 'SKU-004',
-            imageUrl: 'https://ui-avatars.com/api/?name=HC&background=6B46C1&color=fff&size=64',
-            category: { _id: 'c2', name: 'Cables', categorySlug: 'cables' },
-            supplier: { _id: 's3', name: 'CableMasters Inc.' },
-            quantity: 120,
-            reorderThreshold: 20,
-            costPrice: 3,
-            sellingPrice: 9.99,
-            unit: 'pcs',
-            isActive: true,
-            needsReorder: false,
-            profitMargin: 6.99,
-            profitMarginPercentage: 69.97,
-            totalInventoryValue: 360,
-            totalSalesValue: 1198.80,
-            createdBy: { _id: 'u3', name: 'Sarah Johnson', role: 'manager' },
-            createdAt: '2024-01-12T16:45:00Z',
-            updatedAt: '2024-07-11T16:45:00Z',
-        },
-        {
-            _id: '5',
-            name: 'Wireless Keyboard',
-            sku: 'SKU-005',
-            imageUrl: 'https://ui-avatars.com/api/?name=WK&background=6B46C1&color=fff&size=64',
-            category: { _id: 'c1', name: 'Electronics', categorySlug: 'electronics' },
-            supplier: { _id: 's2', name: 'PowerTech Ltd.' },
-            quantity: 15,
-            reorderThreshold: 12,
-            costPrice: 30,
-            sellingPrice: 59.99,
-            unit: 'pcs',
-            isActive: true,
-            needsReorder: false,
-            profitMargin: 29.99,
-            profitMarginPercentage: 49.99,
-            totalInventoryValue: 450,
-            totalSalesValue: 899.85,
-            createdBy: { _id: 'u4', name: 'Mike Wilson', role: 'staff' },
-            createdAt: '2024-01-11T11:00:00Z',
-            updatedAt: '2024-07-10T11:00:00Z',
-        },
-    ],
-    total: 250,
-    page: 1,
-    limit: 10,
-    totalPages: 25,
-};
-
 const ProductsList = () => {
     const { user } = useAuth();
     const role = user?.role || 'admin';
@@ -229,28 +108,11 @@ const ProductsList = () => {
         setSearchParams(newParams);
     };
 
-    if (isLoading) {
-        return (
-            <div className="flex h-[60vh] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
-    }
-
-    if (isError || !response?.success) {
-        return (
-            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
-                <p className="text-destructive font-medium">Failed to load products</p>
-                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
-            </div>
-        );
-    }
-
-    const products = response.data || [];
-    const totalProducts = response.total || 0;
-    const activeProducts = response.activeCount || 0;
-    const lowStockProducts = response.lowStockCount || 0;
-    const totalPages = response.totalPages || 1;
+    const products = response?.data || [];
+    const totalProducts = response?.total || 0;
+    const activeProducts = response?.activeCount || 0;
+    const lowStockProducts = response?.lowStockCount || 0;
+    const totalPages = response?.totalPages || 1;
 
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -488,114 +350,137 @@ const ProductsList = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {products.map((product) => {
-                                const stockStatus = getStockStatus(product.quantity, product.reorderThreshold);
-                                return (
-                                    <TableRow key={product._id}>
-                                        <TableCell>
-                                            <img
-                                                src={product.imageUrl}
-                                                alt={product.name}
-                                                className="h-8 w-8 object-cover"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="font-medium">
-                                            <Link
-                                                to={`/${rolePrefix}/products/${product._id}`}
-                                                className="hover:text-primary transition-colors"
-                                            >
-                                                {product.name}
-                                            </Link>
-                                            <div className="sm:hidden text-[10px] text-muted-foreground">
-                                                {product.sku}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-                                            {product.sku}
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell">
-                                            <Badge variant="outline" className="text-[10px]">
-                                                {product.category?.name || 'N/A'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                                            {product.supplier?.name || 'N/A'}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <span className={cn(
-                                                "text-sm font-medium",
-                                                product.quantity <= product.reorderThreshold && product.quantity > 0 && "text-yellow-500",
-                                                product.quantity === 0 && "text-destructive"
-                                            )}>
-                                                {product.quantity}
-                                            </span>
-                                            <div className="text-[10px] text-muted-foreground">
-                                                {stockStatus.label}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell text-right font-medium">
-                                            ${product.sellingPrice.toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="hidden lg:table-cell">
-                                            <Badge variant={getStatusBadge(product.isActive)} className="text-[10px]">
-                                                {product.isActive ? 'Active' : 'Inactive'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger
-                                                    render={
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
-                                                            <MoreVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                                        </Button>
-                                                    }
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={9} className="text-center py-8">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                            <span className="text-xs text-muted-foreground">Loading products...</span>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : isError ? (
+                                <TableRow>
+                                    <TableCell colSpan={9} className="text-center py-8 text-destructive text-xs font-medium">
+                                        Failed to load products. Please check your connection.
+                                    </TableCell>
+                                </TableRow>
+                            ) : products.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground text-xs">
+                                        No products found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                products.map((product) => {
+                                    const stockStatus = getStockStatus(product.quantity, product.reorderThreshold);
+                                    return (
+                                        <TableRow key={product._id}>
+                                            <TableCell>
+                                                <img
+                                                    src={product.imageUrl}
+                                                    alt={product.name}
+                                                    className="h-8 w-8 object-cover"
                                                 />
-                                                <DropdownMenuContent align="end" className="w-40">
-                                                    <DropdownMenuGroup>
-                                                        <DropdownMenuItem
-                                                            render={
-                                                                <Link to={`/${rolePrefix}/products/${product._id}`} className="cursor-pointer">
-                                                                    <Eye className="mr-2 h-3.5 w-3.5" />
-                                                                    View Details
-                                                                </Link>
-                                                            }
-                                                        />
-                                                        {
-                                                            user && (user.role === 'admin' || user.role === 'manager') &&
+                                            </TableCell>
+                                            <TableCell className="font-medium">
+                                                <Link
+                                                    to={`/${rolePrefix}/products/${product._id}`}
+                                                    className="hover:text-primary transition-colors"
+                                                >
+                                                    {product.name}
+                                                </Link>
+                                                <div className="sm:hidden text-[10px] text-muted-foreground">
+                                                    {product.sku}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+                                                {product.sku}
+                                            </TableCell>
+                                            <TableCell className="hidden md:table-cell">
+                                                <Badge variant="outline" className="text-[10px]">
+                                                    {product.category?.name || 'N/A'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                                                {product.supplier?.name || 'N/A'}
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <span className={cn(
+                                                    "text-sm font-medium",
+                                                    product.quantity <= product.reorderThreshold && product.quantity > 0 && "text-yellow-500",
+                                                    product.quantity === 0 && "text-destructive"
+                                                )}>
+                                                    {product.quantity}
+                                                </span>
+                                                <div className="text-[10px] text-muted-foreground">
+                                                    {stockStatus.label}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="hidden md:table-cell text-right font-medium">
+                                                ${product.sellingPrice.toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="hidden lg:table-cell">
+                                                <Badge variant={getStatusBadge(product.isActive)} className="text-[10px]">
+                                                    {product.isActive ? 'Active' : 'Inactive'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger
+                                                        render={
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+                                                                <MoreVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                                            </Button>
+                                                        }
+                                                    />
+                                                    <DropdownMenuContent align="end" className="w-40">
+                                                        <DropdownMenuGroup>
                                                             <DropdownMenuItem
                                                                 render={
-                                                                    <Link to={`/${rolePrefix}/products/edit/${product._id}`} className="cursor-pointer">
-                                                                        <Edit className="mr-2 h-3.5 w-3.5" />
-                                                                        Edit
+                                                                    <Link to={`/${rolePrefix}/products/${product._id}`} className="cursor-pointer">
+                                                                        <Eye className="mr-2 h-3.5 w-3.5" />
+                                                                        View Details
                                                                     </Link>
                                                                 }
                                                             />
-                                                        }
-                                                        {
-                                                            user && (user.role === 'admin' || user.role === 'manager') &&
-                                                            <DropdownMenuSeparator />
-                                                        }
-                                                        {
-                                                            user && (user.role === 'admin' || user.role === 'manager') &&
-                                                            <DropdownMenuItem
-                                                                className="cursor-pointer"
-                                                                onClick={() => handleToggleActive(product)}
-                                                            >
-                                                                {product.isActive ? (
-                                                                    <XCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
-                                                                ) : (
-                                                                    <CheckCircle className="mr-2 h-3.5 w-3.5 text-primary" />
-                                                                )}
-                                                                {product.isActive ? 'Deactivate' : 'Activate'}
-                                                            </DropdownMenuItem>
-                                                        }
-                                                    </DropdownMenuGroup>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
+                                                            {
+                                                                user && (user.role === 'admin' || user.role === 'manager') &&
+                                                                <DropdownMenuItem
+                                                                    render={
+                                                                        <Link to={`/${rolePrefix}/products/edit/${product._id}`} className="cursor-pointer">
+                                                                            <Edit className="mr-2 h-3.5 w-3.5" />
+                                                                            Edit
+                                                                        </Link>
+                                                                    }
+                                                                />
+                                                            }
+                                                            {
+                                                                user && (user.role === 'admin' || user.role === 'manager') &&
+                                                                <DropdownMenuSeparator />
+                                                            }
+                                                            {
+                                                                user && (user.role === 'admin' || user.role === 'manager') &&
+                                                                <DropdownMenuItem
+                                                                    className="cursor-pointer"
+                                                                    onClick={() => handleToggleActive(product)}
+                                                                >
+                                                                    {product.isActive ? (
+                                                                        <XCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
+                                                                    ) : (
+                                                                        <CheckCircle className="mr-2 h-3.5 w-3.5 text-primary" />
+                                                                    )}
+                                                                    {product.isActive ? 'Deactivate' : 'Activate'}
+                                                                </DropdownMenuItem>
+                                                            }
+                                                        </DropdownMenuGroup>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
                         </TableBody>
                     </Table>
                 </div>

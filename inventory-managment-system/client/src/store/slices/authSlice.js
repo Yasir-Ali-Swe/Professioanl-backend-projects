@@ -1,24 +1,14 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-// MOCK USER FOR UI DEVELOPMENT - Remove this when integrating with real API
-const MOCK_USER = {
-  id: "1",
-  name: "John Doe",
-  email: "john@stockpilot.com",
-  role: "admin", // Change to 'super_admin', 'admin', 'manager', or 'staff' to test different roles
-  organizationId: "org_123",
-  avatar: "https://github.com/shadcn.png",
-};
-
 const initialState = {
-  user: MOCK_USER, // Set mock user for UI development
-  accessToken: null, // Add accessToken field for JWT
-  isAuthenticated: true, // Set to true for UI development
+  user: null,
+  accessToken: null,
+  isAuthenticated: false,
   isLoading: false,
   error: null,
-  isVerified: true, // Add verification status
-  organization: null, // Add organization details
-  subscriptionPlan: null, // Add subscription plan details
+  isVerified: false,
+  organization: null,
+  subscriptionPlan: null,
 };
 
 const authSlice = createSlice({

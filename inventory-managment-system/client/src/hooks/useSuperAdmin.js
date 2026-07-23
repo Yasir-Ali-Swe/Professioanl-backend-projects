@@ -122,7 +122,7 @@ export const useUpdateOrganizationStatus = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-          "Failed to update organization status. Please try again.",
+        "Failed to update organization status. Please try again.",
       );
     },
   });
@@ -154,7 +154,7 @@ export const useDeleteOrganization = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-          "Failed to delete organization. Please try again.",
+        "Failed to delete organization. Please try again.",
       );
     },
   });
@@ -193,8 +193,20 @@ export const useUpdateOrganizationSubscription = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-          "Failed to update subscription. Please try again.",
+        "Failed to update subscription. Please try again.",
       );
     },
+  });
+};
+
+/**
+ * Get platform dashboard stats
+ */
+export const usePlatformDashboardStats = (options = {}) => {
+  return useQuery({
+    queryKey: ["superAdmin", "dashboardStats"],
+    queryFn: () => superAdminApi.getPlatformDashboardStats(),
+    staleTime: 5 * 60 * 1000,
+    ...options,
   });
 };

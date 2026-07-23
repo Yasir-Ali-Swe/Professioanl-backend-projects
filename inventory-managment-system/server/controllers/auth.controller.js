@@ -138,10 +138,65 @@ export const loginUser = async (req, res) => {
       sameSite: "none",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
+
+    // Get the organization with populated subscription plan
+    const organization = await organizationModel
+      .findById(userExists.organizationId)
+      .select("-__v -createdAt -updatedAt")
+      .populate("subscriptionPlan", "-__v -createdAt -updatedAt")
+      .lean();
+
+    // If organization has no subscription plan, get the free plan
+    let subscriptionPlan = organization?.subscriptionPlan || null;
+
+    if (!subscriptionPlan) {
+      // Fetch the free plan from the database
+      const freePlan = await subscriptionPlanModel
+        .findOne({ name: "free" })
+        .select("-__v -createdAt -updatedAt")
+        .lean();
+
+      subscriptionPlan = freePlan || {
+        name: "free",
+        price: 0,
+        billingCycle: "monthly",
+        aiFeatures: false,
+        stripePriceId: null,
+      };
+    }
+
+    // Build the response object
+    const responseData = {
+      _id: userExists._id,
+      name: userExists.name,
+      email: userExists.email,
+      role: userExists.role,
+      isActive: userExists.isActive,
+      isVerified: userExists.isVerified,
+      imageUrl: userExists.imageUrl,
+      createdAt: userExists.createdAt,
+      updatedAt: userExists.updatedAt,
+      organization: organization
+        ? {
+          _id: organization._id,
+          name: organization.name,
+          contactEmail: organization.contactEmail,
+          address: organization.address,
+          phone: organization.phone,
+          logoUrl: organization.logoUrl,
+          status: organization.status,
+          invoiceSettings: organization.invoiceSettings,
+          subscriptionPlan: subscriptionPlan,
+        }
+        : null,
+    };
+    console.log("loginuser", responseData, accessToken);
+
     res.status(200).json({
       success: true,
       message: "Login successful",
       accessToken,
+      loginUser: responseData,
     });
   } catch (error) {
     console.error("Error in login controller:", error);
@@ -192,16 +247,16 @@ export const getLoginUser = async (req, res) => {
       updatedAt: user.updatedAt,
       organization: organization
         ? {
-            _id: organization._id,
-            name: organization.name,
-            contactEmail: organization.contactEmail,
-            address: organization.address,
-            phone: organization.phone,
-            logoUrl: organization.logoUrl,
-            status: organization.status,
-            invoiceSettings: organization.invoiceSettings,
-            subscriptionPlan: subscriptionPlan,
-          }
+          _id: organization._id,
+          name: organization.name,
+          contactEmail: organization.contactEmail,
+          address: organization.address,
+          phone: organization.phone,
+          logoUrl: organization.logoUrl,
+          status: organization.status,
+          invoiceSettings: organization.invoiceSettings,
+          subscriptionPlan: subscriptionPlan,
+        }
         : null,
     };
 

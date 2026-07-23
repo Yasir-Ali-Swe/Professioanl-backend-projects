@@ -1,8 +1,10 @@
-// pages/suppliers/SupplierEdit.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
+import { useSupplierWithProducts, useUpdateSupplier } from '@/hooks/useSupplier';
 import * as z from 'zod';
 import {
     Field,
@@ -45,15 +47,24 @@ const supplierSchema = z.object({
 const SupplierEdit = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [isPending, setIsPending] = useState(false);
-    const [supplier] = useState(dummySupplier);
+    const { user } = useAuth();
+    const rolePrefix = getRolePrefix(user?.role || 'admin');
+
+    const { data: response, isLoading, isError } = useSupplierWithProducts(id);
+    const updateMutation = useUpdateSupplier();
+
+    const isPending = updateMutation.isPending;
+    const supplier = response?.data?.supplier;
+    const products = response?.data?.products || [];
+    const productsCount = products.length;
+
     const [originalValues, setOriginalValues] = useState({
-        name: supplier.name,
-        contactPerson: supplier.contactPerson,
-        email: supplier.email || '',
-        phone: supplier.phone,
-        address: supplier.address,
-        leadTimeDays: supplier.leadTimeDays?.toString() || '',
+        name: '',
+        contactPerson: '',
+        email: '',
+        phone: '',
+        address: '',
+        leadTimeDays: '',
     });
 
     const {
@@ -65,12 +76,12 @@ const SupplierEdit = () => {
     } = useForm({
         resolver: zodResolver(supplierSchema),
         defaultValues: {
-            name: supplier.name,
-            contactPerson: supplier.contactPerson,
-            email: supplier.email || '',
-            phone: supplier.phone,
-            address: supplier.address,
-            leadTimeDays: supplier.leadTimeDays?.toString() || '',
+            name: '',
+            contactPerson: '',
+            email: '',
+            phone: '',
+            address: '',
+            leadTimeDays: '',
         },
     });
 
@@ -80,6 +91,22 @@ const SupplierEdit = () => {
     const watchedPhone = watch('phone');
     const watchedAddress = watch('address');
     const watchedLeadTimeDays = watch('leadTimeDays');
+
+    // Sync form values on data load
+    useEffect(() => {
+        if (supplier) {
+            const vals = {
+                name: supplier.name || '',
+                contactPerson: supplier.contactPerson || '',
+                email: supplier.email || '',
+                phone: supplier.phone || '',
+                address: supplier.address || '',
+                leadTimeDays: supplier.leadTimeDays?.toString() || '',
+            };
+            reset(vals);
+            setOriginalValues(vals);
+        }
+    }, [supplier, reset]);
 
     // Check if form has changes
     const hasChanges = () => {
@@ -95,28 +122,42 @@ const SupplierEdit = () => {
 
     // Handle form submission
     const onSubmit = async (values) => {
-        setIsPending(true);
-
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            setOriginalValues({
-                name: values.name,
-                contactPerson: values.contactPerson,
-                email: values.email || '',
-                phone: values.phone,
-                address: values.address,
-                leadTimeDays: values.leadTimeDays?.toString() || '',
-            });
-            reset(values);
-            toast.success('Supplier updated successfully!');
-            navigate(`/admin/suppliers/${supplier._id}`);
-        } catch (error) {
-            toast.error(error.message || 'Failed to update supplier. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        updateMutation.mutate({
+            id: supplier._id,
+            data: values
+        }, {
+            onSuccess: () => {
+                const vals = {
+                    name: values.name,
+                    contactPerson: values.contactPerson,
+                    email: values.email || '',
+                    phone: values.phone,
+                    address: values.address,
+                    leadTimeDays: values.leadTimeDays?.toString() || '',
+                };
+                setOriginalValues(vals);
+                reset(values);
+                navigate(`/${rolePrefix}/suppliers/${supplier._id}`);
+            }
+        });
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load supplier</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex justify-center px-4 py-6 sm:py-8">
@@ -136,7 +177,7 @@ const SupplierEdit = () => {
                             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Edit Supplier</h1>
                             <Badge variant="outline" className="text-[10px]">
                                 <Package className="h-2.5 w-2.5 mr-1" />
-                                {supplier.productsCount} products
+                                {productsCount} products
                             </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">Update supplier information</p>
@@ -157,7 +198,7 @@ const SupplierEdit = () => {
                                         id="name"
                                         type="text"
                                         placeholder="Enter supplier name"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("name")}
                                         aria-invalid={errors.name ? "true" : "false"}
                                     />
@@ -176,7 +217,7 @@ const SupplierEdit = () => {
                                         id="contactPerson"
                                         type="text"
                                         placeholder="Enter contact person name"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("contactPerson")}
                                         aria-invalid={errors.contactPerson ? "true" : "false"}
                                     />
@@ -198,7 +239,7 @@ const SupplierEdit = () => {
                                         id="email"
                                         type="email"
                                         placeholder="supplier@example.com"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("email")}
                                         aria-invalid={errors.email ? "true" : "false"}
                                     />
@@ -217,7 +258,7 @@ const SupplierEdit = () => {
                                         id="phone"
                                         type="text"
                                         placeholder="+1 234 567 8900"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("phone")}
                                         aria-invalid={errors.phone ? "true" : "false"}
                                     />
@@ -238,7 +279,7 @@ const SupplierEdit = () => {
                                     <Textarea
                                         id="address"
                                         placeholder="Enter full address"
-                                        className="min-h-20 text-sm rounded-none resize-none"
+                                        className="min-h-20 text-sm resize-none"
                                         {...register("address")}
                                         aria-invalid={errors.address ? "true" : "false"}
                                     />
@@ -257,7 +298,7 @@ const SupplierEdit = () => {
                                         id="leadTimeDays"
                                         type="number"
                                         placeholder="e.g., 5"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("leadTimeDays")}
                                     />
                                 </FieldContent>
@@ -270,7 +311,7 @@ const SupplierEdit = () => {
                                 type="button"
                                 variant="outline"
                                 className="w-full sm:w-auto order-2 sm:order-1"
-                                onClick={() => navigate(`/admin/suppliers/${supplier._id}`)}
+                                onClick={() => navigate(`/${rolePrefix}/suppliers/${supplier._id}`)}
                             >
                                 Cancel
                             </Button>

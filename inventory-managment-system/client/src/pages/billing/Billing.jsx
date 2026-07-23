@@ -265,7 +265,7 @@ const BillingPage = () => {
                     {/* Free Plan - Upgrade Info */}
                     {!isPremium && (
                         <div className="pt-4 border-t">
-                            <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+                            <div className="bg-primary/5 border border-primary/20 p-4">
                                 <div className="flex items-start gap-3">
                                     <Crown className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                                     <div>
@@ -298,14 +298,14 @@ const BillingPage = () => {
                             <div className="flex items-center gap-2">
                                 <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
                                 <span className="text-xs font-medium text-muted-foreground">Customer ID:</span>
-                                <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
+                                <code className="text-xs font-mono bg-muted px-2 py-0.5 ">
                                     {stripeCustomerId}
                                 </code>
                             </div>
                             <div className="flex items-center gap-2">
                                 <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
                                 <span className="text-xs font-medium text-muted-foreground">Subscription ID:</span>
-                                <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
+                                <code className="text-xs font-mono bg-muted px-2 py-0.5 ">
                                     {stripeSubscriptionId}
                                 </code>
                             </div>
@@ -326,7 +326,7 @@ const BillingPage = () => {
                         <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
                         <AlertDialogDescription>
                             Are you sure you want to cancel your Premium subscription?
-                            <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                            <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 ">
                                 <div className="flex items-start gap-2">
                                     <Clock className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
                                     <div>

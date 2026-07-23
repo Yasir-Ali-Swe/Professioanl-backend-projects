@@ -1,6 +1,8 @@
 // pages/ai/ForecastPage.jsx
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useAllForecasts, useRefreshForecast } from '@/hooks/useForecast';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -150,17 +152,37 @@ const productImages = {
 
 const ForecastPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const [forecasts] = useState(dummyForecasts);
-    const [refreshingId, setRefreshingId] = useState(null);
+    const { data: response, isLoading, isError } = useAllForecasts();
+    const refreshForecastMutation = useRefreshForecast();
+    const [refreshingAll, setRefreshingAll] = useState(false);
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
 
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load AI demand forecasts</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const forecasts = response.data || [];
+
     // Filter forecasts by search
     const filteredForecasts = forecasts.filter(f =>
-        f.productId.name.toLowerCase().includes(search.toLowerCase()) ||
-        f.productId.sku.toLowerCase().includes(search.toLowerCase())
+        f.productId?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        f.productId?.sku?.toLowerCase().includes(search.toLowerCase())
     );
 
     const updateFilter = (key, value) => {
@@ -206,14 +228,28 @@ const ForecastPage = () => {
 
     // Handle refresh forecast
     const handleRefreshForecast = async (productId) => {
-        setRefreshingId(productId);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success('Forecast refreshed successfully!');
+            await refreshForecastMutation.mutateAsync(productId);
         } catch (error) {
-            toast.error('Failed to refresh forecast. Please try again.');
+            // Error toast is already handled in the hook
+        }
+    };
+
+    const handleRefreshAll = async () => {
+        if (filteredForecasts.length === 0) return;
+        setRefreshingAll(true);
+        const toastId = toast.loading('Refreshing all forecasts...');
+        try {
+            await Promise.all(
+                filteredForecasts.map(f =>
+                    f.productId?._id ? refreshForecastMutation.mutateAsync(f.productId._id) : Promise.resolve()
+                )
+            );
+            toast.success('All forecasts refreshed successfully!', { id: toastId });
+        } catch (error) {
+            toast.error('Failed to refresh some forecasts.', { id: toastId });
         } finally {
-            setRefreshingId(null);
+            setRefreshingAll(false);
         }
     };
 
@@ -264,9 +300,15 @@ const ForecastPage = () => {
                         AI-predicted demand and stockout timing for your products.
                     </p>
                 </div>
-                <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
-                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                    Refresh All
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 sm:h-9 text-xs sm:text-sm"
+                    onClick={handleRefreshAll}
+                    disabled={refreshingAll || filteredForecasts.length === 0}
+                >
+                    <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", refreshingAll && "animate-spin")} />
+                    {refreshingAll ? 'Refreshing All...' : 'Refresh All'}
                 </Button>
             </div>
 
@@ -393,21 +435,21 @@ const ForecastPage = () => {
                                                 <div className="flex items-center gap-3">
                                                     <img
                                                         src={imageUrl}
-                                                        alt={forecast.productId.name}
+                                                        alt={forecast.productId?.name || 'Product'}
                                                         className="h-8 w-8 object-cover"
                                                     />
                                                     <div>
                                                         <p className="text-xs sm:text-sm font-medium truncate max-w-32 sm:max-w-48">
-                                                            {forecast.productId.name}
+                                                            {forecast.productId?.name || 'Deleted Product'}
                                                         </p>
                                                         <p className="sm:hidden text-[10px] text-muted-foreground">
-                                                            {forecast.productId.sku}
+                                                            {forecast.productId?.sku || 'N/A'}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-                                                {forecast.productId.sku}
+                                                {forecast.productId?.sku || 'N/A'}
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 <div className="flex items-center justify-center gap-1">
@@ -457,12 +499,12 @@ const ForecastPage = () => {
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-7 w-7 sm:h-8 sm:w-8"
-                                                        onClick={() => handleRefreshForecast(forecast.productId._id)}
-                                                        disabled={refreshingId === forecast.productId._id}
+                                                        onClick={() => forecast.productId?._id && handleRefreshForecast(forecast.productId._id)}
+                                                        disabled={refreshForecastMutation.isPending}
                                                     >
                                                         <RefreshCw className={cn(
                                                             "h-3.5 w-3.5 sm:h-4 sm:w-4",
-                                                            refreshingId === forecast.productId._id && "animate-spin"
+                                                            refreshForecastMutation.isPending && "animate-spin"
                                                         )} />
                                                     </Button>
                                                     <DropdownMenu>
@@ -477,16 +519,18 @@ const ForecastPage = () => {
                                                             <DropdownMenuGroup>
                                                                 <DropdownMenuItem
                                                                     render={
-                                                                        <Link to={`/admin/products/${forecast.productId._id}`} className="cursor-pointer">
-                                                                            <Eye className="mr-2 h-3.5 w-3.5" />
-                                                                            View Product
-                                                                        </Link>
+                                                                        forecast.productId?._id ? (
+                                                                            <Link to={`/admin/products/${forecast.productId._id}`} className="cursor-pointer">
+                                                                                <Eye className="mr-2 h-3.5 w-3.5" />
+                                                                                View Product
+                                                                            </Link>
+                                                                        ) : null
                                                                     }
                                                                 />
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem
                                                                     className="cursor-pointer"
-                                                                    onClick={() => handleRefreshForecast(forecast.productId._id)}
+                                                                    onClick={() => forecast.productId?._id && handleRefreshForecast(forecast.productId._id)}
                                                                 >
                                                                     <RefreshCw className="mr-2 h-3.5 w-3.5" />
                                                                     Refresh Forecast

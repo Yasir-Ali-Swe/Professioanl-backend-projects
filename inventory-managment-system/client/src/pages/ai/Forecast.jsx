@@ -354,7 +354,7 @@ const ForecastPage = () => {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
@@ -394,7 +394,7 @@ const ForecastPage = () => {
                                                     <img
                                                         src={imageUrl}
                                                         alt={forecast.productId.name}
-                                                        className="h-8 w-8 rounded-md object-cover"
+                                                        className="h-8 w-8 object-cover"
                                                     />
                                                     <div>
                                                         <p className="text-xs sm:text-sm font-medium truncate max-w-32 sm:max-w-48">

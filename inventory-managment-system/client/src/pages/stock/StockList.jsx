@@ -139,30 +139,45 @@ const StockList = () => {
         });
     };
 
-    if (isLoading) {
-        return (
-            <div className="flex h-[60vh] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
-    }
-
-    if (isError || !response?.success) {
-        return (
-            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
-                <p className="text-destructive font-medium">Failed to load stock list</p>
-                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
-            </div>
-        );
-    }
-
-    const { products = [], total = 0, totalPages = 1 } = response.data || {};
+    const { products = [], total = 0, totalPages = 1 } = response?.data || {};
     const paginatedStock = products;
 
     const totalItems = summary.totalProducts || 0;
     const healthyItems = totalItems - (summary.lowStockProducts || 0);
     const lowStockItems = (summary.lowStockProducts || 0) - (summary.outOfStockProducts || 0);
     const outOfStockItems = summary.outOfStockProducts || 0;
+
+    const getPageNumbers = () => {
+        const total = totalPages;
+        const current = page;
+        const pages = [];
+        const maxVisible = 5;
+
+        if (total <= maxVisible) {
+            for (let i = 1; i <= total; i++) {
+                pages.push(i);
+            }
+        } else {
+            pages.push(1);
+            if (current > 3) {
+                pages.push('ellipsis');
+            }
+            const start = Math.max(2, current - 1);
+            const end = Math.min(total - 1, current + 1);
+            for (let i = start; i <= end; i++) {
+                if (!pages.includes(i)) {
+                    pages.push(i);
+                }
+            }
+            if (current < total - 2) {
+                pages.push('ellipsis');
+            }
+            if (!pages.includes(total)) {
+                pages.push(total);
+            }
+        }
+        return pages;
+    };
 
     return (
         <div className="space-y-4 sm:space-y-6 pb-8">
@@ -246,7 +261,22 @@ const StockList = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {paginatedStock.length === 0 ? (
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center py-8">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                            <span className="text-xs text-muted-foreground">Loading stock...</span>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : isError ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center py-8 text-destructive text-xs font-medium">
+                                        Failed to load stock list. Please check your connection.
+                                    </TableCell>
+                                </TableRow>
+                            ) : paginatedStock.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
                                         No stock items found.

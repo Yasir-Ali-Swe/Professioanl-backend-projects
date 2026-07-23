@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useCreateSupplier } from '@/hooks/useSupplier';
 import * as z from 'zod';
 import {
     Field,
@@ -33,7 +34,9 @@ const SupplierAdd = () => {
     const navigate = useNavigate();
     const { role } = useAuth();
     const rolePrefix = getRolePrefix(role);
-    const [isPending, setIsPending] = useState(false);
+
+    const createMutation = useCreateSupplier();
+    const isPending = createMutation.isPending;
 
     const {
         register,
@@ -54,18 +57,11 @@ const SupplierAdd = () => {
 
     // Handle form submission
     const onSubmit = async (values) => {
-        setIsPending(true);
-
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success('Supplier created successfully!');
-            navigate(`/${rolePrefix}/suppliers`);
-        } catch (error) {
-            toast.error(error.message || 'Failed to create supplier. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        createMutation.mutate(values, {
+            onSuccess: () => {
+                navigate(`/${rolePrefix}/suppliers`);
+            }
+        });
     };
 
     return (
@@ -101,7 +97,7 @@ const SupplierAdd = () => {
                                         id="name"
                                         type="text"
                                         placeholder="Enter supplier name"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("name")}
                                         aria-invalid={errors.name ? "true" : "false"}
                                     />
@@ -120,7 +116,7 @@ const SupplierAdd = () => {
                                         id="contactPerson"
                                         type="text"
                                         placeholder="Enter contact person name"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("contactPerson")}
                                         aria-invalid={errors.contactPerson ? "true" : "false"}
                                     />
@@ -142,7 +138,7 @@ const SupplierAdd = () => {
                                         id="email"
                                         type="email"
                                         placeholder="supplier@example.com"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("email")}
                                         aria-invalid={errors.email ? "true" : "false"}
                                     />
@@ -161,7 +157,7 @@ const SupplierAdd = () => {
                                         id="phone"
                                         type="text"
                                         placeholder="+1 234 567 8900"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("phone")}
                                         aria-invalid={errors.phone ? "true" : "false"}
                                     />
@@ -182,7 +178,7 @@ const SupplierAdd = () => {
                                     <Textarea
                                         id="address"
                                         placeholder="Enter full address"
-                                        className="min-h-20 text-sm rounded-none resize-none"
+                                        className="min-h-20 text-sm resize-none"
                                         {...register("address")}
                                         aria-invalid={errors.address ? "true" : "false"}
                                     />
@@ -201,7 +197,7 @@ const SupplierAdd = () => {
                                         id="leadTimeDays"
                                         type="number"
                                         placeholder="e.g., 5"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("leadTimeDays")}
                                     />
                                 </FieldContent>

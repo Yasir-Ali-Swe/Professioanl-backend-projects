@@ -15,6 +15,8 @@ import {
     FieldContent,
 } from "@/components/ui/field";
 
+import { useResetPassword } from "@/hooks/useAuth";
+
 const resetPasswordSchema = z.object({
     newPassword: z.string().min(6, { message: "Password must be at least 6 characters" }),
     confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters" }),
@@ -29,7 +31,7 @@ const ResetPasswordForm = () => {
 
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+    const resetPasswordMutation = useResetPassword();
 
     const {
         register,
@@ -48,13 +50,15 @@ const ResetPasswordForm = () => {
     const newPassword = watch("newPassword");
 
     const onSubmit = async (data) => {
-        console.log("📤 Reset password form submitted with data:", data);
-        console.log("🔑 Token from URL:", token);
-
         if (!token) {
             toast.error("Invalid or missing reset token. Please request a new password reset.");
             return;
         }
+        resetPasswordMutation.mutate({ token, newPassword: data.newPassword }, {
+            onSuccess: () => {
+                reset();
+            },
+        });
     };
 
     return (
@@ -107,7 +111,7 @@ const ResetPasswordForm = () => {
                                         className="absolute right-2 top-1/2 -translate-y-1/2 
                              min-h-8 min-w-8 flex items-center justify-center
                              text-muted-foreground hover:text-foreground transition-colors
-                             focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-none"
+                             focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     >
                                         {showNewPassword ? (
                                             <EyeOff size={18} className="sm:size-5" />
@@ -144,7 +148,7 @@ const ResetPasswordForm = () => {
                                         className="absolute right-2 top-1/2 -translate-y-1/2 
                              min-h-8 min-w-8 flex items-center justify-center
                              text-muted-foreground hover:text-foreground transition-colors
-                             focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-none"
+                             focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     >
                                         {showConfirmPassword ? (
                                             <EyeOff size={18} className="sm:size-5" />
@@ -162,7 +166,7 @@ const ResetPasswordForm = () => {
                         {/* Password Strength Indicator (Optional) */}
                         {newPassword && newPassword.length > 0 && (
                             <div className="flex items-center gap-2">
-                                <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                                <div className="flex-1 h-1 bg-muted overflow-hidden">
                                     <div
                                         className={`h-full transition-all duration-300 ${newPassword.length < 6 ? 'bg-destructive w-1/3' :
                                             newPassword.length < 10 ? 'bg-yellow-500 w-2/3' :
@@ -187,11 +191,11 @@ const ResetPasswordForm = () => {
                         <Button
                             type="submit"
                             className="w-full h-9 sm:h-10 text-sm mt-1"
-                            disabled={isLoading}
+                            disabled={resetPasswordMutation.isPending}
                         >
-                            {isLoading ? (
+                            {resetPasswordMutation.isPending ? (
                                 <>
-                                    <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                    <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin border-2 border-current border-t-transparent" />
                                     Resetting...
                                 </>
                             ) : (

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useSuppliers, useDeleteSupplier } from '@/hooks/useSupplier';
 import {
     Card,
     CardContent,
@@ -51,6 +52,7 @@ import {
     Phone,
     Clock,
     Users,
+    Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -124,11 +126,32 @@ const SuppliersList = () => {
     const user = useAuth().user;
     const rolePrefix = getRolePrefix(role);
     const [searchParams, setSearchParams] = useSearchParams();
-    const [suppliers] = useState(dummySuppliers);
+
+    const { data: response, isLoading, isError } = useSuppliers();
+    const deleteMutation = useDeleteSupplier();
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load suppliers</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const suppliers = response.data || [];
 
     const totalSuppliers = suppliers.length;
     const activeSuppliers = suppliers.filter(s => s.productsCount > 0).length;
@@ -203,7 +226,9 @@ const SuppliersList = () => {
             toast.error(`Cannot delete "${supplier.name}". ${supplier.productsCount} product(s) are associated with this supplier.`);
             return;
         }
-        toast.success(`Supplier "${supplier.name}" deleted successfully!`);
+        if (confirm(`Are you sure you want to delete supplier "${supplier.name}"?`)) {
+            deleteMutation.mutate(supplier._id);
+        }
     };
 
     return (
@@ -294,7 +319,7 @@ const SuppliersList = () => {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>

@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useCreateCategory } from '@/hooks/useCategory';
 import * as z from 'zod';
 import {
     Field,
@@ -25,10 +26,12 @@ const categorySchema = z.object({
 
 const CategoryAdd = () => {
     const navigate = useNavigate();
-    const [isPending, setIsPending] = useState(false);
     const { user } = useAuth();
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
+
+    const createMutation = useCreateCategory();
+    const isPending = createMutation.isPending;
 
     const {
         register,
@@ -57,18 +60,11 @@ const CategoryAdd = () => {
 
     // Handle form submission
     const onSubmit = async (values) => {
-        setIsPending(true);
-
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success('Category created successfully!');
-            navigate(`/${rolePrefix}/categories`);
-        } catch (error) {
-            toast.error(error.message || 'Failed to create category. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        createMutation.mutate(values, {
+            onSuccess: () => {
+                navigate(`/${rolePrefix}/categories`);
+            }
+        });
     };
 
     return (
@@ -103,7 +99,7 @@ const CategoryAdd = () => {
                                     id="name"
                                     type="text"
                                     placeholder="Enter category name"
-                                    className="h-10 text-sm rounded-none"
+                                    className="h-10 text-sm "
                                     {...register("name")}
                                     aria-invalid={errors.name ? "true" : "false"}
                                 />
@@ -115,7 +111,7 @@ const CategoryAdd = () => {
 
                         {/* Slug Preview */}
                         {watchedName && (
-                            <div className="rounded-md bg-muted p-3">
+                            <div className="bg-muted p-3">
                                 <p className="text-sm">
                                     Slug:{' '}
                                     <span className="font-mono text-sm font-medium">

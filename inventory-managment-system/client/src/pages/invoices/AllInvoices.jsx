@@ -207,7 +207,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
 
                 <div className="space-y-4">
                     {/* Customer Info */}
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 ">
                         <div>
                             <p className="text-xs text-muted-foreground">Customer</p>
                             <p className="text-sm font-medium">{invoice.customerName}</p>
@@ -219,7 +219,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                     </div>
 
                     {/* Products Table */}
-                    <div className="rounded-md border overflow-hidden">
+                    <div className="border overflow-hidden">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -270,7 +270,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
 
                     {/* Void Info */}
                     {invoice.status === 'void' && invoice.voidedBy && (
-                        <div className="p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                        <div className="p-3 bg-red-500/10 border border-red-500/20">
                             <p className="text-xs text-muted-foreground">Voided By</p>
                             <p className="text-sm font-medium">{invoice.voidedBy.name}</p>
                             <p className="text-xs text-muted-foreground">{formatDate(invoice.createdAt)}</p>
@@ -602,7 +602,7 @@ const AllInvoices = () => {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>

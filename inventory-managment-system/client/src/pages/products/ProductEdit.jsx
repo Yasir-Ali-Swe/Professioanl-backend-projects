@@ -1,8 +1,12 @@
-// pages/products/ProductEdit.jsx
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/hooks/useRedux';
+import { getRolePrefix } from '@/lib/rolePaths';
+import { useProductById, useUpdateProduct, useUploadProductImage } from '@/hooks/useProduct';
+import { useCategories } from '@/hooks/useCategory';
+import { useSuppliers } from '@/hooks/useSupplier';
 import * as z from 'zod';
 import {
     Field,
@@ -34,37 +38,6 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-// Dummy Data for dropdowns
-const dummyCategories = [
-    { _id: 'c1', name: 'Electronics', categorySlug: 'electronics' },
-    { _id: 'c2', name: 'Cables', categorySlug: 'cables' },
-    { _id: 'c3', name: 'Accessories', categorySlug: 'accessories' },
-    { _id: 'c4', name: 'Furniture', categorySlug: 'furniture' },
-];
-
-const dummySuppliers = [
-    { _id: 's1', name: 'TechSupply Co.', contactPerson: 'John Smith', email: 'john@techsupply.com' },
-    { _id: 's2', name: 'PowerTech Ltd.', contactPerson: 'Jane Doe', email: 'jane@powertech.com' },
-    { _id: 's3', name: 'CableMasters Inc.', contactPerson: 'Bob Wilson', email: 'bob@cablemasters.com' },
-    { _id: 's4', name: 'Global Logistics', contactPerson: 'Sarah Johnson', email: 'sarah@globallogistics.com' },
-];
-
-// Dummy Product Data - Pre-filled for edit
-const dummyProduct = {
-    _id: '1',
-    name: 'Wireless Mouse',
-    unit: 'pcs',
-    sku: 'SKU-001',
-    categoryId: 'c1',
-    supplierId: 's1',
-    quantity: 45,
-    reorderThreshold: 10,
-    costPrice: 15.00,
-    sellingPrice: 29.99,
-    imageUrl: 'https://ui-avatars.com/api/?name=WM&background=6B46C1&color=fff&size=128',
-    isActive: true,
-};
-
 // Zod schema for validation
 const productSchema = z.object({
     name: z.string().min(2, { message: 'Product name must be at least 2 characters' }),
@@ -81,20 +54,36 @@ const productSchema = z.object({
 const ProductEdit = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const rolePrefix = getRolePrefix(user?.role || 'admin');
+
     const fileInputRef = useRef(null);
-    const [isPending, setIsPending] = useState(false);
     const [imagePreview, setImagePreview] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
+
+    const { data: response, isLoading: isProductLoading, isError } = useProductById(id);
+    const updateMutation = useUpdateProduct();
+    const uploadImageMutation = useUploadProductImage();
+
+    const isPending = updateMutation.isPending || uploadImageMutation.isPending;
+    const product = response?.data;
+
+    const { data: categoriesResponse } = useCategories();
+    const { data: suppliersResponse } = useSuppliers();
+
+    const categoriesList = categoriesResponse?.data || [];
+    const suppliersList = suppliersResponse?.data || [];
+
     const [originalValues, setOriginalValues] = useState({
-        name: dummyProduct.name,
-        unit: dummyProduct.unit,
-        sku: dummyProduct.sku,
-        categoryId: dummyProduct.categoryId,
-        supplierId: dummyProduct.supplierId,
-        quantity: dummyProduct.quantity?.toString() || '',
-        reorderThreshold: dummyProduct.reorderThreshold?.toString() || '10',
-        costPrice: dummyProduct.costPrice?.toString() || '',
-        sellingPrice: dummyProduct.sellingPrice?.toString() || '',
+        name: '',
+        unit: '',
+        sku: '',
+        categoryId: '',
+        supplierId: '',
+        quantity: '',
+        reorderThreshold: '10',
+        costPrice: '',
+        sellingPrice: '',
     });
 
     const {
@@ -107,15 +96,15 @@ const ProductEdit = () => {
     } = useForm({
         resolver: zodResolver(productSchema),
         defaultValues: {
-            name: dummyProduct.name,
-            unit: dummyProduct.unit,
-            sku: dummyProduct.sku,
-            categoryId: dummyProduct.categoryId,
-            supplierId: dummyProduct.supplierId,
-            quantity: dummyProduct.quantity?.toString() || '',
-            reorderThreshold: dummyProduct.reorderThreshold?.toString() || '10',
-            costPrice: dummyProduct.costPrice?.toString() || '',
-            sellingPrice: dummyProduct.sellingPrice?.toString() || '',
+            name: '',
+            unit: '',
+            sku: '',
+            categoryId: '',
+            supplierId: '',
+            quantity: '',
+            reorderThreshold: '10',
+            costPrice: '',
+            sellingPrice: '',
         },
     });
 
@@ -130,6 +119,28 @@ const ProductEdit = () => {
     const watchedReorderThreshold = watch('reorderThreshold');
     const watchedCostPrice = watch('costPrice');
     const watchedSellingPrice = watch('sellingPrice');
+
+    // Sync input values on detail load
+    useEffect(() => {
+        if (product) {
+            const vals = {
+                name: product.name || '',
+                unit: product.unit || '',
+                sku: product.sku || '',
+                categoryId: product.category?._id || '',
+                supplierId: product.supplier?._id || '',
+                quantity: product.quantity?.toString() || '',
+                reorderThreshold: product.reorderThreshold?.toString() || '10',
+                costPrice: product.costPrice?.toString() || '',
+                sellingPrice: product.sellingPrice?.toString() || '',
+            };
+            reset(vals);
+            setOriginalValues(vals);
+            if (product.imageUrl) {
+                setImagePreview(product.imageUrl);
+            }
+        }
+    }, [product, reset]);
 
     // Check if form has changes
     const hasChanges = () => {
@@ -146,13 +157,6 @@ const ProductEdit = () => {
             selectedFile !== null
         );
     };
-
-    // Set initial image preview
-    useEffect(() => {
-        if (dummyProduct.imageUrl) {
-            setImagePreview(dummyProduct.imageUrl);
-        }
-    }, []);
 
     // Handle image selection
     const handleImageSelect = (event) => {
@@ -180,32 +184,59 @@ const ProductEdit = () => {
 
     // Handle form submission
     const onSubmit = async (values) => {
-        setIsPending(true);
+        const payload = {
+            name: values.name,
+            categoryId: values.categoryId,
+            supplierId: values.supplierId,
+            costPrice: values.costPrice,
+            sellingPrice: values.sellingPrice,
+            unit: values.unit,
+            sku: values.sku || undefined,
+            quantity: values.quantity || 0,
+            reorderThreshold: values.reorderThreshold || 10,
+        };
 
-        // Create FormData for API
-        const formData = new FormData();
-        formData.append('name', values.name);
-        formData.append('categoryId', values.categoryId);
-        formData.append('supplierId', values.supplierId);
-        formData.append('costPrice', values.costPrice);
-        formData.append('sellingPrice', values.sellingPrice);
-        formData.append('unit', values.unit);
-        if (values.sku) formData.append('sku', values.sku);
-        if (values.quantity) formData.append('quantity', values.quantity);
-        if (values.reorderThreshold) formData.append('reorderThreshold', values.reorderThreshold);
-        if (selectedFile) formData.append('image', selectedFile);
-
-        // Simulate API call
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            toast.success('Product updated successfully!');
-            navigate(`/admin/products/${dummyProduct._id}`);
-        } catch (error) {
-            toast.error(error.message || 'Failed to update product. Please try again.');
-        } finally {
-            setIsPending(false);
-        }
+        updateMutation.mutate({
+            id: product._id,
+            data: payload
+        }, {
+            onSuccess: () => {
+                if (selectedFile) {
+                    const uploadData = new FormData();
+                    uploadData.append('image', selectedFile);
+                    uploadImageMutation.mutate({
+                        id: product._id,
+                        formData: uploadData,
+                    }, {
+                        onSuccess: () => {
+                            toast.success('Product updated successfully!');
+                            navigate(`/${rolePrefix}/products/${product._id}`);
+                        }
+                    });
+                } else {
+                    toast.success('Product updated successfully!');
+                    navigate(`/${rolePrefix}/products/${product._id}`);
+                }
+            }
+        });
     };
+
+    if (isProductLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !product) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load product details</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex justify-center px-4 py-6 sm:py-8">
@@ -223,10 +254,10 @@ const ProductEdit = () => {
                     <div className="w-full">
                         <div className="flex items-center gap-3 flex-wrap">
                             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Edit Product</h1>
-                            <Badge variant={dummyProduct.isActive ? 'default' : 'secondary'} className="text-[10px]">
-                                {dummyProduct.isActive ? 'Active' : 'Inactive'}
+                            <Badge variant={product.isActive ? 'default' : 'secondary'} className="text-[10px]">
+                                {product.isActive ? 'Active' : 'Inactive'}
                             </Badge>
-                            {dummyProduct.quantity <= dummyProduct.reorderThreshold && dummyProduct.quantity > 0 && (
+                            {product.quantity <= product.reorderThreshold && product.quantity > 0 && (
                                 <Badge variant="destructive" className="text-[10px]">
                                     <AlertTriangle className="h-2.5 w-2.5 mr-1" />
                                     Low Stock
@@ -246,7 +277,7 @@ const ProductEdit = () => {
                             <FieldContent>
                                 <div
                                     className={cn(
-                                        "relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
+                                        "relative border-2 border-dashed p-6 text-center cursor-pointer transition-colors",
                                         imagePreview ? "border-primary" : "border-muted-foreground/25 hover:border-primary/50",
                                         "min-h-37.5 flex flex-col items-center justify-center"
                                     )}
@@ -257,14 +288,14 @@ const ProductEdit = () => {
                                             <img
                                                 src={imagePreview}
                                                 alt="Product preview"
-                                                className="h-32 w-32 object-cover rounded-lg"
+                                                className="h-32 w-32 object-cover"
                                             />
                                             <div className="absolute top-2 right-2">
                                                 <Button
                                                     type="button"
                                                     variant="destructive"
                                                     size="icon"
-                                                    className="h-7 w-7 rounded-full"
+                                                    className="h-7 w-7"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleRemoveImage();
@@ -279,7 +310,7 @@ const ProductEdit = () => {
                                         </>
                                     ) : (
                                         <>
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                                            <div className="flex h-12 w-12 items-center justify-center bg-muted">
                                                 <ImageIcon className="h-6 w-6 text-muted-foreground" />
                                             </div>
                                             <p className="mt-2 text-sm font-medium">Upload Image</p>
@@ -318,7 +349,7 @@ const ProductEdit = () => {
                                         id="name"
                                         type="text"
                                         placeholder="Enter product name"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("name")}
                                         aria-invalid={errors.name ? "true" : "false"}
                                     />
@@ -337,7 +368,7 @@ const ProductEdit = () => {
                                         id="unit"
                                         type="text"
                                         placeholder="e.g., pcs, kg, m"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("unit")}
                                         aria-invalid={errors.unit ? "true" : "false"}
                                     />
@@ -361,7 +392,7 @@ const ProductEdit = () => {
                                         id="sku"
                                         type="text"
                                         placeholder="Auto-generated"
-                                        className="h-10 w-full rounded-none text-sm"
+                                        className="h-10 w-full text-sm"
                                         {...register("sku")}
                                     />
 
@@ -380,7 +411,7 @@ const ProductEdit = () => {
                                         value={selectedCategoryId}
                                         onValueChange={(value) => setValue("categoryId", value)}
                                     >
-                                        <SelectTrigger className="w-full rounded-none text-sm px-3 py-4.75">
+                                        <SelectTrigger className="w-full text-sm px-3 py-4.75">
                                             <SelectValue placeholder="Select a category" />
                                         </SelectTrigger>
 
@@ -388,7 +419,7 @@ const ProductEdit = () => {
                                             <SelectGroup>
                                                 <SelectLabel>Categories</SelectLabel>
 
-                                                {dummyCategories.map((category) => (
+                                                {categoriesList.map((category) => (
                                                     <SelectItem
                                                         key={category._id}
                                                         value={category._id}
@@ -407,7 +438,7 @@ const ProductEdit = () => {
                                             <p className="text-xs text-muted-foreground">
                                                 Slug:{" "}
                                                 {
-                                                    dummyCategories.find(
+                                                    categoriesList.find(
                                                         (c) => c._id === selectedCategoryId
                                                     )?.categorySlug
                                                 }
@@ -428,7 +459,7 @@ const ProductEdit = () => {
                                         value={selectedSupplierId}
                                         onValueChange={(value) => setValue("supplierId", value)}
                                     >
-                                        <SelectTrigger className="w-full rounded-none text-sm px-3 py-4.75">
+                                        <SelectTrigger className="w-full text-sm px-3 py-4.75">
                                             <SelectValue placeholder="Select a supplier" />
                                         </SelectTrigger>
 
@@ -436,7 +467,7 @@ const ProductEdit = () => {
                                             <SelectGroup>
                                                 <SelectLabel>Suppliers</SelectLabel>
 
-                                                {dummySuppliers.map((supplier) => (
+                                                {suppliersList.map((supplier) => (
                                                     <SelectItem
                                                         key={supplier._id}
                                                         value={supplier._id}
@@ -456,7 +487,7 @@ const ProductEdit = () => {
                                                 <p>
                                                     Contact:{" "}
                                                     {
-                                                        dummySuppliers.find(
+                                                        suppliersList.find(
                                                             (s) => s._id === selectedSupplierId
                                                         )?.contactPerson
                                                     }
@@ -464,7 +495,7 @@ const ProductEdit = () => {
                                                 <p>
                                                     Email:{" "}
                                                     {
-                                                        dummySuppliers.find(
+                                                        suppliersList.find(
                                                             (s) => s._id === selectedSupplierId
                                                         )?.email
                                                     }
@@ -487,7 +518,7 @@ const ProductEdit = () => {
                                         id="quantity"
                                         type="number"
                                         placeholder="0"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("quantity")}
                                     />
                                 </FieldContent>
@@ -502,7 +533,7 @@ const ProductEdit = () => {
                                         id="reorderThreshold"
                                         type="number"
                                         placeholder="10"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("reorderThreshold")}
                                     />
                                 </FieldContent>
@@ -521,7 +552,7 @@ const ProductEdit = () => {
                                         type="number"
                                         step="0.01"
                                         placeholder="0.00"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("costPrice")}
                                         aria-invalid={errors.costPrice ? "true" : "false"}
                                     />
@@ -541,7 +572,7 @@ const ProductEdit = () => {
                                         type="number"
                                         step="0.01"
                                         placeholder="0.00"
-                                        className="h-10 text-sm rounded-none"
+                                        className="h-10 text-sm"
                                         {...register("sellingPrice")}
                                         aria-invalid={errors.sellingPrice ? "true" : "false"}
                                     />
@@ -554,7 +585,7 @@ const ProductEdit = () => {
 
                         {/* Profit Margin Display */}
                         {watch('costPrice') && watch('sellingPrice') && (
-                            <div className="rounded-md bg-muted p-3">
+                            <div className="bg-muted p-3">
                                 <p className="text-sm">
                                     Profit Margin:{' '}
                                     <span className="font-medium text-green-500">

@@ -228,7 +228,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30">
                         <div>
                             <p className="text-xs text-muted-foreground">Customer</p>
                             <p className="text-sm font-medium">{invoice.customerName}</p>
@@ -239,7 +239,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                         </div>
                     </div>
 
-                    <div className="rounded-md border overflow-hidden">
+                    <div className="border overflow-hidden">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -316,7 +316,7 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30">
                         <div>
                             <p className="text-xs text-muted-foreground">Supplier</p>
                             <p className="text-sm font-medium">{po.supplierId.name}</p>
@@ -327,7 +327,7 @@ const PurchaseOrderDetailDialog = ({ po, open, onOpenChange }) => {
                         </div>
                     </div>
 
-                    <div className="rounded-md border overflow-hidden">
+                    <div className="border overflow-hidden">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -532,7 +532,7 @@ const ManagerDashboard = () => {
 
             {/* Stats Cards - Row 3 (Secondary Stats) */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Categories</p>
                         <Tags className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-violet-500" />
@@ -540,7 +540,7 @@ const ManagerDashboard = () => {
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-violet-500">{inventory.totalCategories}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Suppliers</p>
                         <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
@@ -548,7 +548,7 @@ const ManagerDashboard = () => {
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-amber-500">{inventory.totalSuppliers}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Approved POs</p>
                         <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
@@ -556,7 +556,7 @@ const ManagerDashboard = () => {
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-green-500">{purchaseOrders.approvedPOs}</p>
                 </div>
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Rejected POs</p>
                         <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
@@ -689,7 +689,7 @@ const ManagerDashboard = () => {
                                     className="flex items-center gap-2"
                                 >
                                     <div
-                                        className="h-3 w-3 rounded-full"
+                                        className="h-3 w-3"
                                         style={{
                                             backgroundColor: COLORS[index],
                                         }}

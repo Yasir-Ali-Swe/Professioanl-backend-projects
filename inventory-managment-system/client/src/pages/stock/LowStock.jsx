@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useRedux';
 import { getRolePrefix } from '@/lib/rolePaths';
+import { useLowStockProducts } from '@/hooks/useStock';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -36,16 +38,38 @@ const dummyLowStock = [
 ];
 
 const LowStock = () => {
-    const [stock] = useState(dummyLowStock);
     const { user } = useAuth();
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
+
+    const { data: response, isLoading, isError } = useLowStockProducts();
+
     const getUrgency = (quantity, threshold) => {
+        if (!threshold) return { label: 'Medium', className: 'text-yellow-500' };
         const ratio = quantity / threshold;
         if (ratio <= 0.2) return { label: 'Critical', className: 'text-destructive' };
         if (ratio <= 0.5) return { label: 'High', className: 'text-orange-500' };
         return { label: 'Medium', className: 'text-yellow-500' };
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (isError || !response?.success) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-2">
+                <p className="text-destructive font-medium">Failed to load low stock products</p>
+                <p className="text-xs text-muted-foreground">Please check your connection and try again.</p>
+            </div>
+        );
+    }
+
+    const { products: stock = [], totalLowStock = 0 } = response.data || {};
 
     return (
         <div className="space-y-4 sm:space-y-6 pb-8">
@@ -67,17 +91,17 @@ const LowStock = () => {
 
             {/* Stats */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-3">
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-muted-foreground">Total Low Stock</p>
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-yellow-500">{stock.length}</p>
                 </div>
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-muted-foreground">Critical</p>
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-destructive">
                         {stock.filter(s => s.quantity / s.reorderThreshold <= 0.2).length}
                     </p>
                 </div>
-                <div className="rounded-xl border bg-card p-3 sm:p-4">
+                <div className="border bg-card p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-muted-foreground">High Priority</p>
                     <p className="mt-1 text-lg sm:text-2xl font-bold text-orange-500">
                         {stock.filter(s => s.quantity / s.reorderThreshold > 0.2 && s.quantity / s.reorderThreshold <= 0.5).length}
@@ -131,7 +155,7 @@ const LowStock = () => {
                                                     {item.reorderThreshold}
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 text-xs">
-                                                    {item.category}
+                                                    {item.category?.name || 'N/A'}
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2">
                                                     <Badge variant="outline" className={`${urgency.className} border-current/20`}>

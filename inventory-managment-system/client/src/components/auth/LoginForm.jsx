@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Boxes } from "lucide-react";
+import { Eye, EyeOff, Boxes, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -142,7 +142,7 @@ export const LoginForm = () => {
             >
               {loginMutation.isPending ? (
                 <>
-                  <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin border-2 border-current border-t-transparent" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   Logging in...
                 </>
               ) : (

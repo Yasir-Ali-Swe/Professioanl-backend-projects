@@ -537,7 +537,7 @@ const InsightsPage = () => {
                             <Clock className="h-5 w-5 text-muted-foreground" />
                             History
                         </h3>
-                        <div className="border overflow-hidden">
+                        <div className="border rounded-xl overflow-hidden bg-card">
                             <div className="overflow-x-auto">
                                 <Table>
                                     <TableHeader>

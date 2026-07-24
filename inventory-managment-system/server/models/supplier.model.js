@@ -18,6 +18,12 @@ const supplierSchema = new mongoose.Schema(
     email: {
       type: String,
       default: null,
+      validate: {
+        validator: function (v) {
+          return v === null || v === '' || /^\S+@\S+\.\S+$/.test(v);
+        },
+        message: 'Please enter a valid email address'
+      }
     },
     phone: {
       type: String,
@@ -30,6 +36,7 @@ const supplierSchema = new mongoose.Schema(
     leadTimeDays: {
       type: Number,
       default: null,
+      min: [0, 'Lead time cannot be negative']
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

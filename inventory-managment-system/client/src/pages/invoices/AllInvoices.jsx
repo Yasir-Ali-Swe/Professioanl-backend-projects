@@ -226,7 +226,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                     </div>
 
                     {/* Products Table */}
-                    <div className="border overflow-hidden">
+                    <div className="border rounded-xl overflow-hidden bg-card">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -636,7 +636,7 @@ const AllInvoices = () => {
             </div>
 
             {/* Table */}
-            <div className="border overflow-hidden">
+            <div className="border rounded-xl overflow-hidden bg-card">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>

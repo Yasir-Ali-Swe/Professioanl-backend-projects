@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import NotFoundPage from "@/pages/NotFoundPage";
 
 // Auth Pages
@@ -90,6 +90,22 @@ import OrganizationProfilePage from "@/pages/admin/OrganizationProfile";
 import { useLoginUser } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 
+import { useSelector } from "react-redux";
+import { selectIsAuthenticated, selectUser } from "@/store/slices/authSlice";
+import { getRolePrefix } from "@/lib/rolePaths";
+
+const RootRedirect = () => {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const user = useSelector(selectUser);
+
+  if (isAuthenticated && user?.role) {
+    const prefix = getRolePrefix(user.role);
+    return <Navigate to={`/${prefix}/dashboard`} replace />;
+  }
+
+  return <Navigate to="/login" replace />;
+};
+
 const App = () => {
   const { isLoading } = useLoginUser({
     retry: false,
@@ -106,6 +122,7 @@ const App = () => {
 
   return (
     <Routes>
+      <Route path="/" element={<RootRedirect />} />
       {/* Auth Routes - Public */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />

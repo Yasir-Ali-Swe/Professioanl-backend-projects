@@ -41,7 +41,7 @@ const dummyProducts = [
 const stockOutSchema = z.object({
     productId: z.string().min(1, { message: 'Please select a product' }),
     quantity: z.string().min(1, { message: 'Quantity is required' }).transform(val => parseInt(val)),
-    reason: z.string().min(3, { message: 'Please provide a reason' }),
+    reason: z.enum(['sale', 'adjustment', 'damage'], { message: 'Please select a valid reason' }),
     notes: z.string().optional(),
 });
 
@@ -203,14 +203,21 @@ const StockOut = () => {
                                     Reason <span className="text-destructive">*</span>
                                 </FieldLabel>
                                 <FieldContent>
-                                    <Input
-                                        id="reason"
-                                        type="text"
-                                        placeholder="e.g., Sale, Damage, Return"
-                                        className="h-10 text-sm"
-                                        {...register("reason")}
-                                        aria-invalid={errors.reason ? "true" : "false"}
-                                    />
+                                    <Select
+                                        value={watch("reason")}
+                                        onValueChange={(val) => setValue("reason", val, { shouldValidate: true })}
+                                    >
+                                        <SelectTrigger className="h-10 text-sm">
+                                            <SelectValue placeholder="Select a reason" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                <SelectItem value="sale">Sale</SelectItem>
+                                                <SelectItem value="adjustment">Adjustment</SelectItem>
+                                                <SelectItem value="damage">Damage</SelectItem>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
                                     {errors.reason && (
                                         <FieldError errors={[errors.reason]} />
                                     )}

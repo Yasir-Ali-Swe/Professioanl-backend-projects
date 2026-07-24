@@ -504,12 +504,19 @@ const TeamList = () => {
         hasPreviousPage: false,
     };
 
+    const stats = response.stats || {
+        adminCount: 0,
+        managerCount: 0,
+        staffCount: 0,
+        activeCount: 0,
+    };
+
     // Stats calculations
     const totalUsers = pagination.totalUsers;
-    const adminCount = users.filter(u => u.role === 'admin').length;
-    const managerCount = users.filter(u => u.role === 'manager').length;
-    const staffCount = users.filter(u => u.role === 'staff').length;
-    const activeCount = users.filter(u => u.isActive).length;
+    const adminCount = stats.adminCount;
+    const managerCount = stats.managerCount;
+    const staffCount = stats.staffCount;
+    const activeCount = stats.activeCount;
 
     const filteredUsers = users;
 

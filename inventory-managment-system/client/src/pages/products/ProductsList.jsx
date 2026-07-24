@@ -333,9 +333,9 @@ const ProductsList = () => {
             </div>
 
             {/* Table */}
-            <div className="border overflow-hidden">
+            <div className="border rounded-xl overflow-hidden bg-card">
                 <div className="overflow-x-auto">
-                    <Table>
+                    <Table className={"rounded-md"}>
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-12">Image</TableHead>

@@ -21,7 +21,7 @@ export const AuthLeftSection = () => {
           className="mb-3 h-8 text-sm"
           onClick={() => navigate(-1)}
         >
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 rounded-md">
             <ArrowLeft className="h-3.5 w-4" />
             Go Back
           </span>

@@ -3,7 +3,8 @@ import { LoginForm } from "@/components/auth/LoginForm";
 
 const Login = () => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 h-screen overflow-hidden">
+    // <div className="grid grid-cols-1 lg:grid-cols-2 min-h-screen">
+    <div className="grid grid-cols-1 lg:grid-cols-2 min-h-screen">
       <AuthLeftSection />
       <LoginForm />
     </div>

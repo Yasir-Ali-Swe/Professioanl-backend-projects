@@ -10,18 +10,18 @@ export const performStockIn = async ({
   relatedPurchaseOrderId = null,
   performedBy,
 }) => {
-  const product = await productModel.findOne({
-    _id: productId,
-    organizationId,
-  });
+  const product = await productModel.findOneAndUpdate(
+    { _id: productId, organizationId },
+    { $inc: { quantity: quantity } },
+    { new: true, runValidators: true }
+  );
 
   if (!product) {
     throw { status: 404, message: "Product not found" };
   }
 
-  const oldQuantity = product.quantity;
-  product.quantity += quantity;
-  await product.save();
+  const newQuantity = product.quantity;
+  const oldQuantity = newQuantity - quantity;
 
   const stockLog = await stockLogModel.create({
     organizationId,
@@ -38,9 +38,9 @@ export const performStockIn = async ({
       _id: product._id,
       name: product.name,
       sku: product.sku,
-      quantity: product.quantity,
+      quantity: newQuantity,
       oldQuantity,
-      newQuantity: product.quantity,
+      newQuantity,
       unit: product.unit,
     },
     stockLog,
@@ -55,25 +55,25 @@ export const performStockOut = async ({
   relatedInvoiceId = null,
   performedBy,
 }) => {
-  const product = await productModel.findOne({
-    _id: productId,
-    organizationId,
-  });
+  const product = await productModel.findOneAndUpdate(
+    { _id: productId, organizationId, quantity: { $gte: quantity } },
+    { $inc: { quantity: -quantity } },
+    { new: true, runValidators: true }
+  );
 
   if (!product) {
-    throw { status: 404, message: "Product not found" };
-  }
-
-  if (product.quantity < quantity) {
+    const exists = await productModel.findOne({ _id: productId, organizationId });
+    if (!exists) {
+      throw { status: 404, message: "Product not found" };
+    }
     throw {
       status: 400,
-      message: `Insufficient stock. Available: ${product.quantity}, Requested: ${quantity}`,
+      message: `Insufficient stock. Available: ${exists.quantity}, Requested: ${quantity}`,
     };
   }
 
-  const oldQuantity = product.quantity;
-  product.quantity -= quantity;
-  await product.save();
+  const newQuantity = product.quantity;
+  const oldQuantity = newQuantity + quantity;
 
   const stockLog = await stockLogModel.create({
     organizationId,
@@ -90,9 +90,9 @@ export const performStockOut = async ({
       _id: product._id,
       name: product.name,
       sku: product.sku,
-      quantity: product.quantity,
+      quantity: newQuantity,
       oldQuantity,
-      newQuantity: product.quantity,
+      newQuantity,
       unit: product.unit,
     },
     stockLog,

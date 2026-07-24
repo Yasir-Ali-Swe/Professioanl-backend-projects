@@ -252,6 +252,13 @@ export const adminInviteOrganizationUsers = async (req, res) => {
       });
     }
 
+    if (role === "super_admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Cannot invite users with super_admin role.",
+      });
+    }
+
     if (userRole === "manager" && role === "admin") {
       return res.status(403).json({
         success: false,
@@ -387,6 +394,24 @@ export const getOrganizationUsers = async (req, res) => {
       .skip(skip)
       .limit(limitNumber);
 
+    // Tenant-wide stats for dashboard cards
+    const adminCountQuery = { organizationId, role: "admin" };
+    const managerCountQuery = { organizationId, role: "manager" };
+    const staffCountQuery = { organizationId, role: "staff" };
+    const activeCountQuery = { organizationId, isActive: true };
+
+    if (userRole === "manager") {
+      adminCountQuery._id = null;
+      activeCountQuery.role = { $ne: "admin" };
+    }
+
+    const [adminCount, managerCount, staffCount, activeCount] = await Promise.all([
+      userModel.countDocuments(adminCountQuery),
+      userModel.countDocuments(managerCountQuery),
+      userModel.countDocuments(staffCountQuery),
+      userModel.countDocuments(activeCountQuery),
+    ]);
+
     res.status(200).json({
       success: true,
       pagination: {
@@ -396,6 +421,12 @@ export const getOrganizationUsers = async (req, res) => {
         limit: limitNumber,
         hasNextPage: pageNumber < Math.ceil(totalUsers / limitNumber),
         hasPreviousPage: pageNumber > 1,
+      },
+      stats: {
+        adminCount,
+        managerCount,
+        staffCount,
+        activeCount,
       },
       data: users,
     });
@@ -481,6 +512,13 @@ export const updateOrganizationUserById = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "User not found",
+      });
+    }
+
+    if (role === "super_admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Cannot assign super_admin role.",
       });
     }
 

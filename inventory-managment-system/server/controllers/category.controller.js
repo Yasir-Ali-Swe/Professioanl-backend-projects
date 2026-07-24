@@ -12,6 +12,17 @@ export const createCategory = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Category name is required" });
     }
+    const existingCategory = await categoryModel.findOne({
+      organizationId,
+      name: { $regex: new RegExp(`^${name.trim()}$`, "i") },
+    });
+    if (existingCategory) {
+      return res.status(400).json({
+        success: false,
+        message: "Category with this name already exists",
+      });
+    }
+
     const categorySlug = slugify(name, { lower: true, strict: true });
     const category = await categoryModel.create({
       organizationId,
@@ -25,6 +36,12 @@ export const createCategory = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating category:", error.message);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Category with this name already exists",
+      });
+    }
     res.status(error.status || 500).json({
       success: false,
       message: error.message || "Internal server error",
@@ -48,6 +65,18 @@ export const updateCategory = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Category name is required" });
     }
+    const existingCategory = await categoryModel.findOne({
+      organizationId,
+      name: { $regex: new RegExp(`^${name.trim()}$`, "i") },
+      _id: { $ne: categoryId },
+    });
+    if (existingCategory) {
+      return res.status(400).json({
+        success: false,
+        message: "Category with this name already exists",
+      });
+    }
+
     const categorySlug = slugify(name, { lower: true, strict: true });
 
     const updatedCategory = await categoryModel.findOneAndUpdate(
@@ -61,6 +90,12 @@ export const updateCategory = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating category:", error.message);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Category with this name already exists",
+      });
+    }
     res.status(error.status || 500).json({
       success: false,
       message: error.message || "Internal server error",

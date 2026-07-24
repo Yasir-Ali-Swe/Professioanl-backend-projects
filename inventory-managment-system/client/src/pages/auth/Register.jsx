@@ -58,10 +58,14 @@ export const RegisterForm = () => {
     };
 
     return (
-        <div className={`flex flex-col justify-center items-center px-4 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6 lg:py-8 h-screen`}>
+        // <div className={`flex flex-col justify-center items-center px-4 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6 lg:py-8 h-screen`}>
+        // <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        // <div className="min-h-screen flex items-center justify-center px-4 py-8 overflow-y-auto">
+        <div className="min-h-screen px-4 py-8">
             {/* Registration Form - No border, no rounded corners, no shadow */}
-            < div className="w-full max-w-3xl mx-auto h-full flex flex-col justify-center">
-                {/* Header - Centered */}
+            {/* < div className="w-full max-w-3xl mx-auto  flex flex-col justify-center"> */}
+            <div className="w-full max-w-3xl mx-auto">
+                {/* Header - Centered h-full */}
                 <div className="text-center mb-4 lg:mb-6">
                     <div className="flex items-center justify-center gap-3 mb-1">
                         <Boxes className="size-8 sm:size-9 text-primary" />
@@ -73,7 +77,7 @@ export const RegisterForm = () => {
                 </div>
 
                 {/* Form Content - Compact spacing */}
-                <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col justify-center">
+                <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col justify-center">
                     <FieldGroup className="space-y-3 lg:space-y-3.5">
                         {/* Row 1: Company Name & Company Email */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">

@@ -127,8 +127,8 @@ const ProductEdit = () => {
                 name: product.name || '',
                 unit: product.unit || '',
                 sku: product.sku || '',
-                categoryId: product.categoryId?._id || product.categoryId || '',
-                supplierId: product.supplierId?._id || product.supplierId || '',
+                categoryId: product.categoryId?._id || product.categoryId || product.category?._id || product.category || '',
+                supplierId: product.supplierId?._id || product.supplierId || product.supplier?._id || product.supplier || '',
                 quantity: product.quantity?.toString() || '',
                 reorderThreshold: product.reorderThreshold?.toString() || '10',
                 costPrice: product.costPrice?.toString() || '',
@@ -413,7 +413,7 @@ const ProductEdit = () => {
                                     >
                                         <SelectTrigger className="w-full text-sm px-3 py-4.75">
                                             <SelectValue placeholder="Select a category">
-                                                {categoriesList.find(c => c._id === selectedCategoryId)?.name || product?.categoryId?.name || ''}
+                                                {categoriesList.find(c => c._id === selectedCategoryId)?.name || product?.category?.name || product?.categoryId?.name || ''}
                                             </SelectValue>
                                         </SelectTrigger>
 
@@ -463,7 +463,7 @@ const ProductEdit = () => {
                                     >
                                         <SelectTrigger className="w-full text-sm px-3 py-4.75">
                                             <SelectValue placeholder="Select a supplier">
-                                                {suppliersList.find(s => s._id === selectedSupplierId)?.name || product?.supplierId?.name || ''}
+                                                {suppliersList.find(s => s._id === selectedSupplierId)?.name || product?.supplier?.name || product?.supplierId?.name || ''}
                                             </SelectValue>
                                         </SelectTrigger>
 

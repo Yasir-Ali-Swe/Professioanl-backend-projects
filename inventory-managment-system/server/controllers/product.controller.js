@@ -78,6 +78,27 @@ export const createProduct = async (req, res) => {
       });
     }
 
+    if (costPrice < 0 || sellingPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cost price and selling price cannot be negative",
+      });
+    }
+
+    if (quantity !== undefined && quantity < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Quantity cannot be negative",
+      });
+    }
+
+    if (reorderThreshold !== undefined && reorderThreshold < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Reorder threshold cannot be negative",
+      });
+    }
+
     const category = await categoryModel.findOne({
       _id: categoryId,
       organizationId,
@@ -250,21 +271,21 @@ export const getAllProducts = async (req, res) => {
       // Category details
       category: product.categoryId
         ? {
-            _id: product.categoryId._id,
-            name: product.categoryId.name,
-            categorySlug: product.categoryId.categorySlug,
-          }
+          _id: product.categoryId._id,
+          name: product.categoryId.name,
+          categorySlug: product.categoryId.categorySlug,
+        }
         : null,
       // Supplier details
       supplier: product.supplierId
         ? {
-            _id: product.supplierId._id,
-            name: product.supplierId.name,
-            contactPerson: product.supplierId.contactPerson,
-            phone: product.supplierId.phone,
-            email: product.supplierId.email || null,
-            address: product.supplierId.address || null,
-          }
+          _id: product.supplierId._id,
+          name: product.supplierId.name,
+          contactPerson: product.supplierId.contactPerson,
+          phone: product.supplierId.phone,
+          email: product.supplierId.email || null,
+          address: product.supplierId.address || null,
+        }
         : null,
       // Created by details (as string)
       createdBy: product.createdBy
@@ -318,6 +339,34 @@ export const updateProduct = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Organization ID and product ID are required",
+      });
+    }
+
+    if (costPrice !== undefined && costPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cost price cannot be negative",
+      });
+    }
+
+    if (sellingPrice !== undefined && sellingPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Selling price cannot be negative",
+      });
+    }
+
+    if (quantity !== undefined && quantity < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Quantity cannot be negative",
+      });
+    }
+
+    if (reorderThreshold !== undefined && reorderThreshold < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Reorder threshold cannot be negative",
       });
     }
 
@@ -395,9 +444,9 @@ export const getProductById = async (req, res) => {
     const profitMarginPercentage =
       product.costPrice > 0
         ? (
-            ((product.sellingPrice - product.costPrice) / product.costPrice) *
-            100
-          ).toFixed(2)
+          ((product.sellingPrice - product.costPrice) / product.costPrice) *
+          100
+        ).toFixed(2)
         : 0;
 
     const needsReorder = product.quantity <= product.reorderThreshold;
@@ -421,23 +470,25 @@ export const getProductById = async (req, res) => {
       isActive: product.isActive,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      categoryId: product.categoryId?._id || product.categoryId || null,
+      supplierId: product.supplierId?._id || product.supplierId || null,
       category: product.categoryId
         ? {
-            _id: product.categoryId._id,
-            name: product.categoryId.name,
-            categorySlug: product.categoryId.categorySlug,
-          }
+          _id: product.categoryId._id,
+          name: product.categoryId.name,
+          categorySlug: product.categoryId.categorySlug,
+        }
         : null,
       supplier: product.supplierId
         ? {
-            _id: product.supplierId._id,
-            name: product.supplierId.name,
-            contactPerson: product.supplierId.contactPerson,
-            email: product.supplierId.email || null,
-            phone: product.supplierId.phone,
-            address: product.supplierId.address || null,
-            leadTimeDays: product.supplierId.leadTimeDays || null,
-          }
+          _id: product.supplierId._id,
+          name: product.supplierId.name,
+          contactPerson: product.supplierId.contactPerson,
+          email: product.supplierId.email || null,
+          phone: product.supplierId.phone,
+          address: product.supplierId.address || null,
+          leadTimeDays: product.supplierId.leadTimeDays || null,
+        }
         : null,
       createdBy: product.createdBy
         ? `${product.createdBy.name} (${product.createdBy.role})`

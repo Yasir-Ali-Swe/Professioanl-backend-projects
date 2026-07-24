@@ -17,6 +17,8 @@ export const stockIn = async (req, res) => {
       });
     }
 
+    const normalizedReason = reason.toLowerCase().trim();
+
     if (quantity <= 0) {
       return res.status(400).json({
         success: false,
@@ -24,7 +26,7 @@ export const stockIn = async (req, res) => {
       });
     }
 
-    if (!["purchase", "adjustment", "return"].includes(reason)) {
+    if (!["purchase", "adjustment", "return"].includes(normalizedReason)) {
       return res.status(400).json({
         success: false,
         message:
@@ -36,7 +38,7 @@ export const stockIn = async (req, res) => {
       organizationId,
       productId,
       quantity,
-      reason,
+      reason: normalizedReason,
       performedBy,
     });
 
@@ -68,6 +70,8 @@ export const stockOut = async (req, res) => {
       });
     }
 
+    const normalizedReason = reason.toLowerCase().trim();
+
     if (quantity <= 0) {
       return res.status(400).json({
         success: false,
@@ -75,7 +79,7 @@ export const stockOut = async (req, res) => {
       });
     }
 
-    if (!["sale", "adjustment", "damage"].includes(reason)) {
+    if (!["sale", "adjustment", "damage"].includes(normalizedReason)) {
       return res.status(400).json({
         success: false,
         message:
@@ -87,7 +91,7 @@ export const stockOut = async (req, res) => {
       organizationId,
       productId,
       quantity,
-      reason,
+      reason: normalizedReason,
       performedBy,
     });
 

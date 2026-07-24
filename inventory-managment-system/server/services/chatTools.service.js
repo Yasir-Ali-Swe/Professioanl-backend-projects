@@ -252,7 +252,22 @@ const handleProducts = async (args, organizationId) => {
     }
   }
 
-  // Build query
+  // 1. Fetch metrics from the complete matched set (without populate or unnecessary fields)
+  const allMatchedProducts = await productModel
+    .find(filter)
+    .select("quantity sellingPrice");
+
+  const totalValue = allMatchedProducts.reduce(
+    (sum, p) => sum + p.quantity * p.sellingPrice,
+    0,
+  );
+  const avgPrice =
+    allMatchedProducts.length > 0
+      ? allMatchedProducts.reduce((sum, p) => sum + p.sellingPrice, 0) / allMatchedProducts.length
+      : 0;
+  const totalItems = allMatchedProducts.reduce((sum, p) => sum + p.quantity, 0);
+
+  // 2. Fetch the paginated products list for returning
   let query = productModel
     .find(filter)
     .populate("categoryId", "name")
@@ -271,23 +286,13 @@ const handleProducts = async (args, organizationId) => {
 
   const products = await query;
 
-  // Calculate summary stats
-  const totalValue = products.reduce(
-    (sum, p) => sum + p.quantity * p.sellingPrice,
-    0,
-  );
-  const avgPrice =
-    products.length > 0
-      ? products.reduce((sum, p) => sum + p.sellingPrice, 0) / products.length
-      : 0;
-
   return {
     products,
     count: products.length,
     summary: {
       totalValue: Math.round(totalValue * 100) / 100,
       averagePrice: Math.round(avgPrice * 100) / 100,
-      totalItems: products.reduce((sum, p) => sum + p.quantity, 0),
+      totalItems,
     },
   };
 };
@@ -367,6 +372,22 @@ const handleSales = async (args, organizationId) => {
     if (args.maxAmount) filter.total.$lte = args.maxAmount;
   }
 
+  // 1. Fetch metrics from the complete matched set (without populate or unnecessary fields)
+  const allMatchedInvoices = await invoiceModel
+    .find(filter)
+    .select("total");
+
+  const totalRevenue = allMatchedInvoices.reduce((sum, inv) => sum + inv.total, 0);
+  const totalOrders = allMatchedInvoices.length;
+  const averageOrder = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+  const summary = {
+    totalRevenue: Math.round(totalRevenue * 100) / 100,
+    totalOrders,
+    averageOrder: Math.round(averageOrder * 100) / 100,
+  };
+
+  // 2. Fetch the paginated invoices list for returning
   let query = invoiceModel
     .find(filter)
     .populate("createdBy", "name email")
@@ -381,21 +402,6 @@ const handleSales = async (args, organizationId) => {
   query = applyLimit(query, args.limit || 20);
 
   const invoices = await query;
-
-  // Calculate summary
-  const summary = {
-    totalRevenue:
-      Math.round(invoices.reduce((sum, inv) => sum + inv.total, 0) * 100) / 100,
-    totalOrders: invoices.length,
-    averageOrder:
-      invoices.length > 0
-        ? Math.round(
-            (invoices.reduce((sum, inv) => sum + inv.total, 0) /
-              invoices.length) *
-              100,
-          ) / 100
-        : 0,
-  };
 
   // Get product details if requested
   let topProducts = null;
@@ -489,6 +495,14 @@ const handleOrders = async (args, organizationId) => {
     if (endDate) filter.createdAt.$lte = endDate;
   }
 
+  // 1. Fetch metrics from the complete matched set (without populate or unnecessary fields)
+  const allMatchedOrders = await purchaseOrderModel
+    .find(filter)
+    .select("totalCost");
+
+  const totalCost = allMatchedOrders.reduce((sum, o) => sum + o.totalCost, 0);
+
+  // 2. Fetch the paginated orders list
   let query = purchaseOrderModel
     .find(filter)
     .populate("supplierId", "name contactPerson email")
@@ -509,8 +523,7 @@ const handleOrders = async (args, organizationId) => {
   return {
     orders,
     count: orders.length,
-    totalCost:
-      Math.round(orders.reduce((sum, o) => sum + o.totalCost, 0) * 100) / 100,
+    totalCost: Math.round(totalCost * 100) / 100,
   };
 };
 
@@ -540,28 +553,28 @@ const handleFullOverview = async (args, organizationId) => {
     // Products (with limit)
     includeProducts
       ? productModel
-          .find({ organizationId, isActive: true })
-          .populate("categoryId", "name")
-          .populate("supplierId", "name contactPerson")
-          .select("name sku quantity sellingPrice unit")
-          .limit(limit)
-          .lean()
+        .find({ organizationId, isActive: true })
+        .populate("categoryId", "name")
+        .populate("supplierId", "name contactPerson")
+        .select("name sku quantity sellingPrice unit")
+        .limit(limit)
+        .lean()
       : [],
     // Categories
     includeCategories
       ? categoryModel
-          .find({ organizationId })
-          .select("name categorySlug")
-          .limit(limit)
-          .lean()
+        .find({ organizationId })
+        .select("name categorySlug")
+        .limit(limit)
+        .lean()
       : [],
     // Suppliers
     includeSuppliers
       ? supplierModel
-          .find({ organizationId })
-          .select("name contactPerson email phone leadTimeDays")
-          .limit(limit)
-          .lean()
+        .find({ organizationId })
+        .select("name contactPerson email phone leadTimeDays")
+        .limit(limit)
+        .lean()
       : [],
     // Counts
     userModel.countDocuments({ organizationId, isActive: true }),
@@ -586,11 +599,11 @@ const handleFullOverview = async (args, organizationId) => {
     }),
   ]);
 
-  // Calculate revenue
+  // Calculate revenue (selecting only 'total' to prevent memory bloat)
   const invoices = await invoiceModel.find({
     organizationId,
     status: "paid",
-  });
+  }).select("total");
   const totalRevenue = invoices.reduce((sum, inv) => sum + inv.total, 0);
   const totalOrders = invoices.length;
 
@@ -689,10 +702,12 @@ const handleForecast = async (args, organizationId) => {
       }[f.forecastPeriod] || 30;
 
     const dailyDemand = f.predictedDemand / daysInPeriod;
-    f._doc.daysUntilStockout = Math.max(
-      0,
-      Math.floor(product.quantity / dailyDemand),
-    );
+    const quantity = product?.quantity ?? 0; // Guard against deleted product references
+
+    f._doc.daysUntilStockout = dailyDemand > 0
+      ? Math.max(0, Math.floor(quantity / dailyDemand))
+      : 9999; // Demands of 0 mean no stockout risk
+
     f._doc.status =
       f._doc.daysUntilStockout < 7
         ? "URGENT"
@@ -1229,14 +1244,14 @@ const handleComprehensive = async (args, organizationId) => {
 
       const totalSold = invoices.reduce((sum, inv) => {
         const item = inv.products.find(
-          (p) => p.productId.toString() === product._id.toString(),
+          (p) => p.productId?.toString() === product._id.toString(),
         );
         return sum + (item ? item.quantity : 0);
       }, 0);
 
       const totalRevenue = invoices.reduce((sum, inv) => {
         const item = inv.products.find(
-          (p) => p.productId.toString() === product._id.toString(),
+          (p) => p.productId?.toString() === product._id.toString(),
         );
         return sum + (item ? item.subtotal : 0);
       }, 0);

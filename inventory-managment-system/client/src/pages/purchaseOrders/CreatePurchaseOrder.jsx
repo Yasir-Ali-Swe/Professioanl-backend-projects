@@ -1,6 +1,6 @@
 // pages/purchaseOrders/CreatePurchaseOrder.jsx
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useRedux';
@@ -74,6 +74,10 @@ const CreatePurchaseOrder = () => {
     const role = user?.role || 'admin';
     const rolePrefix = getRolePrefix(role);
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const location = useLocation();
+    const querySupplierId = searchParams.get('supplierId') || location.state?.supplierId || '';
+
     const [searchTerm, setSearchTerm] = useState('');
     const [cartItems, setCartItems] = useState([]);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -84,7 +88,7 @@ const CreatePurchaseOrder = () => {
     const products = productsResponse?.data?.products || [];
 
     const { data: suppliersResponse } = useSuppliers({ limit: 1000 });
-    const suppliers = suppliersResponse?.data?.suppliers || [];
+    const suppliers = suppliersResponse?.data || [];
 
     const createPOMutation = useCreatePurchaseOrder();
     const isPending = createPOMutation.isPending;
@@ -99,11 +103,17 @@ const CreatePurchaseOrder = () => {
     } = useForm({
         resolver: zodResolver(purchaseOrderSchema),
         defaultValues: {
-            supplierId: '',
+            supplierId: querySupplierId,
         },
     });
 
     const supplierId = watch('supplierId');
+
+    useEffect(() => {
+        if (querySupplierId) {
+            setValue('supplierId', querySupplierId);
+        }
+    }, [querySupplierId, setValue]);
 
     // Relevance scoring
     const getRelevanceScore = (product, term) => {
@@ -286,8 +296,10 @@ const CreatePurchaseOrder = () => {
                                         value={supplierId}
                                         onValueChange={(value) => setValue('supplierId', value)}
                                     >
-                                        <SelectTrigger className="h-10 text-sm">
-                                            <SelectValue placeholder="Select a supplier" />
+                                        <SelectTrigger className="text-sm w-full">
+                                            <SelectValue placeholder="Select a supplier">
+                                                {suppliers.find(s => s._id === supplierId)?.name || ''}
+                                            </SelectValue>
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectGroup>

@@ -13,6 +13,7 @@ import aiAnomalyModel from "../models/anomaly.model.js";
 import mongoose from "mongoose";
 import subscriptionPlanModel from "../models/organization.subscriptionPlan.js";
 import subscriptionModel from "../models/subscription.model.js";
+import chatLogModel from "../models/chatLog.model.js";
 
 export const getSuperAdminDashboardStats = async (req, res) => {
   try {
@@ -677,6 +678,8 @@ export const deleteOrganization = async (req, res) => {
       aiProductForecastModel.deleteMany({ organizationId: id }),
       aiInsightModel.deleteMany({ organizationId: id }),
       aiAnomalyModel.deleteMany({ organizationId: id }),
+      subscriptionModel.deleteMany({ organizationId: id }),
+      chatLogModel.deleteMany({ organizationId: id }),
     ]);
     const organization = await organizationModel.findByIdAndDelete(id);
     if (!organization) {

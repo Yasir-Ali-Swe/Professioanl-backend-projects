@@ -261,7 +261,7 @@ const InvoiceDetailDialog = ({ invoice, open, onOpenChange }) => {
                         </div>
                     </div>
 
-                    <div className="border overflow-hidden">
+                    <div className="border rounded-xl overflow-hidden bg-card">
                         <Table>
                             <TableHeader>
                                 <TableRow>

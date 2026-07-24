@@ -248,7 +248,7 @@ const OrganizationProfilePage = () => {
                                         className={cn(
                                             "absolute bottom-0 right-0 bg-primary p-2 text-primary-foreground shadow-sm",
                                             "transition-all hover:bg-primary/90 hover:scale-110",
-                                            "ring-2 ring-background"
+                                            "ring-2 ring-background rounded-full"
                                         )}
                                         onClick={handleAvatarClick}
                                     >

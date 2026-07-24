@@ -15,6 +15,20 @@ export const createSupplier = async (req, res) => {
       });
     }
 
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
+    }
+
+    if (leadTimeDays !== undefined && leadTimeDays !== null && leadTimeDays < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Lead time cannot be negative",
+      });
+    }
+
     const supplier = await supplierModel.create({
       organizationId,
       name,
@@ -248,6 +262,20 @@ export const updateSupplier = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Organization ID and supplier ID are required",
+      });
+    }
+
+    if (email !== undefined && email !== null && email !== "" && !/^\S+@\S+\.\S+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
+    }
+
+    if (leadTimeDays !== undefined && leadTimeDays !== null && leadTimeDays < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Lead time cannot be negative",
       });
     }
 

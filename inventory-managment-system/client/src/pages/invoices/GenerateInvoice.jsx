@@ -350,7 +350,7 @@ const GenerateInvoice = () => {
                         {/* Product Results */}
                         <div
                             ref={resultsRef}
-                            className="border overflow-hidden max-h-75 overflow-y-auto"
+                            className="border rounded-xl overflow-hidden max-h-75 overflow-y-auto bg-card"
                         >
                             <Table>
                                 <TableHeader>

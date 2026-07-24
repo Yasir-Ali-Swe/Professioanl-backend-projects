@@ -204,8 +204,10 @@ export const getInsightsData = async (organizationId, period = "weekly") => {
   const productSales = {};
   invoices.forEach((inv) => {
     inv.products.forEach((item) => {
-      const id = item.productId.toString();
-      productSales[id] = (productSales[id] || 0) + item.quantity;
+      if (item.productId) {
+        const id = item.productId.toString();
+        productSales[id] = (productSales[id] || 0) + item.quantity;
+      }
     });
   });
 
@@ -230,8 +232,10 @@ export const getInsightsData = async (organizationId, period = "weekly") => {
   const prevProductSales = {};
   prevInvoices.forEach((inv) => {
     inv.products.forEach((item) => {
-      const id = item.productId.toString();
-      prevProductSales[id] = (prevProductSales[id] || 0) + item.quantity;
+      if (item.productId) {
+        const id = item.productId.toString();
+        prevProductSales[id] = (prevProductSales[id] || 0) + item.quantity;
+      }
     });
   });
 
@@ -288,11 +292,10 @@ Keep it concise and actionable. No greetings, just the summary.
     summaryText = result.response.text();
   } catch (error) {
     console.error("AI generation failed:", error.message);
-    summaryText = `Period summary: ${data.totalOrders} orders totaling $${data.totalRevenue.toFixed(2)}. ${
-      data.topProduct
-        ? `Top product: ${data.topProduct.name}.`
-        : "No sales data available."
-    }`;
+    summaryText = `Period summary: ${data.totalOrders} orders totaling $${data.totalRevenue.toFixed(2)}. ${data.topProduct
+      ? `Top product: ${data.topProduct.name}.`
+      : "No sales data available."
+      }`;
   }
 
   const insight = await aiInsightsModel.create({

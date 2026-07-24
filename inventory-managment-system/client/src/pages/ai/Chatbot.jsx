@@ -10,6 +10,7 @@ import {
     MessageScroller,
     MessageScrollerButton,
     MessageScrollerContent,
+    MessageScrollerItem,
     MessageScrollerProvider,
     MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
@@ -17,6 +18,7 @@ import {
 import {
     useChatHistory,
     useChatWithAI,
+    useClearContext,
 } from "@/hooks/useChat";
 
 const ACTIVE_CHAT_CONVERSATION_KEY = "stockpilot.activeChatConversationId";
@@ -63,8 +65,10 @@ const clearStoredConversationId = () => {
 };
 
 function ChatbotPage() {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const urlConversationId = searchParams.get("c");
+
+    const clearMutation = useClearContext();
 
     const [conversationId, setConversationId] = useState(
         () => urlConversationId || readStoredConversationId() || createConversationId()
@@ -287,6 +291,7 @@ function ChatbotPage() {
                         if (!urlConversationId) {
                             setConversationId(res.conversationId);
                             storeConversationId(res.conversationId);
+                            setSearchParams({ c: res.conversationId });
                         }
                     }
                 },
@@ -334,6 +339,17 @@ function ChatbotPage() {
         }
     };
 
+    const handleClearContext = () => {
+        clearMutation.mutate(
+            { conversationId },
+            {
+                onSuccess: () => {
+                    setLocalMessages([]);
+                },
+            }
+        );
+    };
+
     const handleSuggestionClick = (chip) => {
         if (isHistoryConversation) return;
         setInput(chip);
@@ -375,7 +391,22 @@ function ChatbotPage() {
 
     return (
         <MessageScrollerProvider>
-            <div className="flex h-full w-full flex-col bg-background">
+            <div className="flex h-full w-full flex-col relative">
+                {/* Clear Context Button at Top Right */}
+                {/* {!isHistoryConversation && localMessages.length > 0 && (
+                    <div className="absolute right-4 bottom-30 z-10">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleClearContext}
+                            disabled={clearMutation.isPending || isPending}
+                            className="text-xs font-semibold cursor-pointer bg-background/80 backdrop-blur-xs hover:bg-muted"
+                        >
+                            Clear AI Context
+                        </Button>
+                    </div>
+                )} */}
+
                 <div className="flex-1 overflow-hidden min-h-0 relative">
                     {historyLoading && isHistoryConversation ? (
                         <div className="px-4 py-6 max-w-3xl mx-auto w-full flex flex-col gap-6">
@@ -432,11 +463,15 @@ function ChatbotPage() {
                                     <div className="flex flex-col gap-6">
                                         <AnimatePresence initial={false}>
                                             {localMessages.map((message) => (
-                                                <MessageAnimated
+                                                <MessageScrollerItem
                                                     key={message.id}
-                                                    message={message}
                                                     scrollAnchor={message.role === "user"}
-                                                />
+                                                >
+                                                    <MessageAnimated
+                                                        message={message}
+                                                        scrollAnchor={message.role === "user"}
+                                                    />
+                                                </MessageScrollerItem>
                                             ))}
                                         </AnimatePresence>
 

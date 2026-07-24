@@ -28,18 +28,22 @@ const productSchema = new mongoose.Schema(
     quantity: {
       type: Number,
       default: 0,
+      min: [0, "Quantity cannot be negative"],
     },
     reorderThreshold: {
       type: Number,
       default: 10,
+      min: [0, "Reorder threshold cannot be negative"],
     },
     costPrice: {
       type: Number,
       required: true,
+      min: [0, "Cost price cannot be negative"],
     },
     sellingPrice: {
       type: Number,
       required: true,
+      min: [0, "Selling price cannot be negative"],
     },
     unit: {
       type: String,

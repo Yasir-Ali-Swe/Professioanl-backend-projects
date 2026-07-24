@@ -305,7 +305,7 @@ const CategoriesList = () => {
             </div>
 
             {/* Table */}
-            <div className="border overflow-hidden">
+            <div className="border rounded-xl overflow-hidden bg-card">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>

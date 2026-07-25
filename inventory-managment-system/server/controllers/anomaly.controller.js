@@ -222,12 +222,74 @@ export const getAnomalyById = async (req, res) => {
   }
 };
 
+// // PATCH /api/v1/anomaly/anomalies/:id/resolve
+// export const resolveAnomaly = async (req, res) => {
+//   try {
+//     const organizationId = req.organizationId;
+//     const anomalyId = req.params.id;
+//     const { resolutionNote } = req.body;
+
+//     if (!anomalyId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Anomaly ID is required",
+//       });
+//     }
+
+//     const anomaly = await anomalyModel.findOne({
+//       _id: anomalyId,
+//       organizationId,
+//     });
+
+//     if (!anomaly) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Anomaly not found",
+//       });
+//     }
+
+//     // Check if already resolved
+//     if (anomaly.isResolved) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Anomaly is already resolved",
+//       });
+//     }
+
+//     // Update the anomaly
+//     const updateData = { isResolved: true };
+//     if (resolutionNote) {
+//       updateData.resolutionNote = resolutionNote;
+//     }
+
+//     const updatedAnomaly = await anomalyModel.findOneAndUpdate(
+//       { _id: anomalyId, organizationId },
+//       updateData,
+//       { new: true },
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Anomaly resolved successfully",
+//       data: updatedAnomaly,
+//     });
+//   } catch (error) {
+//     console.error("Error in resolveAnomaly:", error.message);
+//     res.status(error.status || 500).json({
+//       success: false,
+//       message: error.message || "Internal server error",
+//     });
+//   }
+// };
+
+// controllers/anomaly.controller.js
 // PATCH /api/v1/anomaly/anomalies/:id/resolve
 export const resolveAnomaly = async (req, res) => {
   try {
     const organizationId = req.organizationId;
     const anomalyId = req.params.id;
-    const { resolutionNote } = req.body;
+    // ✅ Fix: Provide default empty object if req.body is undefined
+    const { resolutionNote } = req.body || {};
 
     if (!anomalyId) {
       return res.status(400).json({
@@ -256,11 +318,13 @@ export const resolveAnomaly = async (req, res) => {
       });
     }
 
-    // Update the anomaly
-    const updateData = { isResolved: true };
-    if (resolutionNote) {
-      updateData.resolutionNote = resolutionNote;
-    }
+    // ✅ Fix: Update description with resolution note instead of using non-existent field
+    const updateData = {
+      isResolved: true,
+      description: resolutionNote
+        ? `${anomaly.description}\n\n--- Resolution: ${resolutionNote}`
+        : anomaly.description
+    };
 
     const updatedAnomaly = await anomalyModel.findOneAndUpdate(
       { _id: anomalyId, organizationId },

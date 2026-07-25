@@ -19,7 +19,7 @@ export const authMiddleware = async (req, res, next) => {
         message: "Please verify your email before accessing this resource.",
       });
     }
-    if(!user.isActive){
+    if (!user.isActive) {
       return res.status(403).json({
         success: false,
         message: "Your account is inactive. Please contact the administrator.",
@@ -27,11 +27,11 @@ export const authMiddleware = async (req, res, next) => {
     }
     req.user = user;
     req.organizationId = user.organizationId;
-    
+
     next();
   } catch (error) {
     console.error("Error in authMiddleware:", error.message);
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
       message: error.message || "Internal server error",
     });

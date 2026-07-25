@@ -109,14 +109,20 @@ axiosInstance.interceptors.response.use(
         // Refresh failed - logout user
         processQueue(refreshError, null);
         store.dispatch(logout());
-        store.dispatch(setError("Session expired. Please login again."));
 
-        // Only redirect if not already on login page
-        if (window.location.pathname !== "/login") {
+        // Define public routes that do not require redirection or session expired messages
+        const publicRoutes = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"];
+        const isPublicRoute = publicRoutes.some((route) =>
+          window.location.pathname.startsWith(route)
+        );
+
+        if (!isPublicRoute) {
+          store.dispatch(setError("Session expired. Please login again."));
           toast.error("Session expired. Please login again.");
           window.location.href = "/login";
+          return Promise.reject(refreshError);
         }
-        return Promise.reject(refreshError);
+        return Promise.reject(error);
       } finally {
         isRefreshing = false;
       }

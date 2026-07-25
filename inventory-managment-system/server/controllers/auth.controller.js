@@ -137,6 +137,7 @@ export const loginUser = async (req, res) => {
       secure: NODE_ENV === "production",
       sameSite: NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: "/",
     });
 
     // Get the organization with populated subscription plan
@@ -279,6 +280,7 @@ export const logoutUser = async (req, res) => {
       httpOnly: true,
       secure: NODE_ENV === "production",
       sameSite: NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
     });
     user.tokenVersion += 1; // Increment the token version to invalidate existing tokens
     await user.save();
@@ -350,45 +352,6 @@ export const resetPassword = async (req, res) => {
     });
   }
 };
-
-// export const refreshAuth = async (req, res) => {
-//   try {
-//     const refreshToken = req.cookies.refreshToken;
-//     const user = await getUserFromToken(refreshToken, "refresh");
-//     user.tokenVersion += 1; // Increment the token version to invalidate existing tokens
-//     const newAccessToken = generateToken(
-//       user._id,
-//       "15m",
-//       user.tokenVersion,
-//       "auth",
-//     );
-//     const newRefreshToken = generateToken(
-//       user._id,
-//       "7d",
-//       user.tokenVersion,
-//       "refresh",
-//     );
-//     res.cookie("refreshToken", newRefreshToken, {
-//       httpOnly: true,
-//       secure: NODE_ENV === "production",
-//       sameSite: NODE_ENV === "production" ? "none" : "lax",
-//       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-//     });
-//     await user.save(); // Save the updated tokenVersion to the database
-//     res.status(200).json({
-//       success: true,
-//       message: "Token refreshed successfully",
-//       accessToken: newAccessToken,
-//     });
-//   } catch (error) {
-//     console.error("Error in refreshAuth controller:", error);
-//     res.status(error.status || 500).json({
-//       success: false,
-//       message: error.message || "Internal server error",
-//     });
-//   }
-// };
-
 export const refreshAuth = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
@@ -415,6 +378,7 @@ export const refreshAuth = async (req, res) => {
       secure: NODE_ENV === "production",
       sameSite: NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: "/",
     });
 
     // REMOVE THIS LINE - no need to save if no changes
@@ -439,9 +403,9 @@ export const verifyEmail = async (req, res) => {
     const token = req.params.token;
     const user = await getUserFromToken(token, "emailVerification");
     if (user.isVerified) {
-      res
+      return res
         .status(200)
-        .json({ success: false, message: "user is already verified" });
+        .json({ success: true, message: "user is already verified" });
     }
     user.isVerified = true;
     user.tokenVersion += 1;

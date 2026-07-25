@@ -3,35 +3,46 @@ export const chatTools = [
   {
     functionDeclarations: [
       {
-        name: "query_products",
-        description: `Get product data with ANY filter. 
-          Supports: search by name/SKU, category, supplier, price range, stock status (all/in_stock/low_stock/out_of_stock), sorting, and limiting results.
+        name: "query_inventory",
+        description: `Query products, categories, stock levels, valuation, cost/selling prices, profits, margins, reorder thresholds, and status.
+          Supports search, price/margin filtering, date filtering (addedPeriod: today/yesterday/this_week/this_month/recently_added), stock status (all/in_stock/low_stock/out_of_stock/dead_stock), sorting, pagination, and grouping (category/supplier/status).
           
           Examples:
-          - "Show me electronics products"
-          - "Products under $50"
-          - "Low stock items"
-          - "Search for Samsung TV"
-          - "Products from ABC supplier"
-          - "Cheapest products first"
-          - "Top 10 most expensive items"
-          - "Electronics with low stock"`,
+          - "Show all products"
+          - "What products are low in stock?"
+          - "Products added this week"
+          - "Highest margin electronics"
+          - "Valuation of products from supplier X"
+          - "Show products with profit margin under 15%"
+          - "Total inventory value grouped by category"`,
         parameters: {
           type: "object",
           properties: {
-            search: { type: "string", description: "Search by name or SKU" },
-            category: { type: "string", description: "Category name" },
-            supplier: { type: "string", description: "Supplier name" },
-            minPrice: { type: "number", description: "Minimum selling price" },
-            maxPrice: { type: "number", description: "Maximum selling price" },
+            search: { type: "string", description: "Search by product name, SKU, or barcode" },
+            category: { type: "string", description: "Filter by category name" },
+            supplier: { type: "string", description: "Filter by supplier name" },
             stockStatus: {
               type: "string",
-              enum: ["all", "in_stock", "low_stock", "out_of_stock"],
+              enum: ["all", "in_stock", "low_stock", "out_of_stock", "dead_stock"],
               description: "Filter by stock status",
+            },
+            minPrice: { type: "number", description: "Minimum selling price" },
+            maxPrice: { type: "number", description: "Maximum selling price" },
+            minMargin: { type: "number", description: "Minimum profit margin (0.0 to 1.0)" },
+            maxMargin: { type: "number", description: "Maximum profit margin (0.0 to 1.0)" },
+            addedPeriod: {
+              type: "string",
+              enum: ["today", "yesterday", "this_week", "this_month", "recently_added"],
+              description: "Filter by when products were added",
+            },
+            groupBy: {
+              type: "string",
+              enum: ["category", "supplier", "status"],
+              description: "Group results and calculate aggregate statistics",
             },
             sortBy: {
               type: "string",
-              enum: ["name", "price", "stock", "sku"],
+              enum: ["name", "sku", "quantity", "sellingPrice", "costPrice", "profit", "margin", "createdAt", "updatedAt"],
               description: "Field to sort by",
             },
             sortOrder: {
@@ -39,42 +50,49 @@ export const chatTools = [
               enum: ["asc", "desc"],
               description: "Sort order",
             },
-            limit: {
-              type: "number",
-              description: "Maximum number of results (default 20, max 100)",
-            },
+            limit: { type: "number", description: "Maximum number of results to return" },
+            page: { type: "number", description: "Page number for pagination" },
           },
         },
       },
       {
-        name: "query_suppliers",
-        description: `Get supplier data with ANY filter.
-          Supports: search by name/contact/email, lead time range, sorting, and limiting results.
+        name: "query_purchases",
+        description: `Query purchase orders, supplier performance, purchase costs, and order lead times.
+          Supports status filtering (pending/approved/rejected/fulfilled/all), supplier filter, cost filtering, date range (today/yesterday/this_week/this_month/last_month), sorting, and grouping by supplier/status.
           
           Examples:
-          - "Show me all suppliers"
-          - "Suppliers with fast delivery"
-          - "Find supplier ABC"
-          - "Suppliers with lead time under 5 days"
-          - "Suppliers sorted by name"`,
+          - "Show all pending purchase orders"
+          - "Total cost of orders this month"
+          - "How is supplier X performing on lead times?"
+          - "Orders from Supplier Y over $5000"
+          - "Average PO lead time by supplier"`,
         parameters: {
           type: "object",
           properties: {
-            search: {
+            search: { type: "string", description: "Search by PO number or supplier name" },
+            supplier: { type: "string", description: "Filter by supplier name" },
+            status: {
               type: "string",
-              description: "Search by name, contact person, or email",
+              enum: ["pending", "approved", "rejected", "fulfilled", "all"],
+              description: "Filter by purchase order status",
             },
-            minLeadTime: {
-              type: "number",
-              description: "Minimum lead time in days",
+            minCost: { type: "number", description: "Minimum total cost" },
+            maxCost: { type: "number", description: "Maximum total cost" },
+            period: {
+              type: "string",
+              enum: ["today", "yesterday", "this_week", "this_month", "last_month"],
+              description: "Predefined date range for orders",
             },
-            maxLeadTime: {
-              type: "number",
-              description: "Maximum lead time in days",
+            startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
+            endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
+            groupBy: {
+              type: "string",
+              enum: ["supplier", "status"],
+              description: "Group results to calculate vendor or status aggregates",
             },
             sortBy: {
               type: "string",
-              enum: ["name", "leadTime"],
+              enum: ["date", "totalCost", "leadTime"],
               description: "Field to sort by",
             },
             sortOrder: {
@@ -88,59 +106,47 @@ export const chatTools = [
       },
       {
         name: "query_sales",
-        description: `Get sales and invoice data with ANY filter.
-          Supports: date ranges (today/yesterday/this_week/last_week/this_month/last_month/this_year), customer search, amount range, status, sorting, and limiting results.
+        description: `Query sales, invoices, customers, and revenue.
+          Supports invoice number or customer name search, status filter (paid/unpaid/void/all), amount filters, date ranges, and grouping (customer/status/daily/monthly).
           
           Examples:
-          - "Revenue this month"
-          - "Sales from January 2024"
-          - "Invoices from customer ABC"
-          - "Unpaid invoices"
-          - "Invoices over $1000"
-          - "Best selling products"
-          - "Customer purchase history"`,
+          - "Show total revenue today"
+          - "List unpaid invoices"
+          - "Top customers by total spent"
+          - "Monthly sales chart data"
+          - "Invoices for John Doe over $200"
+          - "Invoices from yesterday"`,
         parameters: {
           type: "object",
           properties: {
-            period: {
-              type: "string",
-              enum: [
-                "today",
-                "yesterday",
-                "this_week",
-                "last_week",
-                "this_month",
-                "last_month",
-                "this_year",
-              ],
-              description: "Predefined date period",
-            },
-            startDate: {
-              type: "string",
-              description: "Start date (YYYY-MM-DD)",
-            },
-            endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
-            customer: { type: "string", description: "Customer name" },
-            minAmount: {
-              type: "number",
-              description: "Minimum invoice amount",
-            },
-            maxAmount: {
-              type: "number",
-              description: "Maximum invoice amount",
-            },
+            search: { type: "string", description: "Search by invoice number or customer name" },
+            customer: { type: "string", description: "Filter by specific customer name" },
             status: {
               type: "string",
               enum: ["paid", "unpaid", "void", "all"],
-              description: "Invoice status",
+              description: "Filter by invoice status",
+            },
+            minAmount: { type: "number", description: "Minimum invoice amount" },
+            maxAmount: { type: "number", description: "Maximum invoice amount" },
+            period: {
+              type: "string",
+              enum: ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "this_year"],
+              description: "Predefined date range",
+            },
+            startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
+            endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
+            groupBy: {
+              type: "string",
+              enum: ["customer", "status", "daily", "monthly"],
+              description: "Group results to calculate sales aggregates",
             },
             includeProducts: {
               type: "boolean",
-              description: "Include product details in response",
+              description: "Include a breakdown of products sold in the result",
             },
             sortBy: {
               type: "string",
-              enum: ["date", "amount", "customer"],
+              enum: ["date", "total", "customerName"],
               description: "Field to sort by",
             },
             sortOrder: {
@@ -153,168 +159,34 @@ export const chatTools = [
         },
       },
       {
-        name: "query_orders",
-        description: `Get purchase order data with ANY filter.
-          Supports: status (pending/approved/rejected/fulfilled), supplier, date ranges, sorting, and limiting results.
+        name: "query_organization",
+        description: `Query organizations, users, team members, roles, permissions, and platform-wide or organization-wide metadata.
+          For Super Admins, this allows platform-wide lookups. For Org Admins, it restricts details to their own organization's team members.
           
           Examples:
-          - "Show me pending orders"
-          - "Purchase orders from Supplier X"
-          - "Approved orders this month"
-          - "Rejected purchase orders"
-          - "Orders by date"`,
+          - "Show all active users"
+          - "List my team members"
+          - "How many managers do we have?"
+          - "Show all registered organizations in the system" (Super Admin)`,
         parameters: {
           type: "object",
           properties: {
-            status: {
-              type: "string",
-              enum: ["pending", "approved", "rejected", "fulfilled", "all"],
-              description: "Order status",
-            },
-            supplier: { type: "string", description: "Supplier name" },
-            period: {
-              type: "string",
-              enum: ["today", "this_week", "this_month"],
-              description: "Predefined date period",
-            },
-            startDate: {
-              type: "string",
-              description: "Start date (YYYY-MM-DD)",
-            },
-            endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
-            sortBy: {
-              type: "string",
-              enum: ["date", "total"],
-              description: "Field to sort by",
-            },
-            sortOrder: {
-              type: "string",
-              enum: ["asc", "desc"],
-              description: "Sort order",
-            },
-            limit: { type: "number", description: "Maximum number of results" },
-          },
-        },
-      },
-      {
-        name: "query_analytics",
-        description: `Get analytics, forecasts, anomalies, and suggestions.
-          Types:
-          - forecast: Demand forecasts with stockout predictions
-          - anomalies: Unresolved issues with severity levels
-          - suggestions: AI-generated reorder suggestions
-          - inventory_value: Total inventory valuation
-          - customer_analytics: Customer purchase history
-          
-          Examples:
-          - "When will Samsung TV run out?"
-          - "Show me high severity anomalies"
-          - "Reorder suggestions"
-          - "Total inventory value"
-          - "Customer purchase history for ABC"`,
-        parameters: {
-          type: "object",
-          properties: {
-            type: {
-              type: "string",
-              enum: [
-                "forecast",
-                "anomalies",
-                "suggestions",
-                "inventory_value",
-                "customer_analytics",
-              ],
-              description: "Type of analytics to retrieve",
-            },
-            product: { type: "string", description: "Product name or SKU" },
-            category: { type: "string", description: "Category name" },
-            severity: {
-              type: "string",
-              enum: ["low", "medium", "high"],
-              description: "Anomaly severity level",
-            },
-            anomalyType: {
-              type: "string",
-              enum: [
-                "dead_stock",
-                "sales_spike",
-                "suspicious_adjustment",
-                "unusual_return",
-              ],
-              description: "Type of anomaly",
-            },
-            customer: {
-              type: "string",
-              description: "Customer name (for customer_analytics)",
-            },
-            forecastPeriod: {
-              type: "string",
-              enum: ["7_days", "30_days", "90_days"],
-              description: "Forecast time period",
-            },
-            minConfidence: {
-              type: "number",
-              description: "Minimum confidence level (0-1)",
-            },
-            limit: { type: "number", description: "Maximum number of results" },
-          },
-          required: ["type"],
-        },
-      },
-      {
-        name: "generate_report",
-        description: `Generate a comprehensive business report for any period.
-    Creates a detailed summary including revenue, top products, anomalies, and key metrics.
-    
-    Examples:
-    - "Create a summary report of my business for this week"
-    - "Generate monthly report"
-    - "Give me a weekly business summary"
-    - "Create a report for last month"`,
-        parameters: {
-          type: "object",
-          properties: {
-            period: {
-              type: "string",
-              enum: [
-                "today",
-                "this_week",
-                "this_month",
-                "last_week",
-                "last_month",
-              ],
-              description: "Time period for the report",
-            },
-          },
-        },
-      },
-      {
-        name: "query_team",
-        description: `Get team member data with ANY filter.
-          Supports: search by name/email, role, active status, and limiting results.
-          
-          Examples:
-          - "Show me all team members"
-          - "Find John in team"
-          - "Show me admins"
-          - "Active staff members"
-          - "Search for user john@email.com"`,
-        parameters: {
-          type: "object",
-          properties: {
-            search: { type: "string", description: "Search by name or email" },
+            search: { type: "string", description: "Search by organization name, user name, or email" },
             role: {
               type: "string",
-              enum: ["admin", "manager", "staff", "all"],
-              description: "User role filter",
+              enum: ["admin", "manager", "staff", "super_admin", "all"],
+              description: "Filter by user role",
             },
-            isActive: {
-              type: "boolean",
-              description: "Filter by active status",
+            isActive: { type: "boolean", description: "Filter by active status" },
+            sortBy: {
+              type: "string",
+              enum: ["name", "email", "createdAt"],
+              description: "Field to sort by",
             },
-            includeDetails: {
-              type: "boolean",
-              description: "Include detailed info and activity",
+            sortOrder: {
+              type: "string",
+              enum: ["asc", "desc"],
+              description: "Sort order",
             },
             limit: { type: "number", description: "Maximum number of results" },
           },
@@ -322,112 +194,63 @@ export const chatTools = [
       },
       {
         name: "query_insights",
-        description: `Get AI-generated business insights and summaries.
-          Supports: weekly/monthly periods, latest or historical data.
+        description: `Retrieve high-level business dashboards, demand forecasts, stockout predictions, anomaly logs, reorder recommendations, ABC classification, dead stock lists, and historical insights.
           
           Examples:
-          - "Show me weekly insights"
-          - "Monthly business summary"
-          - "Insight history"`,
+          - "Give me a dashboard summary of my business"
+          - "Show AI reorder suggestions"
+          - "Which products are predicted to run out of stock?"
+          - "Show dead stock in my inventory"
+          - "Run an ABC classification analysis"
+          - "Show recent high severity anomalies"
+          - "Give me weekly insights history"`,
         parameters: {
           type: "object",
           properties: {
-            period: {
-              type: "string",
-              enum: ["weekly", "monthly"],
-              description: "Insight period",
-            },
             type: {
               type: "string",
-              enum: ["latest", "history"],
-              description: "Get latest or historical insights",
+              enum: ["dashboard", "forecast", "anomalies", "suggestions", "abc_analysis", "dead_stock", "insights_history"],
+              description: "Type of insights to retrieve (REQUIRED)",
             },
-            limit: {
-              type: "number",
-              description: "Number of historical records",
-            },
-          },
-        },
-      },
-      {
-        name: "get_dashboard",
-        description: `Get a comprehensive dashboard summary with all key metrics.
-          Supports: different time periods (today/this_week/this_month).
-          
-          Examples:
-          - "Show me dashboard"
-          - "Today's summary"
-          - "Weekly dashboard"
-          - "Monthly overview"`,
-        parameters: {
-          type: "object",
-          properties: {
             period: {
               type: "string",
-              enum: ["today", "this_week", "this_month"],
-              description: "Time period for the dashboard",
+              enum: ["today", "this_week", "this_month", "last_month", "weekly", "monthly"],
+              description: "Time period for dashboard or insights",
             },
+            product: { type: "string", description: "Product name or SKU for forecast/anomaly lookup" },
+            severity: {
+              type: "string",
+              enum: ["low", "medium", "high"],
+              description: "Filter anomalies by severity",
+            },
+            limit: { type: "number", description: "Maximum number of results" },
           },
+          required: ["type"],
         },
       },
       {
-        name: "get_comprehensive_info",
-        description: `Get comprehensive information about a specific entity.
-          Supports: products, suppliers, and customers with all related data.
+        name: "get_details",
+        description: `Get full, rich, all-in-one populated details for a single entity (Product, Supplier, Category, Invoice, Purchase Order, User, or Organization) by its name, SKU, number, or database ID.
           
           Examples:
           - "Tell me everything about Samsung TV"
-          - "Comprehensive supplier info for ABC"
-          - "Full customer details for John"`,
+          - "Show me invoice INV-0001"
+          - "Details for supplier ABC"
+          - "Comprehensive info on Category Electronics"`,
         parameters: {
           type: "object",
           properties: {
-            name: { type: "string", description: "Name of the entity" },
             type: {
               type: "string",
-              enum: ["product", "supplier", "customer"],
-              description: "Type of entity",
+              enum: ["product", "supplier", "category", "invoice", "purchase_order", "user", "organization"],
+              description: "The entity type (REQUIRED)",
+            },
+            identifier: {
+              type: "string",
+              description: "Name, SKU, PO/Invoice number, or database ID of the entity (REQUIRED)",
             },
           },
-          required: ["name", "type"],
-        },
-      },
-      {
-        name: "get_full_overview",
-        description: `Get a complete overview of the organization including:
-          - All products with their details (name, SKU, quantity, price)
-          - All categories with their details
-          - All suppliers with their details
-          - Key statistics (total products, total categories, total suppliers, total users, revenue, etc.)
-          
-          Use this tool when the user asks for a comprehensive summary or "everything" about their organization.
-          
-          Examples:
-          - "Tell me about all products, categories, suppliers and stats"
-          - "Give me a complete overview of my organization"
-          - "Show me everything about my business"
-          - "What's the full picture of my organization?"`,
-        parameters: {
-          type: "object",
-          properties: {
-            includeProducts: {
-              type: "boolean",
-              description:
-                "Whether to include detailed product list (default: true)",
-            },
-            includeCategories: {
-              type: "boolean",
-              description: "Whether to include category list (default: true)",
-            },
-            includeSuppliers: {
-              type: "boolean",
-              description: "Whether to include supplier list (default: true)",
-            },
-            limit: {
-              type: "number",
-              description: "Maximum number of items per list (default: 20)",
-            },
-          },
+          required: ["type", "identifier"],
         },
       },
     ],

@@ -351,30 +351,75 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+// export const refreshAuth = async (req, res) => {
+//   try {
+//     const refreshToken = req.cookies.refreshToken;
+//     const user = await getUserFromToken(refreshToken, "refresh");
+//     user.tokenVersion += 1; // Increment the token version to invalidate existing tokens
+//     const newAccessToken = generateToken(
+//       user._id,
+//       "15m",
+//       user.tokenVersion,
+//       "auth",
+//     );
+//     const newRefreshToken = generateToken(
+//       user._id,
+//       "7d",
+//       user.tokenVersion,
+//       "refresh",
+//     );
+//     res.cookie("refreshToken", newRefreshToken, {
+//       httpOnly: true,
+//       secure: NODE_ENV === "production",
+//       sameSite: NODE_ENV === "production" ? "none" : "lax",
+//       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+//     });
+//     await user.save(); // Save the updated tokenVersion to the database
+//     res.status(200).json({
+//       success: true,
+//       message: "Token refreshed successfully",
+//       accessToken: newAccessToken,
+//     });
+//   } catch (error) {
+//     console.error("Error in refreshAuth controller:", error);
+//     res.status(error.status || 500).json({
+//       success: false,
+//       message: error.message || "Internal server error",
+//     });
+//   }
+// };
+
 export const refreshAuth = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
     const user = await getUserFromToken(refreshToken, "refresh");
-    user.tokenVersion += 1; // Increment the token version to invalidate existing tokens
+
+    // REMOVE THIS LINE - DO NOT increment token version on refresh
+    // user.tokenVersion += 1; // <-- DELETE THIS
+
     const newAccessToken = generateToken(
       user._id,
       "15m",
-      user.tokenVersion,
-      "auth",
+      user.tokenVersion, // Use existing tokenVersion, don't increment
+      "auth"
     );
     const newRefreshToken = generateToken(
       user._id,
       "7d",
-      user.tokenVersion,
-      "refresh",
+      user.tokenVersion, // Use existing tokenVersion, don't increment
+      "refresh"
     );
+
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
       secure: NODE_ENV === "production",
       sameSite: NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-    await user.save(); // Save the updated tokenVersion to the database
+
+    // REMOVE THIS LINE - no need to save if no changes
+    // await user.save();
+
     res.status(200).json({
       success: true,
       message: "Token refreshed successfully",

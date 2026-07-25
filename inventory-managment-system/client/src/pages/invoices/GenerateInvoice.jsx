@@ -258,7 +258,7 @@ const GenerateInvoice = () => {
                     tax: orgInvoice?.taxRate?.toString() || '0',
                     discount: orgInvoice?.defaultDiscount?.toString() || '0',
                 });
-                navigate(`/${rolePrefix}/invoices`);
+                // navigate(`/${rolePrefix}/invoices`); 
             }
         });
     };

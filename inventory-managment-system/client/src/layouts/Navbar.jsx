@@ -88,15 +88,6 @@ export const Navbar = ({ routes }) => {
 
             {/* Right side */}
             <div className="ml-auto flex items-center gap-2">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative h-9 w-9 rounded-lg hover:bg-accent"
-                >
-                    <Bell className="h-4 w-4 text-muted-foreground" />
-                    <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary" />
-                </Button>
-
                 <div className="rounded-md">
                     <ThemeToggle />
                 </div>

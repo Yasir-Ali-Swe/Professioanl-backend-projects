@@ -29,8 +29,8 @@ const anomalySchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      required: true,
-      maxlength: 1000,
+      default: null,
+      maxlength: 500,
     },
     isResolved: {
       type: Boolean,

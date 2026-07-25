@@ -42,7 +42,7 @@ const ForgotPasswordForm = () => {
     };
 
     return (
-        <div className={`flex flex-col justify-center items-center px-4 sm:px-6 md:px-8 lg:px-10 h-full`}>
+        <div className={`flex flex-col justify-center items-center px-4 sm:px-6 md:px-8 lg:px-10 h-screen`}>
             <div className="w-full max-w-md mx-auto">
                 {/* Go Back Button */}
                 <div className="mb-4">

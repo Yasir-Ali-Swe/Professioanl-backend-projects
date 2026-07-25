@@ -252,24 +252,24 @@ export const adminInviteOrganizationUsers = async (req, res) => {
       });
     }
 
-    if (role === "super_admin") {
+    if (userRole === "admin" && role !== "manager" && role !== "staff") {
       return res.status(403).json({
         success: false,
-        message: "Access denied. Cannot invite users with super_admin role.",
+        message: "Access denied. Admins can only invite Manager or Staff.",
       });
     }
 
-    if (userRole === "manager" && role === "admin") {
+    if (userRole === "manager" && (role === "admin" || role === "super_admin")) {
       return res.status(403).json({
         success: false,
-        message: "Access denied. Managers cannot invite admin users.",
+        message: "Access denied. Managers cannot invite Admin or Super Admin.",
       });
     }
 
-    if (userRole === "manager" && role !== "staff") {
+    if (userRole === "staff") {
       return res.status(403).json({
         success: false,
-        message: "Access denied. Managers can only invite staff members.",
+        message: "Access denied. Staff members cannot invite users.",
       });
     }
 
@@ -339,8 +339,8 @@ export const getOrganizationUsers = async (req, res) => {
       _id: { $ne: userId },
     };
 
-    if (userRole === "manager") {
-      query.role = { $ne: "admin" };
+    if (userRole === "admin" || userRole === "manager") {
+      query.role = { $nin: ["admin", "super_admin"] };
     }
 
     // Search by name or email
@@ -492,6 +492,12 @@ export const updateOrganizationUserById = async (req, res) => {
     const { role, isActive } = req.body;
     const loginUserId = req.user._id;
     const userRole = req.user.role;
+    if (userRole !== "admin" && userRole !== "manager") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Only admins and managers can update organization users.",
+      });
+    }
 
     if (!id) {
       return res.status(400).json({

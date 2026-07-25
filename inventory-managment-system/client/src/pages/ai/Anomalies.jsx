@@ -182,7 +182,7 @@ const AnomalyDetailDialog = ({ anomaly, open, onOpenChange }) => {
 
                     {/* Description */}
                     <div className="border p-4">
-                        <p className="text-sm leading-relaxed">{anomaly.description}</p>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{anomaly.description}</p>
                     </div>
 
                     {/* Metadata */}
@@ -227,6 +227,7 @@ const AnomaliesPage = () => {
     const [showResolveDialog, setShowResolveDialog] = useState(false);
     const [resolvingId, setResolvingId] = useState(null);
     const [runningDetection, setRunningDetection] = useState(false);
+    const [resolutionNote, setResolutionNote] = useState(''); // ✅ ADDED: State for resolution note
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -303,18 +304,26 @@ const AnomaliesPage = () => {
 
     const handleResolve = async (anomaly) => {
         setSelectedAnomaly(anomaly);
+        setResolutionNote(''); // Clear previous note
         setShowResolveDialog(true);
     };
 
+    // ✅ UPDATED: Send resolutionNote in the request body
     const confirmResolve = async () => {
         if (!selectedAnomaly) return;
 
         setResolvingId(selectedAnomaly._id);
         try {
-            await resolveMutation.mutateAsync({ id: selectedAnomaly._id });
+            await resolveMutation.mutateAsync({
+                id: selectedAnomaly._id,
+                resolutionNote: resolutionNote.trim() || 'No additional notes provided'
+            });
             setShowResolveDialog(false);
+            setResolutionNote(''); // Clear after resolve
+            toast.success('Anomaly resolved successfully');
         } catch (error) {
             // error is handled in hook
+            toast.error(error?.message || 'Failed to resolve anomaly');
         } finally {
             setResolvingId(null);
         }
@@ -324,8 +333,10 @@ const AnomaliesPage = () => {
         setRunningDetection(true);
         try {
             await runDetectionMutation.mutateAsync();
+            toast.success('Anomaly detection completed successfully');
         } catch (error) {
             // error is handled in hook
+            toast.error(error?.message || 'Failed to run anomaly detection');
         } finally {
             setRunningDetection(false);
         }
@@ -833,8 +844,14 @@ const AnomaliesPage = () => {
                 onOpenChange={setShowDetailDialog}
             />
 
-            {/* Resolve Confirmation Dialog */}
-            <AlertDialog open={showResolveDialog} onOpenChange={setShowResolveDialog}>
+            {/* ✅ UPDATED: Resolve Confirmation Dialog with Resolution Note Textarea */}
+            <AlertDialog
+                open={showResolveDialog}
+                onOpenChange={(open) => {
+                    setShowResolveDialog(open);
+                    if (!open) setResolutionNote(''); // Clear note when dialog closes
+                }}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Resolve Anomaly</AlertDialogTitle>
@@ -848,13 +865,28 @@ const AnomaliesPage = () => {
                                     <p className="text-xs text-muted-foreground">{selectedAnomaly.description}</p>
                                 </div>
                             )}
+
+                            {/* ✅ ADDED: Resolution Note Textarea */}
+                            <div className="mt-4 text-left">
+                                <label className="text-sm font-medium">Resolution Note (Optional)</label>
+                                <textarea
+                                    className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[80px]"
+                                    placeholder="Add a note about how this anomaly was resolved..."
+                                    value={resolutionNote}
+                                    onChange={(e) => setResolutionNote(e.target.value)}
+                                />
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Optional: Provide additional context about the resolution
+                                </p>
+                            </div>
+
                             <p className="mt-2 text-xs text-muted-foreground">
                                 This action will move the anomaly to the resolved list.
                             </p>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel onClick={() => setResolutionNote('')}>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={confirmResolve}>
                             Resolve
                         </AlertDialogAction>

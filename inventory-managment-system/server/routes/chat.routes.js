@@ -7,19 +7,19 @@ import {
 } from "../controllers/chat.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import chatLogModel from "../models/chatLog.model.js";
-import { requirePremium } from "../middleware/featureAccess.middleware.js";
+import { authorizeChatbotAccess } from "../middleware/featureAccess.middleware.js";
 
 const router = express.Router();
 
-router.post("/chat", authMiddleware, requirePremium, chatWithAI);
-router.post("/chat/stream", authMiddleware, requirePremium, chatWithAIStream);
-router.get("/chat/history", authMiddleware, requirePremium, getChatHistory);
-router.delete("/chat/context", authMiddleware, requirePremium, clearContext);
+router.post("/chat", authMiddleware, authorizeChatbotAccess, chatWithAI);
+router.post("/chat/stream", authMiddleware, authorizeChatbotAccess, chatWithAIStream);
+router.get("/chat/history", authMiddleware, authorizeChatbotAccess, getChatHistory);
+router.delete("/chat/context", authMiddleware, authorizeChatbotAccess, clearContext);
 
 router.get(
   "/chat/analytics",
   authMiddleware,
-  requirePremium,
+  authorizeChatbotAccess,
   async (req, res) => {
     try {
       const organizationId = req.organizationId;

@@ -5,7 +5,7 @@ const chatLogSchema = new mongoose.Schema(
     organizationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
-      required: true,
+      default: null,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,

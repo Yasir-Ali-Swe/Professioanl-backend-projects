@@ -1,6 +1,8 @@
+// layouts/Sidebar.jsx
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { useLogoutUser } from '@/hooks/useAuth';
 import {
     Boxes,
     LayoutDashboard,
@@ -24,9 +26,9 @@ import {
     FileText,
     ChevronDown,
     ChevronUp,
-    AlertCircle,      // ← Add this
-    ArrowDown,        // ← Add this
-    ArrowUp,          // ← Add this
+    AlertCircle,
+    ArrowDown,
+    ArrowUp,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -77,9 +79,9 @@ const ICONS = {
     ShoppingCart,
     Users,
     FileText,
-    AlertCircle,      // ← Add this
-    ArrowDown,        // ← Add this
-    ArrowUp,          // ← Add this
+    AlertCircle,
+    ArrowDown,
+    ArrowUp,
 };
 
 const isUserRoute = (route) => route.section === 'account';
@@ -90,9 +92,9 @@ export const Sidebar = ({ routes }) => {
     const user = useSelector(selectUser);
     const { state } = useSidebar();
     const isCollapsed = state === 'collapsed';
-
     const mainRoutes = routes.filter(isMainRoute);
     const userRoutes = routes.filter(isUserRoute);
+    const logoutMutation = useLogoutUser();
 
     const isPathActive = (path) =>
         location.pathname === path || location.pathname.startsWith(path + '/');
@@ -105,6 +107,7 @@ export const Sidebar = ({ routes }) => {
         );
         return activeParent?.path ?? null;
     });
+
     useEffect(() => {
         if (!openDropdown) return;
 
@@ -117,6 +120,10 @@ export const Sidebar = ({ routes }) => {
             setOpenDropdown(null);
         }
     }, [location.pathname]);
+
+    const handleLogout = () => {
+        logoutMutation.mutate();
+    };
 
     const renderRouteItem = (route) => {
         const Icon = ICONS[route.icon] || LayoutDashboard;
@@ -238,13 +245,15 @@ export const Sidebar = ({ routes }) => {
                             >
                                 <Avatar className="h-8 w-8 rounded-lg shrink-0">
                                     <AvatarImage src="https://github.com/shadcn.png" alt="shadcn" />
-                                    <AvatarFallback className="rounded-lg">LR</AvatarFallback>
+                                    <AvatarFallback className="rounded-lg">
+                                        {user?.name?.substring(0, 2)?.toUpperCase() || 'LR'}
+                                    </AvatarFallback>
                                 </Avatar>
                                 {!isCollapsed && (
                                     <div className="grid flex-1 text-left text-sm leading-tight truncate">
-                                        <span className="truncate font-medium">{user?.name}</span>
+                                        <span className="truncate font-medium">{user?.name || 'User'}</span>
                                         <span className="truncate text-xs text-muted-foreground capitalize">
-                                            {user?.role?.replace('_', ' ')}
+                                            {user?.role?.replace('_', ' ') || 'Admin'}
                                         </span>
                                     </div>
                                 )}
@@ -256,23 +265,11 @@ export const Sidebar = ({ routes }) => {
                                 sideOffset={8}
                                 className="w-56"
                             >
-                                <DropdownMenuGroup>
-                                    <DropdownMenuItem>
-                                        <BadgeCheckIcon />
-                                        Account
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>
-                                        <CreditCardIcon />
-                                        Billing
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>
-                                        <BellIcon />
-                                        Notifications
-                                    </DropdownMenuItem>
-                                </DropdownMenuGroup>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
-                                    <LogOutIcon />
+                                <DropdownMenuItem
+                                    onClick={handleLogout}
+                                    className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 rounded-md"
+                                >
+                                    <LogOutIcon className="mr-2 h-4 w-4" />
                                     Sign Out
                                 </DropdownMenuItem>
                             </DropdownMenuContent>

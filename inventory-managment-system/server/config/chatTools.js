@@ -5,7 +5,7 @@ export const chatTools = [
       {
         name: "query_inventory",
         description: `Query products, categories, stock levels, valuation, cost/selling prices, profits, margins, reorder thresholds, and status.
-          Supports search, price/margin filtering, date filtering (addedPeriod: today/yesterday/this_week/this_month/recently_added), stock status (all/in_stock/low_stock/out_of_stock/dead_stock), sorting, pagination, and grouping (category/supplier/status).
+          Supports search, price/margin filtering, date filtering (period: today/yesterday/this_week/last_week/this_month/last_month/this_year, or via startDate/endDate), stock status (all/in_stock/low_stock/out_of_stock/dead_stock), sorting, pagination, grouping (category/supplier/status), and filtering by the staff member who added/created the product.
           
           Examples:
           - "Show all products"
@@ -14,7 +14,8 @@ export const chatTools = [
           - "Highest margin electronics"
           - "Valuation of products from supplier X"
           - "Show products with profit margin under 15%"
-          - "Total inventory value grouped by category"`,
+          - "Total inventory value grouped by category"
+          - "Show products added by staff Ahmed Khan"`,
         parameters: {
           type: "object",
           properties: {
@@ -24,17 +25,20 @@ export const chatTools = [
             stockStatus: {
               type: "string",
               enum: ["all", "in_stock", "low_stock", "out_of_stock", "dead_stock"],
-              description: "Filter by stock status",
+              description: "Filter by stock status. Dead stock means products with quantity > 0 but no sales in the last 30 days.",
             },
             minPrice: { type: "number", description: "Minimum selling price" },
             maxPrice: { type: "number", description: "Maximum selling price" },
             minMargin: { type: "number", description: "Minimum profit margin (0.0 to 1.0)" },
             maxMargin: { type: "number", description: "Maximum profit margin (0.0 to 1.0)" },
-            addedPeriod: {
+            period: {
               type: "string",
-              enum: ["today", "yesterday", "this_week", "this_month", "recently_added"],
-              description: "Filter by when products were added",
+              enum: ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "this_year"],
+              description: "Filter by when products were added (predefined date range)",
             },
+            startDate: { type: "string", description: "Start date for product addition filter (YYYY-MM-DD)" },
+            endDate: { type: "string", description: "End date for product addition filter (YYYY-MM-DD)" },
+            creatorName: { type: "string", description: "Filter by the name of the staff member/user who created/added the products" },
             groupBy: {
               type: "string",
               enum: ["category", "supplier", "status"],
@@ -43,7 +47,7 @@ export const chatTools = [
             sortBy: {
               type: "string",
               enum: ["name", "sku", "quantity", "sellingPrice", "costPrice", "profit", "margin", "createdAt", "updatedAt"],
-              description: "Field to sort by",
+              description: "Field to sort by (includes calculated fields like profit and margin)",
             },
             sortOrder: {
               type: "string",
@@ -57,15 +61,16 @@ export const chatTools = [
       },
       {
         name: "query_purchases",
-        description: `Query purchase orders, supplier performance, purchase costs, and order lead times.
-          Supports status filtering (pending/approved/rejected/fulfilled/all), supplier filter, cost filtering, date range (today/yesterday/this_week/this_month/last_month), sorting, and grouping by supplier/status.
+        description: `Query purchase orders, supplier performance, purchase costs, order lead times, and creator details.
+          Supports status filtering (pending/approved/rejected/fulfilled/all), supplier filter, cost filtering, date range (today/yesterday/this_week/last_week/this_month/last_month/this_year, or via startDate/endDate), sorting, grouping by supplier/status, and filtering by creator name.
           
           Examples:
           - "Show all pending purchase orders"
           - "Total cost of orders this month"
           - "How is supplier X performing on lead times?"
           - "Orders from Supplier Y over $5000"
-          - "Average PO lead time by supplier"`,
+          - "Average PO lead time by supplier"
+          - "Show purchase orders created by Ahmed Khan"`,
         parameters: {
           type: "object",
           properties: {
@@ -80,11 +85,12 @@ export const chatTools = [
             maxCost: { type: "number", description: "Maximum total cost" },
             period: {
               type: "string",
-              enum: ["today", "yesterday", "this_week", "this_month", "last_month"],
+              enum: ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "this_year"],
               description: "Predefined date range for orders",
             },
             startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
             endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
+            creatorName: { type: "string", description: "Filter by the name of the staff member/user who created the purchase order" },
             groupBy: {
               type: "string",
               enum: ["supplier", "status"],
@@ -106,15 +112,15 @@ export const chatTools = [
       },
       {
         name: "query_sales",
-        description: `Query sales, invoices, customers, and revenue.
-          Supports invoice number or customer name search, status filter (paid/unpaid/void/all), amount filters, date ranges, and grouping (customer/status/daily/monthly).
+        description: `Query sales, invoices, customers, revenue, actual profits, and creator details.
+          Supports invoice number or customer name search, status filter (paid/unpaid/void/all), amount filters, date ranges (today/yesterday/this_week/last_week/this_month/last_month/this_year, or via startDate/endDate), grouping (customer/status/daily/monthly), and filtering by creator name.
           
           Examples:
           - "Show total revenue today"
           - "List unpaid invoices"
           - "Top customers by total spent"
           - "Monthly sales chart data"
-          - "Invoices for John Doe over $200"
+          - "Invoices created by Ahmed Khan"
           - "Invoices from yesterday"`,
         parameters: {
           type: "object",
@@ -135,6 +141,7 @@ export const chatTools = [
             },
             startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
             endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
+            creatorName: { type: "string", description: "Filter by the name of the staff member/user who created the invoice" },
             groupBy: {
               type: "string",
               enum: ["customer", "status", "daily", "monthly"],
@@ -194,7 +201,7 @@ export const chatTools = [
       },
       {
         name: "query_insights",
-        description: `Retrieve high-level business dashboards, demand forecasts, stockout predictions, anomaly logs, reorder recommendations, ABC classification, dead stock lists, and historical insights.
+        description: `Retrieve high-level business dashboards (including total categories, profit actuals, top selling items, and recent logs), demand forecasts, stockout predictions, anomaly logs, reorder recommendations, ABC classification, dead stock lists, and historical insights.
           
           Examples:
           - "Give me a dashboard summary of my business"
@@ -251,6 +258,34 @@ export const chatTools = [
             },
           },
           required: ["type", "identifier"],
+        },
+      },
+      {
+        name: "query_transactions",
+        description: `Query inventory stock transactions or movements (stock logs).
+          Supports filtering by product name/SKU, transaction type (in/out), reason (purchase/sale/adjustment/return/damage), staff/user who performed the transaction, date ranges, and sorting.
+          
+          Examples:
+          - "Show recent stock adjustments"
+          - "Transactions created by Ahmed Khan"
+          - "Show stock logs for product Samsung TV"
+          - "Stock movements in the last 7 days"`,
+        parameters: {
+          type: "object",
+          properties: {
+            product: { type: "string", description: "Filter by product name or SKU" },
+            type: { type: "string", enum: ["in", "out", "all"], description: "Filter by transaction type" },
+            reason: { type: "string", enum: ["purchase", "sale", "adjustment", "return", "damage", "all"], description: "Filter by reason" },
+            creatorName: { type: "string", description: "Filter by the name of the staff member who performed the transaction" },
+            period: {
+              type: "string",
+              enum: ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "this_year"],
+              description: "Date range (predefined period)",
+            },
+            startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
+            endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
+            limit: { type: "number", description: "Maximum number of results" },
+          },
         },
       },
     ],

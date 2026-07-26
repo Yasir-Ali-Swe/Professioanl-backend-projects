@@ -167,6 +167,472 @@ const toObjectId = (id) => {
   return mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
 };
 
+// ============ BI & COMPARISON HELPERS ============
+
+const getPreviousDateRange = (startDate, endDate, period) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const durationMs = end.getTime() - start.getTime();
+
+  let prevStart = new Date(start.getTime() - durationMs - 1000);
+  let prevEnd = new Date(start.getTime() - 1000);
+
+  if (period) {
+    const now = new Date();
+    switch (period) {
+      case "today": {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        d.setHours(0, 0, 0, 0);
+        prevStart = d;
+        const e = new Date();
+        e.setDate(e.getDate() - 1);
+        e.setHours(23, 59, 59, 999);
+        prevEnd = e;
+        break;
+      }
+      case "yesterday": {
+        const d = new Date();
+        d.setDate(d.getDate() - 2);
+        d.setHours(0, 0, 0, 0);
+        prevStart = d;
+        const e = new Date();
+        e.setDate(e.getDate() - 2);
+        e.setHours(23, 59, 59, 999);
+        prevEnd = e;
+        break;
+      }
+      case "this_week": {
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1) - 7;
+        const d = new Date(now.getFullYear(), now.getMonth(), diff);
+        d.setHours(0, 0, 0, 0);
+        prevStart = d;
+        const e = new Date(d);
+        e.setDate(e.getDate() + 6);
+        e.setHours(23, 59, 59, 999);
+        prevEnd = e;
+        break;
+      }
+      case "last_week": {
+        const lastWeekStart = new Date();
+        lastWeekStart.setDate(lastWeekStart.getDate() - lastWeekStart.getDay() - 6);
+        lastWeekStart.setHours(0, 0, 0, 0);
+
+        const weekBeforeStart = new Date(lastWeekStart);
+        weekBeforeStart.setDate(weekBeforeStart.getDate() - 7);
+        prevStart = weekBeforeStart;
+        const weekBeforeEnd = new Date(weekBeforeStart);
+        weekBeforeEnd.setDate(weekBeforeEnd.getDate() + 6);
+        weekBeforeEnd.setHours(23, 59, 59, 999);
+        prevEnd = weekBeforeEnd;
+        break;
+      }
+      case "this_month": {
+        prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        prevEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        break;
+      }
+      case "last_month": {
+        prevStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        prevEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59, 999);
+        break;
+      }
+      case "this_year": {
+        prevStart = new Date(now.getFullYear() - 1, 0, 1);
+        prevEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+        break;
+      }
+      case "weekly": {
+        const d = new Date();
+        d.setDate(d.getDate() - 14);
+        prevStart = d;
+        const e = new Date();
+        e.setDate(e.getDate() - 7);
+        prevEnd = e;
+        break;
+      }
+      case "monthly": {
+        const d = new Date();
+        d.setDate(d.getDate() - 60);
+        prevStart = d;
+        const e = new Date();
+        e.setDate(e.getDate() - 30);
+        prevEnd = e;
+        break;
+      }
+    }
+  }
+
+  return { startDate: prevStart, endDate: prevEnd };
+};
+
+const calculatePeriodMetrics = async (organizationId, startDate, endDate) => {
+  if (!startDate || !endDate) return {
+    revenue: 0, profit: 0, salesCount: 0, productsSold: 0,
+    averageOrderValue: 0, uniqueCustomers: 0, poCount: 0, poTotalCost: 0,
+    inventoryMovementIn: 0, inventoryMovementOut: 0, hasData: false
+  };
+
+  const findFilter = buildFindFilter(organizationId, {
+    createdAt: { $gte: startDate, $lte: endDate }
+  });
+
+  const [invoices, pos, logs] = await Promise.all([
+    invoiceModel.find({ ...findFilter, status: "paid" }).populate("products.productId", "costPrice").lean(),
+    purchaseOrderModel.find({ ...findFilter, status: { $in: ["approved", "fulfilled", "pending"] } }).lean(),
+    stockLogModel.find(findFilter).lean()
+  ]);
+
+  let revenue = 0;
+  let costOfGoodsSold = 0;
+  let productsSold = 0;
+  const customers = new Set();
+
+  for (const inv of invoices) {
+    revenue += inv.total;
+    if (inv.customerName) customers.add(inv.customerName.trim());
+    for (const item of inv.products) {
+      productsSold += item.quantity;
+      const cost = item.productId?.costPrice || 0;
+      costOfGoodsSold += item.quantity * cost;
+    }
+  }
+
+  const profit = revenue - costOfGoodsSold;
+  const salesCount = invoices.length;
+  const averageOrderValue = salesCount > 0 ? revenue / salesCount : 0;
+
+  const poCount = pos.length;
+  const poTotalCost = pos.reduce((sum, po) => sum + (po.totalCost || 0), 0);
+
+  let inventoryMovementIn = 0;
+  let inventoryMovementOut = 0;
+  for (const log of logs) {
+    if (log.type === "in") inventoryMovementIn += log.quantity;
+    else if (log.type === "out") inventoryMovementOut += log.quantity;
+  }
+
+  return {
+    revenue: Math.round(revenue * 100) / 100,
+    profit: Math.round(profit * 100) / 100,
+    salesCount,
+    productsSold,
+    averageOrderValue: Math.round(averageOrderValue * 100) / 100,
+    uniqueCustomers: customers.size,
+    poCount,
+    poTotalCost: Math.round(poTotalCost * 100) / 100,
+    inventoryMovementIn,
+    inventoryMovementOut,
+    hasData: invoices.length > 0 || pos.length > 0 || logs.length > 0
+  };
+};
+
+const compareMetrics = (current, previous) => {
+  const calcPct = (curr, prev) => {
+    if (!prev || prev === 0) {
+      if (curr > 0) return 100.0;
+      return 0.0;
+    }
+    return Math.round(((curr - prev) / prev) * 10000) / 100;
+  };
+
+  return {
+    revenueChangePct: calcPct(current.revenue, previous.revenue),
+    profitChangePct: calcPct(current.profit, previous.profit),
+    salesCountChangePct: calcPct(current.salesCount, previous.salesCount),
+    productsSoldChangePct: calcPct(current.productsSold, previous.productsSold),
+    aovChangePct: calcPct(current.averageOrderValue, previous.averageOrderValue),
+    customersChangePct: calcPct(current.uniqueCustomers, previous.uniqueCustomers),
+    poCountChangePct: calcPct(current.poCount, previous.poCount),
+    poCostChangePct: calcPct(current.poTotalCost, previous.poTotalCost),
+    inventoryInChangePct: calcPct(current.inventoryMovementIn, previous.inventoryMovementIn),
+    inventoryOutChangePct: calcPct(current.inventoryMovementOut, previous.inventoryMovementOut),
+    hasHistoricalData: previous.hasData
+  };
+};
+
+const getTrendsData = async (organizationId, allProducts, allInvoices, supplierStatsMap, totalInventoryValue) => {
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+  sixMonthsAgo.setDate(1);
+  sixMonthsAgo.setHours(0, 0, 0, 0);
+
+  const monthlyAggregation = await invoiceModel.aggregate([
+    {
+      $match: buildFilter(organizationId, {
+        status: "paid",
+        createdAt: { $gte: sixMonthsAgo }
+      })
+    },
+    {
+      $group: {
+        _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+        revenue: { $sum: "$total" },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { _id: 1 } }
+  ]);
+
+  const months = [];
+  const startMonth = new Date(sixMonthsAgo);
+  for (let i = 0; i < 6; i++) {
+    const yr = startMonth.getFullYear();
+    const mo = String(startMonth.getMonth() + 1).padStart(2, "0");
+    months.push(`${yr}-${mo}`);
+    startMonth.setMonth(startMonth.getMonth() + 1);
+  }
+
+  const monthlyTrend = months.map(m => {
+    const found = monthlyAggregation.find(x => x._id === m);
+    return {
+      month: m,
+      revenue: found ? Math.round(found.revenue * 100) / 100 : 0,
+      salesCount: found ? found.count : 0
+    };
+  });
+
+  const fourWeeksAgo = new Date();
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 27);
+  fourWeeksAgo.setHours(0, 0, 0, 0);
+
+  const weeklyAggregation = await invoiceModel.aggregate([
+    {
+      $match: buildFilter(organizationId, {
+        status: "paid",
+        createdAt: { $gte: fourWeeksAgo }
+      })
+    },
+    {
+      $group: {
+        _id: { $dateToString: { format: "%Y-W%V", date: "$createdAt" } },
+        revenue: { $sum: "$total" },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { _id: 1 } }
+  ]);
+
+  let topSupplierName = "None";
+  let maxSupplierValuation = 0;
+  if (supplierStatsMap) {
+    for (const s of Object.values(supplierStatsMap)) {
+      if (s.valuation > maxSupplierValuation) {
+        maxSupplierValuation = s.valuation;
+        topSupplierName = s.name;
+      }
+    }
+  }
+  const supplierValuationDependencyPct = totalInventoryValue > 0 ? Math.round((maxSupplierValuation / totalInventoryValue) * 10000) / 100 : 0;
+
+  const allPOs = await purchaseOrderModel.find(buildFindFilter(organizationId, {
+    status: { $in: ["approved", "fulfilled"] }
+  })).populate("supplierId", "name").lean();
+
+  const supplierPOCostMap = {};
+  let totalPOCost = 0;
+  for (const po of allPOs) {
+    const sName = po.supplierId?.name || "Unknown";
+    totalPOCost += po.totalCost || 0;
+    supplierPOCostMap[sName] = (supplierPOCostMap[sName] || 0) + (po.totalCost || 0);
+  }
+
+  let topSupplierPOName = "None";
+  let maxSupplierPOCost = 0;
+  for (const [name, cost] of Object.entries(supplierPOCostMap)) {
+    if (cost > maxSupplierPOCost) {
+      maxSupplierPOCost = cost;
+      topSupplierPOName = name;
+    }
+  }
+  const supplierPurchaseDependencyPct = totalPOCost > 0 ? Math.round((maxSupplierPOCost / totalPOCost) * 10000) / 100 : 0;
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const last30DaysInvoices = await invoiceModel.find(buildFindFilter(organizationId, {
+    status: "paid",
+    createdAt: { $gte: thirtyDaysAgo }
+  })).populate("products.productId", "name sku").lean();
+
+  const productSalesMap = {};
+  for (const inv of last30DaysInvoices) {
+    for (const item of inv.products) {
+      if (item.productId) {
+        const pid = item.productId._id?.toString() || item.productId.toString();
+        const pName = item.productId.name || "Unknown Product";
+        const pSku = item.productId.sku || "";
+        if (!productSalesMap[pid]) {
+          productSalesMap[pid] = { name: pName, sku: pSku, quantitySold: 0, revenue: 0 };
+        }
+        productSalesMap[pid].quantitySold += item.quantity;
+        productSalesMap[pid].revenue += item.subtotal;
+      }
+    }
+  }
+
+  const topSellingIn30Days = Object.values(productSalesMap).sort((a, b) => b.quantitySold - a.quantitySold);
+  const fastMovingProducts = topSellingIn30Days.slice(0, 5);
+
+  const slowMovingProducts = allProducts
+    .filter(p => p.quantity > 0 && (!productSalesMap[p._id.toString()] || productSalesMap[p._id.toString()].quantitySold === 0))
+    .map(p => ({
+      name: p.name,
+      sku: p.sku,
+      quantity: p.quantity,
+      costPrice: p.costPrice,
+      valuation: p.quantity * p.costPrice
+    }))
+    .sort((a, b) => b.valuation - a.valuation)
+    .slice(0, 5);
+
+  return {
+    monthlySalesTrend: monthlyTrend,
+    weeklySalesTrend: weeklyAggregation,
+    supplierDependency: {
+      topSupplierByValuation: topSupplierName,
+      valuationDependencyPct: supplierValuationDependencyPct,
+      topSupplierByPurchaseCost: topSupplierPOName,
+      purchaseDependencyPct: supplierPurchaseDependencyPct
+    },
+    fastMovingProducts,
+    slowMovingProducts
+  };
+};
+
+const evaluateKPIHealth = (organizationId, metrics, trends, allProducts, unresolvedAnomaliesCount, unpaidInvoicesCount, totalInvoicesCount, negativeMarginProductsCount) => {
+  const kpis = [];
+
+  const addKPI = (name, value, status, indicator, reason) => {
+    // Map status to emoji if indicator is not provided
+    if (!indicator) {
+      const emojiMap = {
+        "Healthy": "😊",
+        "Needs Attention": "😐",
+        "High Risk": "😟"
+      };
+      indicator = emojiMap[status] || "•";
+    }
+    kpis.push({ name, value, status, indicator, reason });
+  };
+
+  // Revenue KPI
+  if (metrics.revenue === 0) {
+    addKPI("Revenue", "$0.00", "High Risk", "😟", "There is no revenue generated in the current period.");
+  } else {
+    const comparison = metrics.comparison;
+    if (comparison && comparison.hasHistoricalData && comparison.revenueChangePct !== null) {
+      const pct = comparison.revenueChangePct;
+      if (pct >= 5.0) {
+        addKPI("Revenue", `$${metrics.revenue.toLocaleString()}`, "Healthy", "😊", `Revenue is growing healthy at +${pct}% vs the previous period.`);
+      } else if (pct >= -10.0) {
+        addKPI("Revenue", `$${metrics.revenue.toLocaleString()}`, "Needs Attention", "😐", `Revenue growth is sluggish or slightly declining at ${pct}% vs the previous period.`);
+      } else {
+        addKPI("Revenue", `$${metrics.revenue.toLocaleString()}`, "High Risk", "😟", `Revenue has dropped significantly by ${pct}% vs the previous period.`);
+      }
+    } else {
+      addKPI("Revenue", `$${metrics.revenue.toLocaleString()}`, "Healthy", "😊", "Revenue is active. (Historical comparison data is not available to evaluate growth trends).");
+    }
+  }
+
+  // Gross Profit Margin KPI
+  const profitMargin = metrics.revenue > 0 ? (metrics.profit / metrics.revenue) * 100 : 0;
+  const formattedMargin = `${Math.round(profitMargin * 100) / 100}%`;
+  if (profitMargin >= 30.0) {
+    addKPI("Gross Profit Margin", formattedMargin, "Healthy", "😊", `Excellent profitability margin at ${formattedMargin}.`);
+  } else if (profitMargin >= 12.0) {
+    addKPI("Gross Profit Margin", formattedMargin, "Needs Attention", "😐", `Moderate profitability margin at ${formattedMargin}. Monitor pricing strategies.`);
+  } else {
+    addKPI("Gross Profit Margin", formattedMargin, "High Risk", "😟", `Critically low profit margin at ${formattedMargin}. Review cost prices and markup.`);
+  }
+
+  // Inventory Turnover KPI
+  const costOfSales = metrics.revenue - metrics.profit;
+  let totalInventoryValuation = 0;
+  let lowStockCount = 0;
+  let outOfStockCount = 0;
+
+  for (const p of allProducts) {
+    totalInventoryValuation += p.quantity * p.costPrice;
+    if (p.quantity === 0) outOfStockCount++;
+    else if (p.quantity <= p.reorderThreshold) lowStockCount++;
+  }
+
+  const inventoryTurnover = totalInventoryValuation > 0 ? costOfSales / totalInventoryValuation : 0;
+  const formattedTurnover = `${Math.round(inventoryTurnover * 100) / 100}x`;
+  if (inventoryTurnover >= 0.5) {
+    addKPI("Inventory Turnover", formattedTurnover, "Healthy", "😊", `Good inventory velocity at ${formattedTurnover} for the current period.`);
+  } else if (inventoryTurnover > 0) {
+    addKPI("Inventory Turnover", formattedTurnover, "Needs Attention", "😐", `Slow inventory movement at ${formattedTurnover}. Stock is taking longer to sell.`);
+  } else {
+    addKPI("Inventory Turnover", "0.00x", "Needs Attention", "😐", "Inventory turnover is zero as there were no sales recorded this period.");
+  }
+
+  // Dead Stock Share KPI
+  const deadStockValuation = trends.slowMovingProducts ? trends.slowMovingProducts.reduce((sum, p) => sum + p.valuation, 0) : 0;
+  const deadStockPct = totalInventoryValuation > 0 ? (deadStockValuation / totalInventoryValuation) * 100 : 0;
+  const formattedDeadPct = `${Math.round(deadStockPct * 100) / 100}%`;
+
+  if (deadStockPct <= 10.0) {
+    addKPI("Dead Stock Share", formattedDeadPct, "Healthy", "😊", `Dead stock is under control, representing only ${formattedDeadPct} of total inventory value.`);
+  } else if (deadStockPct <= 25.0) {
+    addKPI("Dead Stock Share", formattedDeadPct, "Needs Attention", "😐", `Dead stock represents ${formattedDeadPct} of inventory value. Risk of tied-up capital.`);
+  } else {
+    addKPI("Dead Stock Share", formattedDeadPct, "High Risk", "😟", `High dead stock volume at ${formattedDeadPct} of total inventory value. Immediate clearance recommended.`);
+  }
+
+  // Inventory Health Status KPI
+  const lowStockPct = allProducts.length > 0 ? (lowStockCount / allProducts.length) * 100 : 0;
+  const outOfStockPct = allProducts.length > 0 ? (outOfStockCount / allProducts.length) * 100 : 0;
+  if (outOfStockPct > 15.0 || lowStockPct > 30.0) {
+    addKPI("Inventory Health Status", `${Math.round(outOfStockPct)}% OOS / ${Math.round(lowStockPct)}% Low`, "High Risk", "😟", `High out-of-stock or low-stock rates pose stockout and lost sales risks.`);
+  } else if (outOfStockPct > 5.0 || lowStockPct > 15.0) {
+    addKPI("Inventory Health Status", `${Math.round(outOfStockPct)}% OOS / ${Math.round(lowStockPct)}% Low`, "Needs Attention", "😐", `Moderate level of low/out-of-stock items. Reorder suggestions should be reviewed.`);
+  } else {
+    addKPI("Inventory Health Status", `${Math.round(outOfStockPct)}% OOS / ${Math.round(lowStockPct)}% Low`, "Healthy", "😊", `Inventory levels are healthy. Minimal out-of-stock products.`);
+  }
+
+  // Supplier Concentration KPI
+  const valDep = trends.supplierDependency?.valuationDependencyPct || 0;
+  const formattedDep = `${valDep}%`;
+  const supplierName = trends.supplierDependency?.topSupplierByValuation || "N/A";
+  if (valDep < 40.0) {
+    addKPI("Supplier Concentration", formattedDep, "Healthy", "😊", `Supplier portfolio is diversified. Top supplier is ${supplierName} (${formattedDep}).`);
+  } else if (valDep <= 65.0) {
+    addKPI("Supplier Concentration", formattedDep, "Needs Attention", "😐", `Moderate supplier dependency. ${supplierName} supplies ${formattedDep} of inventory value.`);
+  } else {
+    addKPI("Supplier Concentration", formattedDep, "High Risk", "😟", `High supply chain risk! Top supplier ${supplierName} holds ${formattedDep} of total inventory value.`);
+  }
+
+  // Outstanding Payments KPI
+  const outstandingPct = totalInvoicesCount > 0 ? (unpaidInvoicesCount / totalInvoicesCount) * 100 : 0;
+  const formattedOutstanding = `${Math.round(outstandingPct * 100) / 100}%`;
+  if (outstandingPct <= 10.0) {
+    addKPI("Outstanding Payments", formattedOutstanding, "Healthy", "😊", `Unpaid invoices represent only ${formattedOutstanding} of total invoice count.`);
+  } else if (outstandingPct <= 25.0) {
+    addKPI("Outstanding Payments", formattedOutstanding, "Needs Attention", "😐", `Outstanding payments are elevated at ${formattedOutstanding}. Follow up on unpaid invoices.`);
+  } else {
+    addKPI("Outstanding Payments", formattedOutstanding, "High Risk", "😟", `Cash flow risk! Unpaid invoices comprise ${formattedOutstanding} of invoice volume.`);
+  }
+
+  // Negative Pricing Anomalies KPI
+  if (negativeMarginProductsCount > 0) {
+    addKPI("Negative Pricing Anomalies", `${negativeMarginProductsCount} products`, "High Risk", "😟", `${negativeMarginProductsCount} products have selling prices lower than cost prices, causing losses.`);
+  } else {
+    addKPI("Negative Pricing Anomalies", "0 products", "Healthy", "😊", "No products have pricing anomalies (selling price < cost price).");
+  }
+
+  // Stock Anomalies KPI
+  if (unresolvedAnomaliesCount > 0) {
+    const status = unresolvedAnomaliesCount > 3 ? "High Risk" : "Needs Attention";
+    const indicator = unresolvedAnomaliesCount > 3 ? "😟" : "😐";
+    addKPI("Stock Anomalies", `${unresolvedAnomaliesCount} unresolved`, status, indicator, `There are ${unresolvedAnomaliesCount} unresolved stock anomalies detected in the system.`);
+  } else {
+    addKPI("Stock Anomalies", "0 unresolved", "Healthy", "😊", "No unresolved stock anomalies currently detected.");
+  }
+
+  return kpis;
+};
 // ============ 1. INVENTORY TOOL ============
 
 const handleInventory = async (args, organizationId) => {
@@ -552,7 +1018,7 @@ const handlePurchases = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.createdBy = { $in: userIds };
     } else {
-      return { orders: [], count: 0, summary: { totalOrders: 0, totalCost: 0, averageOrderCost: 0, statusCounts: { pending: 0, approved: 0, rejected: 0, fulfilled: 0 }, vendorPerformance: [] } };
+      return { orders: [], count: 0, summary: { totalOrders: 0, totalCost: 0, averageOrderCost: 0, statusCounts: { pending: 0, approved: 0, rejected: 0, fulfilled: 0 }, vendorPerformance: [], comparison: null } };
     }
   }
 
@@ -693,12 +1159,26 @@ const handlePurchases = async (args, organizationId) => {
     averageLeadTime: s.leadTimeDays || "N/A"
   }));
 
+  // Time-based comparison
+  let comparison = null;
+  if (startDate && endDate) {
+    const prevRange = getPreviousDateRange(startDate, endDate, args.period);
+    const currentMetrics = await calculatePeriodMetrics(organizationId, startDate, endDate);
+    const previousMetrics = await calculatePeriodMetrics(organizationId, prevRange.startDate, prevRange.endDate);
+    comparison = {
+      current: currentMetrics,
+      previous: previousMetrics,
+      change: compareMetrics(currentMetrics, previousMetrics)
+    };
+  }
+
   const summary = {
     totalOrders: allOrdersForStats.length,
     totalCost: Math.round(totalCost * 100) / 100,
     averageOrderCost: allOrdersForStats.length > 0 ? Math.round((totalCost / allOrdersForStats.length) * 100) / 100 : 0,
     statusCounts,
-    vendorPerformance
+    vendorPerformance,
+    comparison
   };
 
   const paginatedOrders = orders.slice(0, limitValue);
@@ -743,7 +1223,7 @@ const handleSales = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.createdBy = { $in: userIds };
     } else {
-      return { invoices: [], count: 0, summary: { totalSales: 0, totalInvoices: 0, averageInvoiceValue: 0, statusCounts: { paid: 0, unpaid: 0, void: 0 }, customerMetrics: [] } };
+      return { invoices: [], count: 0, summary: { totalSales: 0, totalInvoices: 0, averageInvoiceValue: 0, statusCounts: { paid: 0, unpaid: 0, void: 0 }, customerMetrics: [], customerDetails: null, comparison: null } };
     }
   }
 
@@ -875,6 +1355,73 @@ const handleSales = async (args, organizationId) => {
     averageSpent: c.orderCount > 0 ? Math.round((c.totalSpent / c.orderCount) * 100) / 100 : 0
   }));
 
+  // Cross-module customer details
+  let customerDetails = null;
+  const customerSearchTerm = args.customer || args.search;
+  if (customerSearchTerm) {
+    const custInvoices = await invoiceModel.find(buildFindFilter(organizationId, {
+      customerName: new RegExp(customerSearchTerm, "i")
+    })).populate("products.productId", "name sku").lean();
+
+    if (custInvoices.length > 0) {
+      let paidCount = 0;
+      let unpaidCount = 0;
+      let outstanding = 0;
+      let totalSpent = 0;
+      const productsMap = {};
+
+      for (const inv of custInvoices) {
+        if (inv.status === "paid") {
+          paidCount++;
+          totalSpent += inv.total;
+        } else if (inv.status === "unpaid") {
+          unpaidCount++;
+          outstanding += inv.total;
+        }
+        for (const item of inv.products) {
+          if (item.productId) {
+            const pName = item.productId.name || "Unknown Product";
+            productsMap[pName] = (productsMap[pName] || 0) + item.quantity;
+          }
+        }
+      }
+
+      let purchaseFrequency = "Occasional customer";
+      if (custInvoices.length > 1) {
+        custInvoices.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        const firstDate = new Date(custInvoices[0].createdAt);
+        const lastDate = new Date(custInvoices[custInvoices.length - 1].createdAt);
+        const diffDays = Math.ceil((lastDate - firstDate) / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) {
+          const ordersPerMonth = (custInvoices.length / diffDays) * 30;
+          purchaseFrequency = `${Math.round(ordersPerMonth * 10) / 10} orders per month (average spacing of ${Math.round(diffDays / (custInvoices.length - 1))} days)`;
+        }
+      }
+
+      customerDetails = {
+        customerName: custInvoices[0].customerName,
+        totalInvoices: custInvoices.length,
+        paymentHistory: { paid: paidCount, unpaid: unpaidCount, outstandingBalance: Math.round(outstanding * 100) / 100 },
+        totalSpent: Math.round(totalSpent * 100) / 100,
+        productsPurchased: Object.entries(productsMap).map(([name, qty]) => ({ productName: name, quantity: qty })),
+        purchaseFrequency
+      };
+    }
+  }
+
+  // Time-based comparison
+  let comparison = null;
+  if (startDate && endDate) {
+    const prevRange = getPreviousDateRange(startDate, endDate, args.period);
+    const currentMetrics = await calculatePeriodMetrics(organizationId, startDate, endDate);
+    const previousMetrics = await calculatePeriodMetrics(organizationId, prevRange.startDate, prevRange.endDate);
+    comparison = {
+      current: currentMetrics,
+      previous: previousMetrics,
+      change: compareMetrics(currentMetrics, previousMetrics)
+    };
+  }
+
   const summary = {
     totalSales: Math.round(totalSales * 100) / 100,
     totalCostOfSales: Math.round(totalCostOfSales * 100) / 100,
@@ -883,7 +1430,9 @@ const handleSales = async (args, organizationId) => {
     totalInvoices: allSalesForStats.length,
     averageInvoiceValue: allSalesForStats.length > 0 ? Math.round((totalSales / allSalesForStats.length) * 100) / 100 : 0,
     statusCounts,
-    customerMetrics
+    customerMetrics,
+    customerDetails,
+    comparison
   };
 
   const paginatedInvoices = invoices.slice(0, limitValue);
@@ -920,6 +1469,70 @@ const handleOrganization = async (args, organizationId) => {
       .limit(limitValue)
       .lean();
 
+    // ===== NEW CODE START: Fetch invoice metrics per user =====
+    if (users.length > 0) {
+      const userIds = users.map(u => u._id);
+
+      // Get invoice counts and revenue per user
+      const invoiceMetrics = await invoiceModel.aggregate([
+        {
+          $match: {
+            organizationId: new mongoose.Types.ObjectId(organizationId),
+            createdBy: { $in: userIds },
+            status: "paid" // Only count paid invoices for revenue
+          }
+        },
+        {
+          $group: {
+            _id: "$createdBy",
+            invoicesCreated: { $sum: 1 },
+            revenueGenerated: { $sum: "$total" }
+          }
+        }
+      ]);
+
+      // Create a map for quick lookup
+      const metricsMap = {};
+      invoiceMetrics.forEach(metric => {
+        metricsMap[metric._id.toString()] = {
+          invoicesCreated: metric.invoicesCreated,
+          revenueGenerated: Math.round(metric.revenueGenerated * 100) / 100
+        };
+      });
+
+      // Enrich users with invoice metrics
+      const enrichedUsers = users.map(user => ({
+        ...user,
+        invoicesCreated: metricsMap[user._id.toString()]?.invoicesCreated || 0,
+        revenueGenerated: metricsMap[user._id.toString()]?.revenueGenerated || 0
+      }));
+
+      // Replace users array with enriched data
+      const finalUsers = enrichedUsers;
+
+      // Continue with stats using the original filter
+      const activeUsers = await userModel.countDocuments({ ...filter, isActive: true });
+      const stats = await userModel.aggregate([
+        { $match: buildFilter(organizationId, filter) },
+        { $group: { _id: "$role", count: { $sum: 1 } } }
+      ]);
+
+      const roleBreakdown = { admin: 0, manager: 0, staff: 0 };
+      for (const r of stats) {
+        if (roleBreakdown[r._id] !== undefined) roleBreakdown[r._id] = r.count;
+      }
+
+      const summary = {
+        totalUsers: finalUsers.length,
+        activeUsers,
+        roleBreakdown
+      };
+
+      return { users: finalUsers, count: finalUsers.length, summary };
+    }
+    // ===== NEW CODE END =====
+
+    // If no users found, return empty
     const activeUsers = await userModel.countDocuments({ ...filter, isActive: true });
     const stats = await userModel.aggregate([
       { $match: buildFilter(organizationId, filter) },
@@ -980,6 +1593,94 @@ const handleOrganization = async (args, organizationId) => {
     return { organizations, count: organizations.length, summary };
   }
 };
+// const handleOrganization = async (args, organizationId) => {
+//   let searchFilter = {};
+
+//   // Enforce Tenant Boundaries
+//   if (organizationId) {
+//     // Org Admin: fetch users only belonging to their own organization
+//     const filter = { organizationId };
+//     if (args.search) {
+//       filter.$or = [
+//         { name: new RegExp(args.search, "i") },
+//         { email: new RegExp(args.search, "i") }
+//       ];
+//     }
+//     if (args.role && args.role !== "all") {
+//       filter.role = args.role;
+//     }
+//     if (args.isActive !== undefined) {
+//       filter.isActive = args.isActive;
+//     }
+
+//     const limitValue = Math.min(args.limit || 50, 100);
+//     const users = await userModel
+//       .find(filter)
+//       .select("-password -tokenVersion -__v")
+//       .sort(args.sortBy ? { [args.sortBy]: args.sortOrder === "desc" ? -1 : 1 } : { createdAt: -1 })
+//       .limit(limitValue)
+//       .lean();
+
+//     const activeUsers = await userModel.countDocuments({ ...filter, isActive: true });
+//     const stats = await userModel.aggregate([
+//       { $match: buildFilter(organizationId, filter) },
+//       { $group: { _id: "$role", count: { $sum: 1 } } }
+//     ]);
+
+//     const roleBreakdown = { admin: 0, manager: 0, staff: 0 };
+//     for (const r of stats) {
+//       if (roleBreakdown[r._id] !== undefined) roleBreakdown[r._id] = r.count;
+//     }
+
+//     const summary = {
+//       totalUsers: users.length,
+//       activeUsers,
+//       roleBreakdown
+//     };
+
+//     return { users, count: users.length, summary };
+//   } else {
+//     // Super Admin: platform-wide queries across organizations and users
+//     if (args.search) {
+//       searchFilter = { name: new RegExp(args.search, "i") };
+//     }
+
+//     const limitValue = Math.min(args.limit || 20, 100);
+//     const organizationsList = await organizationModel.find(searchFilter).limit(limitValue).lean();
+//     const organizations = await Promise.all(organizationsList.map(async (org) => {
+//       const usersCount = await userModel.countDocuments({ organizationId: org._id });
+//       const productsCount = await productModel.countDocuments({ organizationId: org._id });
+//       const salesValueResult = await invoiceModel.aggregate([
+//         { $match: { organizationId: org._id, status: "paid" } },
+//         { $group: { _id: null, total: { $sum: "$total" } } }
+//       ]);
+//       const salesValue = salesValueResult[0]?.total || 0;
+
+//       return {
+//         _id: org._id,
+//         name: org.name,
+//         contactEmail: org.contactEmail,
+//         status: org.status,
+//         usersCount,
+//         productsCount,
+//         salesValue: Math.round(salesValue * 100) / 100,
+//         createdAt: org.createdAt
+//       };
+//     }));
+
+//     const totalOrgs = await organizationModel.countDocuments();
+//     const totalUsers = await userModel.countDocuments();
+//     const activeUsers = await userModel.countDocuments({ isActive: true });
+
+//     const summary = {
+//       totalOrganizations: totalOrgs,
+//       totalUsers,
+//       activeUsers
+//     };
+
+//     return { organizations, count: organizations.length, summary };
+//   }
+// };
 
 // ============ 5. INSIGHT TOOL ============
 
@@ -1034,6 +1735,124 @@ const handleInsights = async (args, organizationId) => {
           { $group: { _id: "$status", count: { $sum: 1 }, totalCost: { $sum: "$totalCost" } } }
         ])
       ]);
+
+      // ── NEW: fetch invoice summary, customer rankings, reorder suggestions, forecasts ──
+      const [
+        allInvoicesForSummary,
+        reorderSuggestionsRaw,
+        forecastsRaw,
+      ] = await Promise.all([
+        // All invoices (any status) for the full invoice summary
+        invoiceModel.find(buildFindFilter(organizationId)).select("total status customerName").lean(),
+        // Pending reorder suggestions with product + supplier info
+        reorderSuggestionModel
+          .find(buildFindFilter(organizationId, { status: "pending" }))
+          .populate({ path: "productId", select: "name sku quantity reorderThreshold supplierId" })
+          .sort({ suggestedReorderDate: 1 })
+          .limit(20)
+          .lean(),
+        // Demand forecasts for urgency summary
+        demandForecastModel
+          .find(buildFindFilter(organizationId))
+          .populate("productId", "name sku quantity")
+          .sort({ createdAt: -1 })
+          .lean(),
+      ]);
+
+      // Invoice summary
+      let invoiceTotalRevenue = 0;
+      let invoiceTotalOutstanding = 0;
+      let invoicePaidCount = 0;
+      let invoiceUnpaidCount = 0;
+      let invoiceVoidCount = 0;
+      const customerSpendMap = {};
+
+      for (const inv of allInvoicesForSummary) {
+        if (inv.status === "paid") {
+          invoicePaidCount++;
+          invoiceTotalRevenue += inv.total || 0;
+        } else if (inv.status === "unpaid") {
+          invoiceUnpaidCount++;
+          invoiceTotalOutstanding += inv.total || 0;
+        } else if (inv.status === "void") {
+          invoiceVoidCount++;
+        }
+        if (inv.status === "paid" && inv.customerName) {
+          const cName = inv.customerName.trim();
+          customerSpendMap[cName] = (customerSpendMap[cName] || 0) + (inv.total || 0);
+        }
+      }
+
+      const invoiceSummary = {
+        totalInvoices: allInvoicesForSummary.length,
+        paidCount: invoicePaidCount,
+        unpaidCount: invoiceUnpaidCount,
+        voidCount: invoiceVoidCount,
+        totalRevenue: Math.round(invoiceTotalRevenue * 100) / 100,
+        totalOutstanding: Math.round(invoiceTotalOutstanding * 100) / 100,
+      };
+
+      // Customer rankings (top 10 by revenue)
+      const topCustomers = Object.entries(customerSpendMap)
+        .map(([name, total]) => ({ customerName: name, totalSpent: Math.round(total * 100) / 100 }))
+        .sort((a, b) => b.totalSpent - a.totalSpent)
+        .slice(0, 10);
+
+      // Reorder suggestions with supplier name + urgency
+      const reorderSuggestions = await Promise.all(reorderSuggestionsRaw.map(async (s) => {
+        let supplierName = "N/A";
+        if (s.productId?.supplierId) {
+          const supp = await supplierModel.findById(s.productId.supplierId).select("name").lean();
+          supplierName = supp?.name || "N/A";
+        }
+        return {
+          productName: s.productId?.name || "N/A",
+          sku: s.productId?.sku || "N/A",
+          currentStock: s.productId?.quantity ?? "N/A",
+          reorderThreshold: s.productId?.reorderThreshold ?? "N/A",
+          suggestedQuantity: s.suggestedQuantity,
+          suggestedReorderDate: s.suggestedReorderDate,
+          supplierName,
+          urgency: new Date(s.suggestedReorderDate) <= new Date() ? "URGENT" : "NORMAL",
+          reasoning: s.reasoning,
+        };
+      }));
+
+      // Forecast urgency summary (counts only — not full per-product list, to control payload)
+      let forecastUrgent = 0;
+      let forecastWarning = 0;
+      let forecastOk = 0;
+      const forecastUrgentProducts = [];
+
+      for (const f of forecastsRaw) {
+        const days = f.forecastPeriod === "7_days" ? 7 : (f.forecastPeriod === "30_days" ? 30 : 90);
+        const dailyDemand = f.predictedDemand / days;
+        const qty = f.productId?.quantity || 0;
+        const daysUntilStockout = dailyDemand > 0 ? Math.max(0, Math.floor(qty / dailyDemand)) : 9999;
+
+        if (daysUntilStockout < 7) {
+          forecastUrgent++;
+          forecastUrgentProducts.push({
+            productName: f.productId?.name || "N/A",
+            sku: f.productId?.sku || "N/A",
+            daysUntilStockout,
+            forecastPeriod: f.forecastPeriod,
+          });
+        } else if (daysUntilStockout < 14) {
+          forecastWarning++;
+        } else {
+          forecastOk++;
+        }
+      }
+
+      const forecastSummary = {
+        totalForecasted: forecastsRaw.length,
+        urgentCount: forecastUrgent,
+        warningCount: forecastWarning,
+        okCount: forecastOk,
+        urgentProducts: forecastUrgentProducts.slice(0, 5), // top 5 most urgent only
+      };
+      // ── END NEW ──
 
       // Calculate valuation, potential profit/revenue
       let totalInventoryValue = 0;
@@ -1117,6 +1936,40 @@ const handleInsights = async (args, organizationId) => {
         else if (status === "rejected") { purchases.rejectedCount = count; purchases.rejectedCost = cost; }
       }
 
+      // Time-based comparison
+      const prevRange = getPreviousDateRange(startDate, endDate, args.period || "this_month");
+      const currentMetrics = await calculatePeriodMetrics(organizationId, startDate, endDate);
+      const previousMetrics = await calculatePeriodMetrics(organizationId, prevRange.startDate, prevRange.endDate);
+      const comparison = {
+        current: currentMetrics,
+        previous: previousMetrics,
+        change: compareMetrics(currentMetrics, previousMetrics)
+      };
+
+      // Trends data
+      const trends = await getTrendsData(organizationId, allProducts, allInvoices, supplierStatsMap, totalInventoryValue);
+
+      // Fetch unpaid invoices and total invoices counts for KPI health
+      const [unpaidInvoicesCount, totalInvoicesCount] = await Promise.all([
+        invoiceModel.countDocuments(buildFindFilter(organizationId, { status: "unpaid" })),
+        invoiceModel.countDocuments(buildFindFilter(organizationId))
+      ]);
+
+      // Calculate negative margin products count
+      const negativeMarginProductsCount = allProducts.filter(p => p.sellingPrice < p.costPrice).length;
+
+      // Evaluate KPI health
+      const kpis = evaluateKPIHealth(
+        organizationId,
+        { revenue: currentMetrics.revenue, profit: currentMetrics.profit, comparison },
+        trends,
+        allProducts,
+        anomaliesCount,
+        unpaidInvoicesCount,
+        totalInvoicesCount,
+        negativeMarginProductsCount
+      );
+
       const dashboard = {
         metrics: {
           totalProducts,
@@ -1152,7 +2005,15 @@ const handleInsights = async (args, organizationId) => {
         })),
         purchases,
         period: args.period || "this_month",
-        dateRange: { startDate, endDate }
+        dateRange: { startDate, endDate },
+        comparison,
+        trends,
+        kpis,
+        // ── NEW sections ──
+        invoiceSummary,
+        topCustomers,
+        reorderSuggestions,
+        forecastSummary,
       };
 
       return { dashboard };
@@ -1454,6 +2315,18 @@ const handleGetDetails = async (args, organizationId) => {
         margin: p.sellingPrice > 0 ? Math.round(((p.sellingPrice - p.costPrice) / p.sellingPrice) * 10000) / 100 : 0
       }));
 
+      // Enrichment
+      const allSupplierProducts = await productModel.find(buildFindFilter(organizationId, { supplierId: supplier._id, isActive: true })).select("quantity costPrice").lean();
+      const totalInventoryValue = allSupplierProducts.reduce((sum, p) => sum + (p.quantity * p.costPrice), 0);
+
+      const allSupplierPOs = await purchaseOrderModel.find(buildFindFilter(organizationId, { supplierId: supplier._id })).sort({ createdAt: -1 }).lean();
+      const totalPurchaseCost = allSupplierPOs.reduce((sum, po) => sum + (po.totalCost || 0), 0);
+      const recentDeliveries = allSupplierPOs.filter(po => po.status === "fulfilled").slice(0, 5).map(po => ({
+        poNumber: po.poNumber,
+        totalCost: po.totalCost,
+        deliveredAt: po.updatedAt || po.createdAt
+      }));
+
       return {
         supplier: {
           name: supplier.name,
@@ -1464,6 +2337,9 @@ const handleGetDetails = async (args, organizationId) => {
           leadTimeDays: supplier.leadTimeDays,
           productsCount: formattedProducts.length,
           suppliedProducts: formattedProducts,
+          totalInventoryValue: Math.round(totalInventoryValue * 100) / 100,
+          totalPurchaseCost: Math.round(totalPurchaseCost * 100) / 100,
+          recentDeliveries,
           recentPurchaseOrders: recentPOs.map(po => ({
             poNumber: po.poNumber,
             totalCost: po.totalCost,
@@ -1479,7 +2355,7 @@ const handleGetDetails = async (args, organizationId) => {
       const category = await categoryModel.findOne({ ...baseQuery, ...q }).lean();
       if (!category) return { message: `Category "${identifier}" not found` };
 
-      const products = await productModel.find(buildFindFilter(organizationId, { categoryId: category._id, isActive: true })).select("name sku quantity costPrice sellingPrice").lean();
+      const products = await productModel.find(buildFindFilter(organizationId, { categoryId: category._id, isActive: true })).select("name sku quantity costPrice sellingPrice supplierId").lean();
       const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
       const valuation = products.reduce((sum, p) => sum + (p.quantity * p.costPrice), 0);
 
@@ -1492,6 +2368,32 @@ const handleGetDetails = async (args, organizationId) => {
         valuation: p.quantity * p.costPrice
       }));
 
+      // Enrichment: Category -> Products + Inventory Value + Sales + Profit + Stock Levels + Suppliers
+      const productIdsInCat = products.map(p => p._id.toString());
+      const categoryInvoices = await invoiceModel.find(buildFindFilter(organizationId, {
+        status: "paid",
+        "products.productId": { $in: productIdsInCat }
+      })).populate("products.productId", "costPrice").lean();
+
+      let totalSales = 0;
+      let totalCostOfSales = 0;
+      let salesCount = 0;
+
+      for (const inv of categoryInvoices) {
+        for (const item of inv.products) {
+          if (item.productId && productIdsInCat.includes(item.productId._id?.toString() || item.productId.toString())) {
+            totalSales += item.subtotal;
+            totalCostOfSales += item.quantity * (item.productId.costPrice || 0);
+            salesCount += item.quantity;
+          }
+        }
+      }
+      const totalProfit = totalSales - totalCostOfSales;
+
+      const supplierIds = [...new Set(products.filter(p => p.supplierId).map(p => p.supplierId.toString()))];
+      const suppliersList = await supplierModel.find({ _id: { $in: supplierIds } }).select("name").lean();
+      const supplierNames = suppliersList.map(s => s.name);
+
       return {
         category: {
           name: category.name,
@@ -1499,6 +2401,10 @@ const handleGetDetails = async (args, organizationId) => {
           productCount: products.length,
           totalStock,
           valuation: Math.round(valuation * 100) / 100,
+          totalSales: Math.round(totalSales * 100) / 100,
+          totalProfit: Math.round(totalProfit * 100) / 100,
+          salesQuantity: salesCount,
+          suppliers: supplierNames,
           sampleProducts: formattedProducts
         }
       };
@@ -1602,6 +2508,37 @@ const handleGetDetails = async (args, organizationId) => {
         stockLogModel.find(buildFindFilter(organizationId, { performedBy: user._id })).populate("productId", "name sku").sort({ createdAt: -1 }).limit(5).lean()
       ]);
 
+      // Enrichment: Employee -> Invoices Created + Revenue Generated + Profit Generated + Inventory Transactions + Purchase Orders + Operational Activity
+      const [allUserInvoices, allUserPOs, allUserLogs] = await Promise.all([
+        invoiceModel.find(buildFindFilter(organizationId, { createdBy: user._id })).populate("products.productId", "costPrice").lean(),
+        purchaseOrderModel.find(buildFindFilter(organizationId, { createdBy: user._id })).lean(),
+        stockLogModel.find(buildFindFilter(organizationId, { performedBy: user._id })).lean()
+      ]);
+
+      let revenueGenerated = 0;
+      let profitGenerated = 0;
+      let paidInvoicesCount = 0;
+      for (const inv of allUserInvoices) {
+        if (inv.status === "paid") {
+          paidInvoicesCount++;
+          revenueGenerated += inv.total;
+          let cost = 0;
+          for (const p of inv.products) {
+            cost += p.quantity * (p.productId?.costPrice || 0);
+          }
+          profitGenerated += (inv.total - cost);
+        }
+      }
+
+      const purchaseOrdersTotalCost = allUserPOs.reduce((sum, po) => sum + (po.totalCost || 0), 0);
+
+      let stockLogsInQty = 0;
+      let stockLogsOutQty = 0;
+      for (const log of allUserLogs) {
+        if (log.type === "in") stockLogsInQty += log.quantity;
+        else if (log.type === "out") stockLogsOutQty += log.quantity;
+      }
+
       return {
         user: {
           name: user.name,
@@ -1610,9 +2547,15 @@ const handleGetDetails = async (args, organizationId) => {
           isActive: user.isActive,
           createdAt: user.createdAt,
           activitySummary: {
-            invoicesCreated: recentInvoices.length,
-            purchaseOrdersCreated: recentPOs.length,
-            stockLogsPerformed: recentLogs.length
+            invoicesCreated: allUserInvoices.length,
+            paidInvoicesCreated: paidInvoicesCount,
+            revenueGenerated: Math.round(revenueGenerated * 100) / 100,
+            profitGenerated: Math.round(profitGenerated * 100) / 100,
+            purchaseOrdersCreated: allUserPOs.length,
+            purchaseOrdersTotalCost: Math.round(purchaseOrdersTotalCost * 100) / 100,
+            stockLogsPerformed: allUserLogs.length,
+            stockLogsInQuantity: stockLogsInQty,
+            stockLogsOutQuantity: stockLogsOutQty
           },
           recentInvoices: recentInvoices.map(s => ({
             invoiceNumber: s.invoiceNumber,

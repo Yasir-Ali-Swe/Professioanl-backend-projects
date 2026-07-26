@@ -50,10 +50,10 @@ const parseDateRange = (args) => {
   let startDate = null;
   let endDate = new Date();
 
-  if (args.startDate && args.endDate) {
+  if (args.startDate || args.endDate) {
     return {
-      startDate: new Date(args.startDate),
-      endDate: new Date(args.endDate),
+      startDate: args.startDate ? new Date(args.startDate) : null,
+      endDate: args.endDate ? new Date(args.endDate) : new Date(),
     };
   }
 
@@ -147,6 +147,19 @@ const findSupplier = async (organizationId, name) => {
 };
 
 /**
+ * Find user IDs matching a name (for staff/creator filtering)
+ */
+const findUserIdsByName = async (organizationId, name) => {
+  if (!name) return [];
+  const query = { name: new RegExp(name, "i") };
+  if (organizationId) {
+    query.organizationId = organizationId;
+  }
+  const users = await userModel.find(query).select("_id");
+  return users.map(u => u._id);
+};
+
+/**
  * Safe string to ObjectId conversion helper for aggregates
  */
 const toObjectId = (id) => {
@@ -184,7 +197,6 @@ const handleInventory = async (args, organizationId) => {
   }
 
   if (args.minMargin || args.maxMargin) {
-    // Margin is calculated as (sellingPrice - costPrice) / sellingPrice
     const marginExpr = {
       $cond: [
         { $gt: ["$sellingPrice", 0] },
@@ -197,31 +209,38 @@ const handleInventory = async (args, organizationId) => {
     if (args.maxMargin) filter.$expr.$lte = [marginExpr, args.maxMargin];
   }
 
-  if (args.addedPeriod) {
-    const { startDate, endDate } = parseDateRange({ period: args.addedPeriod });
-    if (startDate) {
-      filter.createdAt = { $gte: startDate, $lte: endDate };
+  const { startDate, endDate } = parseDateRange(args);
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = startDate;
+    if (endDate) filter.createdAt.$lte = endDate;
+  }
+
+  if (args.creatorName) {
+    const userIds = await findUserIdsByName(organizationId, args.creatorName);
+    if (userIds.length > 0) {
+      filter.createdBy = { $in: userIds };
+    } else {
+      return { products: [], count: 0, summary: { totalProducts: 0, totalStock: 0, totalInventoryValue: 0, totalPotentialRevenue: 0, totalPotentialProfit: 0, averageCost: 0, averageSellingPrice: 0, highestPrice: 0, lowestPrice: 0, lowStockCount: 0, outOfStockCount: 0, deadStockCount: 0, topProfitProducts: [], lowestProfitProducts: [], negativeMarginProducts: [] } };
     }
   }
 
   // 2. Handle Stock Status (incorporating Dead Stock query)
   let activeProductIds = [];
-  if (args.stockStatus === "dead_stock" || !args.stockStatus) {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const activeSales = await invoiceModel.find(buildFindFilter(organizationId, {
-      status: "paid",
-      createdAt: { $gte: thirtyDaysAgo }
-    })).select("products.productId");
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const activeSales = await invoiceModel.find(buildFindFilter(organizationId, {
+    status: "paid",
+    createdAt: { $gte: thirtyDaysAgo }
+  })).select("products.productId");
 
-    const idSet = new Set();
-    for (const sale of activeSales) {
-      for (const p of sale.products) {
-        if (p.productId) idSet.add(p.productId.toString());
-      }
+  const idSet = new Set();
+  for (const sale of activeSales) {
+    for (const p of sale.products) {
+      if (p.productId) idSet.add(p.productId.toString());
     }
-    activeProductIds = Array.from(idSet);
   }
+  activeProductIds = Array.from(idSet);
 
   if (args.stockStatus) {
     switch (args.stockStatus) {
@@ -349,17 +368,12 @@ const handleInventory = async (args, organizationId) => {
   const pageValue = Math.max(args.page || 1, 1);
   const skipValue = (pageValue - 1) * limitValue;
 
-  const totalProducts = await productModel.countDocuments(filter);
   const rawProducts = await productModel
     .find(filter)
     .populate("categoryId", "name")
     .populate("supplierId", "name contactPerson")
-    .skip(skipValue)
-    .limit(limitValue)
-    .sort(args.sortBy ? { [args.sortBy]: args.sortOrder === "desc" ? -1 : 1 } : { createdAt: -1 })
     .lean();
 
-  // Process required fields and calculations
   const products = rawProducts.map((p) => {
     const profit = p.sellingPrice - p.costPrice;
     const margin = p.sellingPrice > 0 ? profit / p.sellingPrice : 0;
@@ -376,7 +390,7 @@ const handleInventory = async (args, organizationId) => {
       costPrice: p.costPrice,
       sellingPrice: p.sellingPrice,
       profit: Math.round(profit * 100) / 100,
-      margin: Math.round(margin * 10000) / 100, // percentage representation
+      margin: Math.round(margin * 10000) / 100, // percentage
       inventoryValue: Math.round(inventoryValue * 100) / 100,
       potentialRevenue: Math.round(potentialRevenue * 100) / 100,
       potentialProfit: Math.round(potentialProfit * 100) / 100,
@@ -391,74 +405,114 @@ const handleInventory = async (args, organizationId) => {
   });
 
   // ABC Analysis calculations across the queried set
-  const allProductsForStats = await productModel.find(filter).select("quantity costPrice sellingPrice reorderThreshold").lean();
-
   let totalStock = 0;
   let totalInventoryValue = 0;
   let totalPotentialRevenue = 0;
   let totalPotentialProfit = 0;
   let maxPrice = 0;
-  let minPrice = allProductsForStats[0]?.sellingPrice || 0;
+  let minPrice = products[0]?.sellingPrice || 0;
   let lowStockCount = 0;
   let outOfStockCount = 0;
   let deadStockCount = 0;
+  const productMargins = [];
+  const negativeMarginProducts = [];
 
-  const sortedForAbc = allProductsForStats.map((p) => {
-    const val = p.quantity * p.costPrice;
+  for (const p of products) {
     totalStock += p.quantity;
-    totalInventoryValue += val;
-    totalPotentialRevenue += p.quantity * p.sellingPrice;
-    totalPotentialProfit += p.quantity * (p.sellingPrice - p.costPrice);
+    totalInventoryValue += p.inventoryValue;
+    totalPotentialRevenue += p.potentialRevenue;
+    totalPotentialProfit += p.potentialProfit;
+
     if (p.sellingPrice > maxPrice) maxPrice = p.sellingPrice;
     if (p.sellingPrice < minPrice) minPrice = p.sellingPrice;
     if (p.quantity === 0) outOfStockCount++;
-    else if (p.quantity <= p.reorderThreshold) lowStockCount++;
+    else if (p.quantity <= p.reorderLevel) lowStockCount++;
 
-    // Check if dead stock
     if (p.quantity > 0 && !activeProductIds.includes(p._id.toString())) {
       deadStockCount++;
     }
 
-    return { id: p._id.toString(), value: val };
-  }).sort((a, b) => b.value - a.value);
+    productMargins.push({
+      name: p.name,
+      sku: p.sku,
+      profit: p.profit,
+      margin: p.margin,
+      potentialProfit: p.potentialProfit
+    });
 
-  // Assign ABC classifications
+    if (p.profit < 0) {
+      negativeMarginProducts.push({
+        name: p.name,
+        sku: p.sku,
+        costPrice: p.costPrice,
+        sellingPrice: p.sellingPrice,
+        profit: p.profit,
+        margin: p.margin
+      });
+    }
+  }
+
+  // Assign ABC classifications in memory
+  const sortedForAbc = [...products].sort((a, b) => b.inventoryValue - a.inventoryValue);
   let cumulativeValue = 0;
   const abcMap = {};
   for (const item of sortedForAbc) {
-    cumulativeValue += item.value;
+    cumulativeValue += item.inventoryValue;
     const percentage = totalInventoryValue > 0 ? cumulativeValue / totalInventoryValue : 0;
-    if (percentage <= 0.70) abcMap[item.id] = "A";
-    else if (percentage <= 0.90) abcMap[item.id] = "B";
-    else abcMap[item.id] = "C";
+    if (percentage <= 0.70) abcMap[item._id.toString()] = "A";
+    else if (percentage <= 0.90) abcMap[item._id.toString()] = "B";
+    else abcMap[item._id.toString()] = "C";
   }
 
-  // Enrich returned items with ABC tags
   const enrichedProducts = products.map(p => ({
     ...p,
     abcClassification: abcMap[p._id.toString()] || "C"
   }));
 
+  // Sort in memory
+  if (args.sortBy) {
+    const sortField = args.sortBy;
+    const isDesc = args.sortOrder === "desc";
+    enrichedProducts.sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+
+      if (typeof valA === "string") {
+        return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+      }
+      return isDesc ? (valB - valA) : (valA - valB);
+    });
+  } else {
+    enrichedProducts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+
+  const topProfitProducts = [...productMargins].sort((a, b) => b.potentialProfit - a.potentialProfit).slice(0, 5);
+  const lowestProfitProducts = [...productMargins].sort((a, b) => a.potentialProfit - b.potentialProfit).slice(0, 5);
+
   const summary = {
-    totalProducts,
+    totalProducts: enrichedProducts.length,
     totalStock,
     totalInventoryValue: Math.round(totalInventoryValue * 100) / 100,
     totalPotentialRevenue: Math.round(totalPotentialRevenue * 100) / 100,
     totalPotentialProfit: Math.round(totalPotentialProfit * 100) / 100,
-    averageCost: allProductsForStats.length > 0
-      ? Math.round((allProductsForStats.reduce((sum, p) => sum + p.costPrice, 0) / allProductsForStats.length) * 100) / 100
+    averageCost: enrichedProducts.length > 0
+      ? Math.round((enrichedProducts.reduce((sum, p) => sum + p.costPrice, 0) / enrichedProducts.length) * 100) / 100
       : 0,
-    averageSellingPrice: allProductsForStats.length > 0
-      ? Math.round((allProductsForStats.reduce((sum, p) => sum + p.sellingPrice, 0) / allProductsForStats.length) * 100) / 100
+    averageSellingPrice: enrichedProducts.length > 0
+      ? Math.round((enrichedProducts.reduce((sum, p) => sum + p.sellingPrice, 0) / enrichedProducts.length) * 100) / 100
       : 0,
     highestPrice: Math.round(maxPrice * 100) / 100,
     lowestPrice: Math.round(minPrice * 100) / 100,
     lowStockCount,
     outOfStockCount,
     deadStockCount,
+    topProfitProducts,
+    lowestProfitProducts,
+    negativeMarginProducts
   };
 
-  return { products: enrichedProducts, count: enrichedProducts.length, summary };
+  const paginated = enrichedProducts.slice(skipValue, skipValue + limitValue);
+  return { products: paginated, count: enrichedProducts.length, summary };
 };
 
 // ============ 2. PURCHASE TOOL ============
@@ -468,8 +522,10 @@ const handlePurchases = async (args, organizationId) => {
 
   // Predefined or manual date period
   const { startDate, endDate } = parseDateRange(args);
-  if (startDate) {
-    filter.createdAt = { $gte: startDate, $lte: endDate };
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = startDate;
+    if (endDate) filter.createdAt.$lte = endDate;
   }
 
   if (args.supplier) {
@@ -489,6 +545,15 @@ const handlePurchases = async (args, organizationId) => {
 
   if (args.search) {
     filter.poNumber = new RegExp(args.search, "i");
+  }
+
+  if (args.creatorName) {
+    const userIds = await findUserIdsByName(organizationId, args.creatorName);
+    if (userIds.length > 0) {
+      filter.createdBy = { $in: userIds };
+    } else {
+      return { orders: [], count: 0, summary: { totalOrders: 0, totalCost: 0, averageOrderCost: 0, statusCounts: { pending: 0, approved: 0, rejected: 0, fulfilled: 0 }, vendorPerformance: [] } };
+    }
   }
 
   // Handle Grouping for purchases
@@ -547,8 +612,6 @@ const handlePurchases = async (args, organizationId) => {
     .find(filter)
     .populate("supplierId", "name contactPerson email leadTimeDays")
     .populate("createdBy", "name")
-    .sort(args.sortBy ? { [args.sortBy === "date" ? "createdAt" : args.sortBy]: args.sortOrder === "desc" ? -1 : 1 } : { createdAt: -1 })
-    .limit(limitValue)
     .lean();
 
   const orders = rawOrders.map(o => ({
@@ -559,9 +622,32 @@ const handlePurchases = async (args, organizationId) => {
     totalCost: Math.round(o.totalCost * 100) / 100,
     status: o.status,
     createdBy: o.createdBy?.name || "N/A",
-    leadTimeDays: o.supplierId?.leadTimeDays || "N/A",
+    leadTimeDays: o.supplierId?.leadTimeDays !== undefined ? o.supplierId.leadTimeDays : "N/A",
     createdAt: o.createdAt,
   }));
+
+  // Sort in memory (specifically for populated lead time fields)
+  if (args.sortBy) {
+    const sortField = args.sortBy === "date" ? "createdAt" : (args.sortBy === "leadTime" ? "leadTimeDays" : args.sortBy);
+    const isDesc = args.sortOrder === "desc";
+    orders.sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+
+      if (valA === "N/A") return 1;
+      if (valB === "N/A") return -1;
+
+      if (sortField === "createdAt") {
+        return isDesc ? new Date(valB) - new Date(valA) : new Date(valA) - new Date(valB);
+      }
+      if (typeof valA === "string") {
+        return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+      }
+      return isDesc ? (valB - valA) : (valA - valB);
+    });
+  } else {
+    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
 
   // Summary statistics
   const allOrdersForStats = await purchaseOrderModel.find(filter).select("totalCost status").lean();
@@ -615,7 +701,8 @@ const handlePurchases = async (args, organizationId) => {
     vendorPerformance
   };
 
-  return { orders, count: orders.length, summary };
+  const paginatedOrders = orders.slice(0, limitValue);
+  return { orders: paginatedOrders, count: orders.length, summary };
 };
 
 // ============ 3. SALES TOOL ============
@@ -624,8 +711,10 @@ const handleSales = async (args, organizationId) => {
   const filter = buildFindFilter(organizationId);
 
   const { startDate, endDate } = parseDateRange(args);
-  if (startDate) {
-    filter.createdAt = { $gte: startDate, $lte: endDate };
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = startDate;
+    if (endDate) filter.createdAt.$lte = endDate;
   }
 
   if (args.customer) {
@@ -647,6 +736,15 @@ const handleSales = async (args, organizationId) => {
       { invoiceNumber: new RegExp(args.search, "i") },
       { customerName: new RegExp(args.search, "i") }
     ];
+  }
+
+  if (args.creatorName) {
+    const userIds = await findUserIdsByName(organizationId, args.creatorName);
+    if (userIds.length > 0) {
+      filter.createdBy = { $in: userIds };
+    } else {
+      return { invoices: [], count: 0, summary: { totalSales: 0, totalInvoices: 0, averageInvoiceValue: 0, statusCounts: { paid: 0, unpaid: 0, void: 0 }, customerMetrics: [] } };
+    }
   }
 
   // Handle sales groupings (daily/monthly/customer/status)
@@ -685,31 +783,76 @@ const handleSales = async (args, organizationId) => {
   const rawInvoices = await invoiceModel
     .find(filter)
     .populate("createdBy", "name")
-    .sort(args.sortBy ? { [args.sortBy === "date" ? "createdAt" : args.sortBy]: args.sortOrder === "desc" ? -1 : 1 } : { createdAt: -1 })
-    .limit(limitValue)
+    .populate("products.productId", "name sku costPrice sellingPrice")
     .lean();
 
-  const invoices = rawInvoices.map(inv => ({
-    _id: inv._id,
-    invoiceNumber: inv.invoiceNumber,
-    customerName: inv.customerName,
-    subtotal: Math.round(inv.subtotal * 100) / 100,
-    tax: Math.round(inv.tax * 100) / 100,
-    discount: Math.round(inv.discount * 100) / 100,
-    total: Math.round(inv.total * 100) / 100,
-    status: inv.status,
-    createdBy: inv.createdBy?.name || "N/A",
-    createdAt: inv.createdAt
-  }));
+  const invoices = rawInvoices.map(inv => {
+    let totalCost = 0;
+    for (const item of inv.products) {
+      const itemCost = item.productId?.costPrice || 0;
+      totalCost += item.quantity * itemCost;
+    }
+    const profit = inv.total - totalCost;
+    const margin = inv.total > 0 ? (profit / inv.total) * 100 : 0;
+
+    return {
+      _id: inv._id,
+      invoiceNumber: inv.invoiceNumber,
+      customerName: inv.customerName,
+      subtotal: Math.round(inv.subtotal * 100) / 100,
+      tax: Math.round(inv.tax * 100) / 100,
+      discount: Math.round(inv.discount * 100) / 100,
+      total: Math.round(inv.total * 100) / 100,
+      costOfGoodsSold: Math.round(totalCost * 100) / 100,
+      profit: Math.round(profit * 100) / 100,
+      margin: Math.round(margin * 100) / 100,
+      status: inv.status,
+      createdBy: inv.createdBy?.name || "N/A",
+      createdAt: inv.createdAt
+    };
+  });
+
+  // Sort in memory
+  if (args.sortBy) {
+    const sortField = args.sortBy === "date" ? "createdAt" : args.sortBy;
+    const isDesc = args.sortOrder === "desc";
+    invoices.sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+      if (sortField === "createdAt") {
+        return isDesc ? new Date(valB) - new Date(valA) : new Date(valA) - new Date(valB);
+      }
+      if (typeof valA === "string") {
+        return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+      }
+      return isDesc ? (valB - valA) : (valA - valB);
+    });
+  } else {
+    invoices.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
 
   // Fetch summaries
-  const allSalesForStats = await invoiceModel.find(filter).select("total status").lean();
-  const totalSales = allSalesForStats.reduce((sum, inv) => sum + (inv.total || 0), 0);
+  const allSalesForStats = await invoiceModel
+    .find(filter)
+    .populate("products.productId", "costPrice")
+    .lean();
 
+  let totalSales = 0;
+  let totalCostOfSales = 0;
   const statusCounts = { paid: 0, unpaid: 0, void: 0 };
   for (const inv of allSalesForStats) {
     if (statusCounts[inv.status] !== undefined) statusCounts[inv.status]++;
+    if (inv.status === "paid") {
+      totalSales += (inv.total || 0);
+      for (const item of inv.products) {
+        const itemCost = item.productId?.costPrice || 0;
+        totalCostOfSales += item.quantity * itemCost;
+      }
+    }
   }
+
+  const totalProfit = totalSales - totalCostOfSales;
+  const grossMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
   // Customer spend aggregates
   const customerAggregate = await invoiceModel.aggregate([
@@ -734,13 +877,17 @@ const handleSales = async (args, organizationId) => {
 
   const summary = {
     totalSales: Math.round(totalSales * 100) / 100,
+    totalCostOfSales: Math.round(totalCostOfSales * 100) / 100,
+    totalProfit: Math.round(totalProfit * 100) / 100,
+    grossMargin: Math.round(grossMargin * 100) / 100,
     totalInvoices: allSalesForStats.length,
     averageInvoiceValue: allSalesForStats.length > 0 ? Math.round((totalSales / allSalesForStats.length) * 100) / 100 : 0,
     statusCounts,
     customerMetrics
   };
 
-  return { invoices, count: invoices.length, summary };
+  const paginatedInvoices = invoices.slice(0, limitValue);
+  return { invoices: paginatedInvoices, count: invoices.length, summary };
 };
 
 // ============ 4. ORGANIZATION TOOL ============
@@ -855,6 +1002,11 @@ const handleInsights = async (args, organizationId) => {
         suggestionsCount,
         allProducts,
         allInvoices,
+        categoriesCount,
+        categoriesList,
+        usersList,
+        recentLogs,
+        purchaseOrdersSummary,
       ] = await Promise.all([
         productModel.countDocuments(buildFindFilter(organizationId, { isActive: true })),
         productModel.countDocuments(buildFindFilter(organizationId, {
@@ -871,15 +1023,99 @@ const handleInsights = async (args, organizationId) => {
         anomalyModel.countDocuments(buildFindFilter(organizationId, { isResolved: false })),
         reorderSuggestionModel.countDocuments(buildFindFilter(organizationId, { status: "pending" })),
 
-        productModel.find(buildFindFilter(organizationId, { isActive: true })).select("quantity costPrice sellingPrice").lean(),
-        invoiceModel.find(buildFindFilter(organizationId, {
-          status: "paid",
-          createdAt: { $gte: startDate, $lte: endDate },
-        })).select("total")
+        productModel.find(buildFindFilter(organizationId, { isActive: true })).populate("categoryId", "name").populate("supplierId", "name").lean(),
+        invoiceModel.find(buildFindFilter(organizationId, { status: "paid" })).populate("products.productId", "name sku costPrice").lean(),
+        categoryModel.countDocuments(buildFindFilter(organizationId)),
+        categoryModel.find(buildFindFilter(organizationId)).lean(),
+        userModel.find(buildFindFilter(organizationId)).select("name email role isActive").lean(),
+        stockLogModel.find(buildFindFilter(organizationId)).populate("productId", "name sku").populate("performedBy", "name").sort({ createdAt: -1 }).limit(5).lean(),
+        purchaseOrderModel.aggregate([
+          { $match: buildFilter(organizationId) },
+          { $group: { _id: "$status", count: { $sum: 1 }, totalCost: { $sum: "$totalCost" } } }
+        ])
       ]);
 
-      const totalInventoryValue = allProducts.reduce((sum, p) => sum + (p.quantity * p.costPrice), 0);
-      const revenue = allInvoices.reduce((sum, inv) => sum + inv.total, 0);
+      // Calculate valuation, potential profit/revenue
+      let totalInventoryValue = 0;
+      let totalPotentialRevenue = 0;
+      let totalPotentialProfit = 0;
+      const categoryStatsMap = {};
+      const supplierStatsMap = {};
+
+      for (const p of allProducts) {
+        const costVal = p.quantity * p.costPrice;
+        const sellVal = p.quantity * p.sellingPrice;
+        const potentialProf = sellVal - costVal;
+
+        totalInventoryValue += costVal;
+        totalPotentialRevenue += sellVal;
+        totalPotentialProfit += potentialProf;
+
+        const catId = p.categoryId?._id?.toString() || "N/A";
+        const catName = p.categoryId?.name || "N/A";
+        if (!categoryStatsMap[catId]) {
+          categoryStatsMap[catId] = { name: catName, productCount: 0, totalStock: 0, valuation: 0 };
+        }
+        categoryStatsMap[catId].productCount++;
+        categoryStatsMap[catId].totalStock += p.quantity;
+        categoryStatsMap[catId].valuation += costVal;
+
+        const suppId = p.supplierId?._id?.toString() || "N/A";
+        const suppName = p.supplierId?.name || "N/A";
+        if (!supplierStatsMap[suppId]) {
+          supplierStatsMap[suppId] = { name: suppName, productCount: 0, totalStock: 0, valuation: 0 };
+        }
+        supplierStatsMap[suppId].productCount++;
+        supplierStatsMap[suppId].totalStock += p.quantity;
+        supplierStatsMap[suppId].valuation += costVal;
+      }
+
+      // Calculate actual revenue and profit metrics
+      let revenue = 0;
+      let costOfGoodsSold = 0;
+      const salesMap = {};
+
+      for (const inv of allInvoices) {
+        revenue += inv.total;
+        for (const item of inv.products) {
+          const cost = item.productId?.costPrice || 0;
+          costOfGoodsSold += item.quantity * cost;
+
+          if (item.productId) {
+            const pid = item.productId._id?.toString() || item.productId.toString();
+            const pName = item.productId.name || "Unknown Product";
+            if (!salesMap[pid]) {
+              salesMap[pid] = { name: pName, quantitySold: 0, revenue: 0 };
+            }
+            salesMap[pid].quantitySold += item.quantity;
+            salesMap[pid].revenue += item.subtotal;
+          }
+        }
+      }
+
+      const actualProfit = revenue - costOfGoodsSold;
+      const grossMargin = revenue > 0 ? (actualProfit / revenue) * 100 : 0;
+      const topSellingProducts = Object.values(salesMap).sort((a, b) => b.quantitySold - a.quantitySold).slice(0, 5);
+
+      // Purchases status breakdown
+      const purchases = {
+        pendingCount: 0, pendingCost: 0,
+        approvedCount: 0, approvedCost: 0,
+        fulfilledCount: 0, fulfilledCost: 0,
+        rejectedCount: 0, rejectedCost: 0,
+        totalCost: 0, totalCount: 0
+      };
+      for (const po of purchaseOrdersSummary) {
+        const status = po._id;
+        const count = po.count;
+        const cost = po.totalCost;
+        purchases.totalCount += count;
+        purchases.totalCost += cost;
+        if (status === "pending") { purchases.pendingCount = count; purchases.pendingCost = cost; }
+        else if (status === "approved") { purchases.approvedCount = count; purchases.approvedCost = cost; }
+        else if (status === "fulfilled") { purchases.fulfilledCount = count; purchases.fulfilledCost = cost; }
+        else if (status === "rejected") { purchases.rejectedCount = count; purchases.rejectedCost = cost; }
+      }
 
       const dashboard = {
         metrics: {
@@ -892,9 +1128,29 @@ const handleInsights = async (args, organizationId) => {
           anomalies: anomaliesCount,
           suggestions: suggestionsCount,
           totalInventoryValue: Math.round(totalInventoryValue * 100) / 100,
+          totalPotentialRevenue: Math.round(totalPotentialRevenue * 100) / 100,
+          totalPotentialProfit: Math.round(totalPotentialProfit * 100) / 100,
           revenue: Math.round(revenue * 100) / 100,
+          costOfGoodsSold: Math.round(costOfGoodsSold * 100) / 100,
+          actualProfit: Math.round(actualProfit * 100) / 100,
+          grossMargin: Math.round(grossMargin * 100) / 100,
           orders: allInvoices.length,
+          categoriesCount,
         },
+        categories: Object.values(categoryStatsMap),
+        suppliers: Object.values(supplierStatsMap),
+        topSellingProducts,
+        team: usersList,
+        recentActivity: recentLogs.map(l => ({
+          productName: l.productId?.name || "N/A",
+          sku: l.productId?.sku || "N/A",
+          type: l.type,
+          reason: l.reason,
+          quantity: l.quantity,
+          performedBy: l.performedBy?.name || "N/A",
+          createdAt: l.createdAt
+        })),
+        purchases,
         period: args.period || "this_month",
         dateRange: { startDate, endDate }
       };
@@ -986,7 +1242,6 @@ const handleInsights = async (args, organizationId) => {
     }
 
     case "abc_analysis": {
-      // Standard ABC Classification analysis on all inventory
       const products = await productModel.find(buildFindFilter(organizationId, { isActive: true })).select("name sku quantity costPrice").lean();
       const sorted = products.map(p => ({
         _id: p._id,
@@ -1030,7 +1285,6 @@ const handleInsights = async (args, organizationId) => {
     }
 
     case "dead_stock": {
-      // Products with stock but no sales in the last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const activeSales = await invoiceModel.find(buildFindFilter(organizationId, {
@@ -1119,12 +1373,10 @@ const handleGetDetails = async (args, organizationId) => {
 
       if (!product) return { message: `Product "${identifier}" not found` };
 
-      // Calculate details
       const value = product.quantity * product.costPrice;
       const profit = product.sellingPrice - product.costPrice;
       const margin = product.sellingPrice > 0 ? (profit / product.sellingPrice) * 100 : 0;
 
-      // Parallel reads to build the context
       const [
         recentStockLogs,
         recentSales,
@@ -1187,10 +1439,20 @@ const handleGetDetails = async (args, organizationId) => {
       const supplier = await supplierModel.findOne({ ...baseQuery, ...q }).lean();
       if (!supplier) return { message: `Supplier "${identifier}" not found` };
 
-      const [productsCount, recentPOs] = await Promise.all([
-        productModel.countDocuments(buildFindFilter(organizationId, { supplierId: supplier._id, isActive: true })),
+      const [products, recentPOs] = await Promise.all([
+        productModel.find(buildFindFilter(organizationId, { supplierId: supplier._id, isActive: true })).select("name sku quantity costPrice sellingPrice").limit(10).lean(),
         purchaseOrderModel.find(buildFindFilter(organizationId, { supplierId: supplier._id })).sort({ createdAt: -1 }).limit(5).lean()
       ]);
+
+      const formattedProducts = products.map(p => ({
+        name: p.name,
+        sku: p.sku,
+        stock: p.quantity,
+        costPrice: p.costPrice,
+        sellingPrice: p.sellingPrice,
+        profit: Math.round((p.sellingPrice - p.costPrice) * 100) / 100,
+        margin: p.sellingPrice > 0 ? Math.round(((p.sellingPrice - p.costPrice) / p.sellingPrice) * 10000) / 100 : 0
+      }));
 
       return {
         supplier: {
@@ -1200,7 +1462,8 @@ const handleGetDetails = async (args, organizationId) => {
           phone: supplier.phone,
           address: supplier.address,
           leadTimeDays: supplier.leadTimeDays,
-          productsCount,
+          productsCount: formattedProducts.length,
+          suppliedProducts: formattedProducts,
           recentPurchaseOrders: recentPOs.map(po => ({
             poNumber: po.poNumber,
             totalCost: po.totalCost,
@@ -1216,9 +1479,18 @@ const handleGetDetails = async (args, organizationId) => {
       const category = await categoryModel.findOne({ ...baseQuery, ...q }).lean();
       if (!category) return { message: `Category "${identifier}" not found` };
 
-      const products = await productModel.find(buildFindFilter(organizationId, { categoryId: category._id, isActive: true })).select("quantity costPrice").lean();
+      const products = await productModel.find(buildFindFilter(organizationId, { categoryId: category._id, isActive: true })).select("name sku quantity costPrice sellingPrice").lean();
       const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
       const valuation = products.reduce((sum, p) => sum + (p.quantity * p.costPrice), 0);
+
+      const formattedProducts = products.slice(0, 10).map(p => ({
+        name: p.name,
+        sku: p.sku,
+        stock: p.quantity,
+        costPrice: p.costPrice,
+        sellingPrice: p.sellingPrice,
+        valuation: p.quantity * p.costPrice
+      }));
 
       return {
         category: {
@@ -1226,7 +1498,8 @@ const handleGetDetails = async (args, organizationId) => {
           slug: category.categorySlug,
           productCount: products.length,
           totalStock,
-          valuation: Math.round(valuation * 100) / 100
+          valuation: Math.round(valuation * 100) / 100,
+          sampleProducts: formattedProducts
         }
       };
     }
@@ -1235,25 +1508,87 @@ const handleGetDetails = async (args, organizationId) => {
       const q = isObjectId ? { _id: identifier } : { invoiceNumber: identifier };
       const invoice = await invoiceModel.findOne({ ...baseQuery, ...q })
         .populate("createdBy", "name")
-        .populate("products.productId", "name sku")
+        .populate("products.productId", "name sku costPrice sellingPrice")
         .lean();
 
       if (!invoice) return { message: `Invoice "${identifier}" not found` };
 
-      return { invoice };
+      let totalCost = 0;
+      const enrichedProducts = invoice.products.map(p => {
+        const cost = p.productId?.costPrice || 0;
+        totalCost += p.quantity * cost;
+        return {
+          name: p.productId?.name || "N/A",
+          sku: p.productId?.sku || "N/A",
+          quantity: p.quantity,
+          sellingPrice: p.sellingPrice,
+          costPrice: cost,
+          profit: p.sellingPrice - cost,
+          subtotal: p.subtotal
+        };
+      });
+
+      const profit = invoice.total - totalCost;
+      const margin = invoice.total > 0 ? (profit / invoice.total) * 100 : 0;
+
+      return {
+        invoice: {
+          _id: invoice._id,
+          invoiceNumber: invoice.invoiceNumber,
+          customerName: invoice.customerName,
+          subtotal: invoice.subtotal,
+          tax: invoice.tax,
+          discount: invoice.discount,
+          total: invoice.total,
+          costOfGoodsSold: Math.round(totalCost * 100) / 100,
+          profit: Math.round(profit * 100) / 100,
+          margin: Math.round(margin * 100) / 100,
+          status: invoice.status,
+          createdBy: invoice.createdBy?.name || "N/A",
+          createdAt: invoice.createdAt,
+          products: enrichedProducts
+        }
+      };
     }
 
     case "purchase_order": {
       const q = isObjectId ? { _id: identifier } : { poNumber: identifier };
       const po = await purchaseOrderModel.findOne({ ...baseQuery, ...q })
         .populate("createdBy", "name")
-        .populate("supplierId", "name")
-        .populate("items.productId", "name sku")
+        .populate("approvedBy", "name")
+        .populate("supplierId", "name contactPerson email phone")
+        .populate("items.productId", "name sku costPrice")
         .lean();
 
       if (!po) return { message: `Purchase Order "${identifier}" not found` };
 
-      return { purchase_order: po };
+      const enrichedItems = po.items.map(item => ({
+        name: item.productId?.name || "N/A",
+        sku: item.productId?.sku || "N/A",
+        quantity: item.quantity,
+        unitCost: item.unitCost,
+        subtotal: item.quantity * item.unitCost
+      }));
+
+      return {
+        purchase_order: {
+          _id: po._id,
+          poNumber: po.poNumber,
+          supplier: po.supplierId?.name || "N/A",
+          supplierContact: po.supplierId ? {
+            person: po.supplierId.contactPerson,
+            email: po.supplierId.email,
+            phone: po.supplierId.phone
+          } : null,
+          totalCost: po.totalCost,
+          status: po.status,
+          createdBy: po.createdBy?.name || "N/A",
+          approvedBy: po.approvedBy?.name || "N/A",
+          generatedFromAI: po.generatedFromAI,
+          createdAt: po.createdAt,
+          items: enrichedItems
+        }
+      };
     }
 
     case "user": {
@@ -1261,7 +1596,11 @@ const handleGetDetails = async (args, organizationId) => {
       const user = await userModel.findOne({ ...baseQuery, ...q }).select("-password -tokenVersion").lean();
       if (!user) return { message: `User "${identifier}" not found` };
 
-      const recentHistory = await chatLogModel.find(buildFindFilter(organizationId, { userId: user._id })).sort({ createdAt: -1 }).limit(5).lean();
+      const [recentInvoices, recentPOs, recentLogs] = await Promise.all([
+        invoiceModel.find(buildFindFilter(organizationId, { createdBy: user._id })).sort({ createdAt: -1 }).limit(5).lean(),
+        purchaseOrderModel.find(buildFindFilter(organizationId, { createdBy: user._id })).sort({ createdAt: -1 }).limit(5).lean(),
+        stockLogModel.find(buildFindFilter(organizationId, { performedBy: user._id })).populate("productId", "name sku").sort({ createdAt: -1 }).limit(5).lean()
+      ]);
 
       return {
         user: {
@@ -1270,10 +1609,30 @@ const handleGetDetails = async (args, organizationId) => {
           role: user.role,
           isActive: user.isActive,
           createdAt: user.createdAt,
-          recentActivity: recentHistory.map(h => ({
-            query: h.query,
-            intent: h.intent,
-            createdAt: h.createdAt
+          activitySummary: {
+            invoicesCreated: recentInvoices.length,
+            purchaseOrdersCreated: recentPOs.length,
+            stockLogsPerformed: recentLogs.length
+          },
+          recentInvoices: recentInvoices.map(s => ({
+            invoiceNumber: s.invoiceNumber,
+            customerName: s.customerName,
+            total: s.total,
+            status: s.status,
+            createdAt: s.createdAt
+          })),
+          recentPurchaseOrders: recentPOs.map(po => ({
+            poNumber: po.poNumber,
+            totalCost: po.totalCost,
+            status: po.status,
+            createdAt: po.createdAt
+          })),
+          recentStockAdjustments: recentLogs.map(l => ({
+            productName: l.productId?.name || "N/A",
+            type: l.type,
+            reason: l.reason,
+            quantity: l.quantity,
+            createdAt: l.createdAt
           }))
         }
       };
@@ -1310,6 +1669,88 @@ const handleGetDetails = async (args, organizationId) => {
   }
 };
 
+// ============ 7. TRANSACTIONS TOOL ============
+
+const handleTransactions = async (args, organizationId) => {
+  const filter = buildFindFilter(organizationId);
+
+  if (args.product) {
+    const products = await productModel.find(buildFindFilter(organizationId, {
+      $or: [{ name: new RegExp(args.product, "i") }, { sku: args.product }]
+    })).select("_id");
+
+    if (products.length > 0) {
+      filter.productId = { $in: products.map(p => p._id) };
+    } else {
+      return { transactions: [], count: 0, summary: { totalTransactions: 0, totalIn: 0, totalOut: 0 } };
+    }
+  }
+
+  if (args.type && args.type !== "all") {
+    filter.type = args.type;
+  }
+
+  if (args.reason && args.reason !== "all") {
+    filter.reason = args.reason;
+  }
+
+  if (args.creatorName) {
+    const userIds = await findUserIdsByName(organizationId, args.creatorName);
+    if (userIds.length > 0) {
+      filter.performedBy = { $in: userIds };
+    } else {
+      return { transactions: [], count: 0, summary: { totalTransactions: 0, totalIn: 0, totalOut: 0 } };
+    }
+  }
+
+  const { startDate, endDate } = parseDateRange(args);
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = startDate;
+    if (endDate) filter.createdAt.$lte = endDate;
+  }
+
+  const limitValue = Math.min(args.limit || 50, 100);
+  const rawLogs = await stockLogModel
+    .find(filter)
+    .populate("productId", "name sku costPrice sellingPrice")
+    .populate("performedBy", "name email role")
+    .populate("relatedInvoiceId", "invoiceNumber")
+    .populate("relatedPurchaseOrderId", "poNumber")
+    .sort({ createdAt: -1 })
+    .limit(limitValue)
+    .lean();
+
+  const transactions = rawLogs.map(l => ({
+    _id: l._id,
+    productName: l.productId?.name || "N/A",
+    productSku: l.productId?.sku || "N/A",
+    type: l.type,
+    reason: l.reason,
+    quantity: l.quantity,
+    performedBy: l.performedBy?.name || "N/A",
+    referenceNumber: l.relatedInvoiceId?.invoiceNumber || l.relatedPurchaseOrderId?.poNumber || "N/A",
+    createdAt: l.createdAt
+  }));
+
+  // Summary statistics
+  const allLogsForStats = await stockLogModel.find(filter).select("type quantity").lean();
+  let totalIn = 0;
+  let totalOut = 0;
+  for (const log of allLogsForStats) {
+    if (log.type === "in") totalIn += log.quantity;
+    else if (log.type === "out") totalOut += log.quantity;
+  }
+
+  const summary = {
+    totalTransactions: allLogsForStats.length,
+    totalIn,
+    totalOut,
+  };
+
+  return { transactions, count: transactions.length, summary };
+};
+
 // ============ ROUTER & EXECUTION ============
 
 export const executeTool = async (toolName, args, organizationId) => {
@@ -1327,6 +1768,8 @@ export const executeTool = async (toolName, args, organizationId) => {
         return await handleInsights(args, organizationId);
       case "get_details":
         return await handleGetDetails(args, organizationId);
+      case "query_transactions":
+        return await handleTransactions(args, organizationId);
       default:
         return { message: "I don't understand that request. Please rephrase." };
     }
@@ -1341,7 +1784,7 @@ export const executeTool = async (toolName, args, organizationId) => {
 };
 
 export const getResponseType = (toolName) => {
-  const tableTools = ["query_purchases", "query_sales"];
+  const tableTools = ["query_purchases", "query_sales", "query_transactions"];
   const listTools = ["query_inventory", "query_organization"];
   const detailTools = ["get_details"];
   const insightTools = ["query_insights"];
@@ -1354,14 +1797,9 @@ export const getResponseType = (toolName) => {
 };
 
 export const getToolsForRole = (allTools, role) => {
-  // Consolidate the permissions to fit our 6 generic tools
-  if (role === "staff") {
-    // Staff can only view inventory
-    return allTools.filter(t => t.name === "query_inventory" || t.name === "get_details");
-  }
-  if (role === "manager") {
-    // Managers can view inventory, purchases, sales, and insights, but no team/organization management
-    return allTools.filter(t => t.name !== "query_organization");
+  // Gatekeeper: Chatbot is restricted to Administrators (Admin and Super Admin)
+  if (role !== "admin" && role !== "super_admin") {
+    return []; // No tools available for staff or managers (refused by middleware too)
   }
   return allTools;
 };

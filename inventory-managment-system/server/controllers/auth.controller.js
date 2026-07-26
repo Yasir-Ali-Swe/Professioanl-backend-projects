@@ -123,6 +123,7 @@ export const loginUser = async (req, res) => {
     const accessToken = generateToken(
       userExists._id,
       "15m",
+      // "3s",
       userExists.tokenVersion,
       "auth",
     );
@@ -179,16 +180,16 @@ export const loginUser = async (req, res) => {
       updatedAt: userExists.updatedAt,
       organization: organization
         ? {
-          _id: organization._id,
-          name: organization.name,
-          contactEmail: organization.contactEmail,
-          address: organization.address,
-          phone: organization.phone,
-          logoUrl: organization.logoUrl,
-          status: organization.status,
-          invoiceSettings: organization.invoiceSettings,
-          subscriptionPlan: subscriptionPlan,
-        }
+            _id: organization._id,
+            name: organization.name,
+            contactEmail: organization.contactEmail,
+            address: organization.address,
+            phone: organization.phone,
+            logoUrl: organization.logoUrl,
+            status: organization.status,
+            invoiceSettings: organization.invoiceSettings,
+            subscriptionPlan: subscriptionPlan,
+          }
         : null,
     };
     console.log("loginuser", responseData, accessToken);
@@ -248,16 +249,16 @@ export const getLoginUser = async (req, res) => {
       updatedAt: user.updatedAt,
       organization: organization
         ? {
-          _id: organization._id,
-          name: organization.name,
-          contactEmail: organization.contactEmail,
-          address: organization.address,
-          phone: organization.phone,
-          logoUrl: organization.logoUrl,
-          status: organization.status,
-          invoiceSettings: organization.invoiceSettings,
-          subscriptionPlan: subscriptionPlan,
-        }
+            _id: organization._id,
+            name: organization.name,
+            contactEmail: organization.contactEmail,
+            address: organization.address,
+            phone: organization.phone,
+            logoUrl: organization.logoUrl,
+            status: organization.status,
+            invoiceSettings: organization.invoiceSettings,
+            subscriptionPlan: subscriptionPlan,
+          }
         : null,
     };
 
@@ -363,14 +364,15 @@ export const refreshAuth = async (req, res) => {
     const newAccessToken = generateToken(
       user._id,
       "15m",
+      // "3s",
       user.tokenVersion, // Use existing tokenVersion, don't increment
-      "auth"
+      "auth",
     );
     const newRefreshToken = generateToken(
       user._id,
       "7d",
       user.tokenVersion, // Use existing tokenVersion, don't increment
-      "refresh"
+      "refresh",
     );
 
     res.cookie("refreshToken", newRefreshToken, {

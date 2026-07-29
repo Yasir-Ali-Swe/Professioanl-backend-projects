@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUpIcon, Bot, Sparkles, Square } from "lucide-react";
@@ -19,6 +19,7 @@ import {
     useChatHistory,
     useChatWithAI,
     useClearContext,
+    useChatPage,
 } from "@/hooks/useChat";
 
 const ACTIVE_CHAT_CONVERSATION_KEY = "stockpilot.activeChatConversationId";
@@ -55,20 +56,12 @@ const storeConversationId = (conversationId) => {
     }
 };
 
-const clearStoredConversationId = () => {
-    if (typeof window === "undefined") return;
-    try {
-        sessionStorage.removeItem(ACTIVE_CHAT_CONVERSATION_KEY);
-    } catch {
-        // ignore
-    }
-};
-
 function ChatbotPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const urlConversationId = searchParams.get("c");
 
     const clearMutation = useClearContext();
+    const chatPageMutation = useChatPage();
 
     const [conversationId, setConversationId] = useState(
         () => urlConversationId || readStoredConversationId() || createConversationId()
@@ -86,7 +79,6 @@ function ChatbotPage() {
     const isHistoryConversation = Boolean(urlConversationId);
     const activeConversationId = urlConversationId || conversationId;
 
-    // ---- QUERIES ----
     const {
         data: historyData,
         isLoading: historyLoading,
@@ -102,7 +94,6 @@ function ChatbotPage() {
         historyError?.response?.status === 403 ||
         chatMutation.error?.response?.status === 403;
 
-    // ---- CONVERSATION ID MANAGEMENT ----
     useEffect(() => {
         if (urlConversationId) {
             setConversationId(urlConversationId);
@@ -123,37 +114,26 @@ function ChatbotPage() {
         storeConversationId(conversationId);
     }, [conversationId, urlConversationId]);
 
-    // ---- TRACK CURRENT CONVERSATION IN REF ----
     useEffect(() => {
         currentConversationIdRef.current = conversationId;
     }, [conversationId]);
 
-    // ---- RESET STATE ON CONVERSATION CHANGE (including abort) ----
     useEffect(() => {
-        // Cancel any ongoing stream
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
         }
-        // Clear pending refs
         pendingAssistantIdRef.current = null;
         mutationConversationIdRef.current = null;
-
-        // Clear mutation state – remove dependency on chatMutation to avoid loop
         chatMutation.reset();
-
-        // Reset UI state
         setLocalMessages([]);
         setInput("");
         if (textareaRef.current) {
             textareaRef.current.style.height = "auto";
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [conversationId]); // <-- Only depend on conversationId
+    }, [conversationId]);
 
-    // ---- HISTORY TO MESSAGES ----
     useEffect(() => {
-        // Guard: if we're not loading and we have data, set messages
         if (historyData?.data && !historyLoading) {
             const sortedHistory = [...historyData.data].sort(
                 (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
@@ -170,21 +150,26 @@ function ChatbotPage() {
                     role: "assistant",
                     content: log.response,
                     source: "history",
+                    suggestedQuestions: log.metadata?.suggestedQuestions || [],
+                    pagination: log.metadata?.pagination || null,
+                    toolName: log.metadata?.toolName || null,
+                    toolArgs: log.metadata?.toolArgs || null,
+                    tableData: log.metadata?.tableData || null,
+                    userQueryText: log.query,
+                    schema: log.metadata?.schema || null,
+                    logId: log._id,
                 },
             ]);
-            // Only set if the conversation ID still matches (prevent race)
             if (currentConversationIdRef.current === conversationId) {
                 setLocalMessages(chatMessages);
             }
         } else if (!historyLoading && isHistoryConversation) {
-            // No data for this conversation
             if (currentConversationIdRef.current === conversationId) {
                 setLocalMessages([]);
             }
         }
     }, [historyData, historyLoading, isHistoryConversation, conversationId]);
 
-    // ---- MOUNTED REF ----
     useEffect(() => {
         isMountedRef.current = true;
         return () => {
@@ -192,7 +177,6 @@ function ChatbotPage() {
         };
     }, []);
 
-    // ---- HANDLERS ----
     const handleTextareaInput = (e) => {
         const textarea = e.target;
         textarea.style.height = "auto";
@@ -208,12 +192,9 @@ function ChatbotPage() {
         }
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const submitQuery = useCallback(async (query) => {
+        if (isHistoryConversation || !query.trim() || isPending) return;
 
-        if (isHistoryConversation || !input.trim() || isPending) return;
-
-        const query = input.trim();
         setInput("");
 
         if (textareaRef.current) {
@@ -238,6 +219,13 @@ function ChatbotPage() {
                 role: "assistant",
                 content: "",
                 source: "live",
+                suggestedQuestions: [],
+                pagination: null,
+                toolName: null,
+                toolArgs: null,
+                logId: null,
+                userQueryText: query,
+                schema: null,
             },
         ]);
 
@@ -267,12 +255,14 @@ function ChatbotPage() {
                         })
                     );
                 },
-                onComplete: (res) => {
+                onTool: (res) => {
                     if (!isMountedRef.current) return;
                     if (mutationConversationIdRef.current !== currentConversationIdRef.current) return;
 
-                    const finalReply = res?.reply || "";
-                    if (finalReply && pendingAssistantIdRef.current) {
+                    const toolData = res?.data || null;
+                    const toolSchema = res?.schema || null;
+
+                    if (pendingAssistantIdRef.current) {
                         setLocalMessages((prev) =>
                             prev.map((message) => {
                                 if (message.id !== pendingAssistantIdRef.current) {
@@ -280,8 +270,48 @@ function ChatbotPage() {
                                 }
                                 return {
                                     ...message,
-                                    content: finalReply,
+                                    tableData: toolData,
+                                    schema: toolSchema,
+                                };
+                            })
+                        );
+                    }
+                },
+                onComplete: (res) => {
+                    if (!isMountedRef.current) return;
+                    if (mutationConversationIdRef.current !== currentConversationIdRef.current) return;
+
+                    const finalReply = res?.reply || "";
+                    const suggestedQuestions = Array.isArray(res?.suggestedQuestions)
+                        ? res.suggestedQuestions
+                        : [];
+                    const pagination = res?.metadata && res.metadata.page !== undefined
+                        ? {
+                            page: res.metadata.page,
+                            totalPages: res.metadata.totalPages,
+                            count: res.metadata.count,
+                        }
+                        : null;
+                    const toolName = res?.toolName || null;
+                    const toolArgs = res?.toolArgs || null;
+                    const schema = res?.schema || null;
+
+                    if (pendingAssistantIdRef.current) {
+                        setLocalMessages((prev) =>
+                            prev.map((message) => {
+                                if (message.id !== pendingAssistantIdRef.current) {
+                                    return message;
+                                }
+                                return {
+                                    ...message,
+                                    content: finalReply || message.content,
                                     source: "live",
+                                    suggestedQuestions,
+                                    pagination,
+                                    toolName,
+                                    toolArgs,
+                                    schema,
+                                    tableData: message.tableData || res?.data || null,
                                 };
                             })
                         );
@@ -329,7 +359,13 @@ function ChatbotPage() {
                 },
             }
         );
-    };
+    }, [isPending, isHistoryConversation, conversationId, chatMutation, urlConversationId, setSearchParams]);
+
+    const handleSubmit = useCallback(async (e) => {
+        e.preventDefault();
+        if (!input.trim()) return;
+        await submitQuery(input.trim());
+    }, [input, submitQuery]);
 
     const handleStopGeneration = () => {
         if (abortControllerRef.current) {
@@ -345,29 +381,69 @@ function ChatbotPage() {
             {
                 onSuccess: () => {
                     setLocalMessages([]);
+                    setInput("");
                 },
             }
         );
     };
 
-    const handleSuggestionClick = (chip) => {
-        if (isHistoryConversation) return;
-        setInput(chip);
-        if (textareaRef.current) {
-            textareaRef.current.focus();
-            setTimeout(() => {
-                if (textareaRef.current) {
-                    textareaRef.current.style.height = "auto";
-                    textareaRef.current.style.height = `${Math.min(
-                        textareaRef.current.scrollHeight,
-                        200
-                    )}px`;
-                }
-            }, 50);
-        }
-    };
+    const handleSuggestionClick = useCallback((question) => {
+        if (isHistoryConversation || isPending) return;
+        submitQuery(question);
+    }, [isHistoryConversation, isPending, submitQuery]);
 
-    // ---- RENDER ----
+    const handlePageChange = useCallback(async (messageId, newPage) => {
+        if (isPending || chatPageMutation.isPending) return;
+
+        const message = localMessages.find((m) => m.id === messageId);
+        if (!message || !message.toolName) return;
+
+        setLocalMessages((prev) =>
+            prev.map((m) =>
+                m.id === messageId ? { ...m, pageLoading: true } : m
+            )
+        );
+
+        try {
+            const result = await chatPageMutation.mutateAsync({
+                conversationId,
+                messageLogId: message.logId || null,
+                page: newPage,
+                toolName: message.toolName,
+                toolArgs: message.toolArgs ?? {},
+            });
+
+            if (!isMountedRef.current) return;
+
+            if (result.success) {
+                setLocalMessages((prev) =>
+                    prev.map((m) => {
+                        if (m.id !== messageId) return m;
+                        return {
+                            ...m,
+                            tableData: result.data,
+                            pagination: result.pagination,
+                            pageLoading: false,
+                        };
+                    })
+                );
+            } else {
+                setLocalMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId ? { ...m, pageLoading: false } : m
+                    )
+                );
+            }
+        } catch {
+            if (!isMountedRef.current) return;
+            setLocalMessages((prev) =>
+                prev.map((m) =>
+                    m.id === messageId ? { ...m, pageLoading: false } : m
+                )
+            );
+        }
+    }, [isPending, chatPageMutation, localMessages, conversationId]);
+
     if (isPremiumUpgradeRequired) {
         return (
             <div className="flex h-full w-full flex-col items-center justify-center p-6 text-center select-none max-w-md mx-auto">
@@ -392,21 +468,6 @@ function ChatbotPage() {
     return (
         <MessageScrollerProvider>
             <div className="flex h-full w-full flex-col relative">
-                {/* Clear Context Button at Top Right */}
-                {/* {!isHistoryConversation && localMessages.length > 0 && (
-                    <div className="absolute right-4 bottom-30 z-10">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleClearContext}
-                            disabled={clearMutation.isPending || isPending}
-                            className="text-xs font-semibold cursor-pointer bg-background/80 backdrop-blur-xs hover:bg-muted"
-                        >
-                            Clear AI Context
-                        </Button>
-                    </div>
-                )} */}
-
                 <div className="flex-1 overflow-hidden min-h-0 relative">
                     {historyLoading && isHistoryConversation ? (
                         <div className="px-4 py-6 max-w-3xl mx-auto w-full flex flex-col gap-6">
@@ -459,7 +520,7 @@ function ChatbotPage() {
                     ) : (
                         <MessageScroller>
                             <MessageScrollerViewport>
-                                <MessageScrollerContent className="px-4 py-6 max-w-4xl mx-auto w-full">
+                                <MessageScrollerContent className="px-4 pb-6 max-w-4xl mx-auto w-full">
                                     <div className="flex flex-col gap-6">
                                         <AnimatePresence initial={false}>
                                             {localMessages.map((message) => (
@@ -470,6 +531,10 @@ function ChatbotPage() {
                                                     <MessageAnimated
                                                         message={message}
                                                         scrollAnchor={message.role === "user"}
+                                                        onSuggestionClick={handleSuggestionClick}
+                                                        onPageChange={handlePageChange}
+                                                        isHistoryConversation={isHistoryConversation}
+                                                        isChatPending={isPending}
                                                     />
                                                 </MessageScrollerItem>
                                             ))}
@@ -521,7 +586,9 @@ function ChatbotPage() {
                                 placeholder={
                                     isHistoryConversation
                                         ? "History is read-only"
-                                        : "Type your message here..."
+                                        : isPending
+                                            ? "Processing..."
+                                            : "Type your message here..."
                                 }
                                 className="flex-1 max-h-20 min-h-6 bg-transparent border-0 p-0 text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-hidden resize-none py-1 pr-12 scrollbar-thin overflow-y-auto leading-relaxed"
                                 style={{ height: "auto" }}
@@ -543,7 +610,7 @@ function ChatbotPage() {
                                     type="submit"
                                     size="icon"
                                     variant="default"
-                                    disabled={!input.trim() || isHistoryConversation}
+                                    disabled={!input.trim() || isHistoryConversation || isPending}
                                     className="absolute right-3 bottom-3 h-8 w-8 rounded-lg transition-all duration-200 cursor-pointer shrink-0"
                                 >
                                     <ArrowUpIcon className="h-4 w-4" />
@@ -564,3 +631,4 @@ function ChatbotPage() {
 }
 
 export default ChatbotPage;
+

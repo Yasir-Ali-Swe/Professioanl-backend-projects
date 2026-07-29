@@ -69,10 +69,14 @@ const getConversationId = (req) =>
 const extractData = (toolResult) => {
   if (!toolResult) return null;
   if (toolResult.invoice?.lineItems) return toolResult.invoice.lineItems;
-  if (toolResult.purchaseOrder?.lineItems) return toolResult.purchaseOrder.lineItems;
-  if (toolResult.supplier?.productsList) return toolResult.supplier.productsList;
-  if (toolResult.category?.productsList) return toolResult.category.productsList;
-  if (toolResult.summary?.customerProductsPurchased) return toolResult.summary.customerProductsPurchased;
+  if (toolResult.purchaseOrder?.lineItems)
+    return toolResult.purchaseOrder.lineItems;
+  if (toolResult.supplier?.productsList)
+    return toolResult.supplier.productsList;
+  if (toolResult.category?.productsList)
+    return toolResult.category.productsList;
+  if (toolResult.summary?.customerProductsPurchased)
+    return toolResult.summary.customerProductsPurchased;
 
   for (const key of CONSTANTS.DATA_KEYS) {
     if (toolResult[key]) return toolResult[key];
@@ -154,10 +158,12 @@ const getEnhancedQuery = (query, context) => {
     const activeInfo = JSON.stringify({
       type: context.activeEntity.type,
       identifier: context.activeEntity.identifier,
-      summary: context.activeEntity.data?.invoice?.general ||
+      summary:
+        context.activeEntity.data?.invoice?.general ||
         context.activeEntity.data?.purchaseOrder?.general ||
         context.activeEntity.data?.supplier?.info ||
-        context.activeEntity.data?.product?.general || {},
+        context.activeEntity.data?.product?.general ||
+        {},
     });
     enhancedQuery = `${query} (Active context entity: ${activeInfo})`;
   } else if (context.lastResults && context.lastTool && isFollowUpWord) {
@@ -605,10 +611,10 @@ export const chatWithAI = async (req, res) => {
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-          page: toolResult.page,
-          totalPages: toolResult.totalPages,
-          count: toolResult.count,
-        }
+            page: toolResult.page,
+            totalPages: toolResult.totalPages,
+            count: toolResult.count,
+          }
         : null;
 
     await chatLogModel.create({
@@ -676,7 +682,7 @@ export const chatWithAIStream = async (req, res) => {
   const role = req.user.role;
   const { query } = req.body;
   const conversationId = getConversationId(req);
-
+  console.log("query", query);
   if (!query || query.trim().length === 0) {
     return res.status(400).json({
       success: false,
@@ -894,7 +900,9 @@ export const chatWithAIStream = async (req, res) => {
 
       // Check if result is empty
       const isEmpty = trimmedResult?.summary?.isEmpty === true;
-      const emptyMessage = trimmedResult?.summary?.message || "No data found matching your criteria.";
+      const emptyMessage =
+        trimmedResult?.summary?.message ||
+        "No data found matching your criteria.";
 
       let instructions = "";
 
@@ -1122,10 +1130,10 @@ CRITICAL FORMATTING RULES:
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-          page: toolResult.page,
-          totalPages: toolResult.totalPages,
-          count: toolResult.count,
-        }
+            page: toolResult.page,
+            totalPages: toolResult.totalPages,
+            count: toolResult.count,
+          }
         : null;
 
     await chatLogModel.create({
@@ -1144,9 +1152,9 @@ CRITICAL FORMATTING RULES:
         schema: schema,
       },
     });
-    console.log(data)
-    console.log(toolResult)
-    console.log(replyText)
+    console.log(data);
+    console.log(toolResult);
+    console.log(replyText);
 
     if (toolResult.page !== undefined) {
       context.lastPage = toolResult.page;
@@ -1160,10 +1168,10 @@ CRITICAL FORMATTING RULES:
       activeEntity:
         call.name === "get_details" && call.args
           ? {
-            type: call.args.type,
-            identifier: call.args.identifier,
-            data: toolResult,
-          }
+              type: call.args.type,
+              identifier: call.args.identifier,
+              data: toolResult,
+            }
           : context.activeEntity,
       conversationCount: (context.conversationCount || 0) + 1,
     });
@@ -1275,10 +1283,10 @@ export const getChatPage = async (req, res) => {
     const pagination =
       toolResult.page !== undefined
         ? {
-          page: toolResult.page,
-          totalPages: toolResult.totalPages,
-          count: toolResult.count,
-        }
+            page: toolResult.page,
+            totalPages: toolResult.totalPages,
+            count: toolResult.count,
+          }
         : null;
 
     return res.json({

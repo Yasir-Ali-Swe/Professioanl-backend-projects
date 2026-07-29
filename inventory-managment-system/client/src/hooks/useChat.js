@@ -33,6 +33,7 @@ export const useChatAnalytics = (options = {}) => {
 };
 
 // ============ MUTATION HOOKS ============
+
 export const useChatWithAI = () => {
   const queryClient = useQueryClient();
 
@@ -64,7 +65,6 @@ export const useChatWithAI = () => {
       });
     },
     onError: (error) => {
-      // Better abort detection – ignore all user‑initiated cancellations
       const isAbortError =
         error?.name === "CanceledError" ||
         error?.code === "ERR_CANCELED" ||
@@ -78,7 +78,27 @@ export const useChatWithAI = () => {
 
       toast.error(
         error.response?.data?.message ||
-          "Failed to send message. Please try again.",
+        "Failed to send message. Please try again.",
+      );
+    },
+  });
+};
+
+/**
+ * Mutation for fetching a specific page of table data inside an existing
+ * chatbot response. Does NOT create a new message or call the AI.
+ *
+ * Usage:
+ *   const pageMutation = useChatPage();
+ *   pageMutation.mutateAsync({ conversationId, messageLogId, page, toolName, toolArgs });
+ */
+export const useChatPage = () => {
+  return useMutation({
+    mutationFn: (data) => chatApi.getChatPage(data),
+    onError: (error) => {
+      toast.error(
+        error.response?.data?.message ||
+        "Failed to load page. Please try again.",
       );
     },
   });
@@ -107,7 +127,7 @@ export const useClearContext = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-          "Failed to clear context. Please try again.",
+        "Failed to clear context. Please try again.",
       );
     },
   });

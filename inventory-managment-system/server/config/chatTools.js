@@ -237,13 +237,18 @@ export const chatTools = [
       },
       {
         name: "get_details",
-        description: `Get full, rich, all-in-one populated details for a single entity (Product, Supplier, Category, Invoice, Purchase Order, User, or Organization) by its name, SKU, number, or database ID.
+        description: `Get full, rich, all-in-one populated details, itemization, and cross-model relationships for a single business entity (Product, Supplier, Category, Invoice, Purchase Order, User/Staff, or Organization) by its name, SKU, PO/Invoice number, email, or database ID.
           
           Examples:
-          - "Tell me everything about Samsung TV"
-          - "Show me invoice INV-0001"
-          - "Details for supplier ABC"
-          - "Comprehensive info on Category Electronics"`,
+          - "Show me details of invoice INV-2026-0008"
+          - "Give me full invoice information for INV-2026-0008"
+          - "Which products are included in invoice INV-2026-0008?"
+          - "Who created invoice INV-2026-0008?"
+          - "Show items in purchase order PO-0001"
+          - "Supplier profile for TechElectro Solutions"
+          - "Category breakdown for Electronics"
+          - "User performance profile for Ahmed Khan"
+          - "Organization details and invoice settings"`,
         parameters: {
           type: "object",
           properties: {
@@ -254,7 +259,7 @@ export const chatTools = [
             },
             identifier: {
               type: "string",
-              description: "Name, SKU, PO/Invoice number, or database ID of the entity (REQUIRED)",
+              description: "Name, SKU, PO/Invoice number, email, or database ID of the entity (REQUIRED)",
             },
           },
           required: ["type", "identifier"],

@@ -84,26 +84,25 @@ export const useChatWithAI = () => {
   });
 };
 
-/**
- * Mutation for fetching a specific page of table data inside an existing
- * chatbot response. Does NOT create a new message or call the AI.
- *
- * Usage:
- *   const pageMutation = useChatPage();
- *   pageMutation.mutateAsync({ conversationId, messageLogId, page, toolName, toolArgs });
- */
 export const useChatPage = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (data) => chatApi.getChatPage(data),
     onError: (error) => {
-      toast.error(
-        error.response?.data?.message ||
-        "Failed to load page. Please try again.",
-      );
+      const isAbort = error?.name === "AbortError" ||
+        error?.code === "ERR_CANCELED" ||
+        error?.message?.toLowerCase().includes("abort");
+
+      if (!isAbort) {
+        toast.error(
+          error.response?.data?.message ||
+          "Failed to load page. Please try again.",
+        );
+      }
     },
   });
 };
-
 export const useClearContext = () => {
   const queryClient = useQueryClient();
 

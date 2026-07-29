@@ -113,6 +113,34 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
     let buffer = "";
     let finalPayload = null;
 
+    const handlePayload = (payloadEvent) => {
+      handlers.onEvent?.(payloadEvent);
+
+      if (payloadEvent.type === "chunk") {
+        handlers.onChunk?.(payloadEvent.content || "", payloadEvent);
+      }
+
+      if (payloadEvent.type === "tool") {
+        handlers.onTool?.(payloadEvent);
+      }
+
+      if (payloadEvent.type === "complete") {
+        // Backend now sends suggestedQuestions as structured metadata directly
+        // in the complete event — no markdown parsing needed.
+        finalPayload = payloadEvent;
+        handlers.onComplete?.(payloadEvent);
+      }
+
+      if (payloadEvent.type === "error") {
+        const streamError = new Error(
+          payloadEvent.message || "Streaming request failed",
+        );
+        streamError.response = { data: payloadEvent };
+        handlers.onError?.(streamError);
+        throw streamError;
+      }
+    };
+
     try {
       while (true) {
         if (signal?.aborted) {
@@ -127,59 +155,12 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        buffer = parseSseBuffer(buffer, (payloadEvent) => {
-          handlers.onEvent?.(payloadEvent);
-
-          if (payloadEvent.type === "chunk") {
-            handlers.onChunk?.(payloadEvent.content || "", payloadEvent);
-          }
-
-          if (payloadEvent.type === "tool") {
-            handlers.onTool?.(payloadEvent);
-          }
-
-          if (payloadEvent.type === "complete") {
-            finalPayload = payloadEvent;
-            handlers.onComplete?.(payloadEvent);
-          }
-
-          if (payloadEvent.type === "error") {
-            const streamError = new Error(
-              payloadEvent.message || "Streaming request failed",
-            );
-            streamError.response = { data: payloadEvent };
-            handlers.onError?.(streamError);
-            throw streamError;
-          }
-        });
+        buffer = parseSseBuffer(buffer, handlePayload);
       }
 
+      // Flush any remaining bytes
       buffer += decoder.decode();
-      buffer = parseSseBuffer(buffer, (payloadEvent) => {
-        handlers.onEvent?.(payloadEvent);
-
-        if (payloadEvent.type === "chunk") {
-          handlers.onChunk?.(payloadEvent.content || "", payloadEvent);
-        }
-
-        if (payloadEvent.type === "tool") {
-          handlers.onTool?.(payloadEvent);
-        }
-
-        if (payloadEvent.type === "complete") {
-          finalPayload = payloadEvent;
-          handlers.onComplete?.(payloadEvent);
-        }
-
-        if (payloadEvent.type === "error") {
-          const streamError = new Error(
-            payloadEvent.message || "Streaming request failed",
-          );
-          streamError.response = { data: payloadEvent };
-          handlers.onError?.(streamError);
-          throw streamError;
-        }
-      });
+      buffer = parseSseBuffer(buffer, handlePayload);
 
       return finalPayload;
     } finally {
@@ -189,6 +170,15 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
 
   return executeRequest();
 };
+
+/**
+ * Fetch a specific page of table data for an existing chatbot response.
+ * Returns structured data without generating a new AI response.
+ */
+export const getChatPage = (data) =>
+  axiosInstance
+    .post("/api/v1/ai/chat/page", data)
+    .then((res) => res.data);
 
 export const getChatHistory = (params = {}) => {
   return axiosInstance

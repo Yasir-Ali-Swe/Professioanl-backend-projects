@@ -176,9 +176,7 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
  * Returns structured data without generating a new AI response.
  */
 export const getChatPage = (data) =>
-  axiosInstance
-    .post("/api/v1/ai/chat/page", data)
-    .then((res) => res.data);
+  axiosInstance.post("/api/v1/ai/chat/page", data).then((res) => res.data);
 
 export const getChatHistory = (params = {}) => {
   return axiosInstance

@@ -78,7 +78,7 @@ export const useChatWithAI = () => {
 
       toast.error(
         error.response?.data?.message ||
-        "Failed to send message. Please try again.",
+          "Failed to send message. Please try again.",
       );
     },
   });
@@ -90,14 +90,15 @@ export const useChatPage = () => {
   return useMutation({
     mutationFn: (data) => chatApi.getChatPage(data),
     onError: (error) => {
-      const isAbort = error?.name === "AbortError" ||
+      const isAbort =
+        error?.name === "AbortError" ||
         error?.code === "ERR_CANCELED" ||
         error?.message?.toLowerCase().includes("abort");
 
       if (!isAbort) {
         toast.error(
           error.response?.data?.message ||
-          "Failed to load page. Please try again.",
+            "Failed to load page. Please try again.",
         );
       }
     },
@@ -126,7 +127,7 @@ export const useClearContext = () => {
     onError: (error) => {
       toast.error(
         error.response?.data?.message ||
-        "Failed to clear context. Please try again.",
+          "Failed to clear context. Please try again.",
       );
     },
   });

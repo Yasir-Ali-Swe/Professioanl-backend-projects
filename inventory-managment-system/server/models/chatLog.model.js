@@ -20,6 +20,12 @@ const chatLogSchema = new mongoose.Schema(
     query: { type: String, required: true },
     response: { type: String, required: true },
     intent: { type: String, default: null },
+    // Structured metadata persisted alongside each response for durable pagination
+    // and suggested questions (survives server restarts / multi-instance deployments)
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true },
 );

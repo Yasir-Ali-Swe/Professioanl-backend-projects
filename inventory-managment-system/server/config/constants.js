@@ -58,6 +58,9 @@ export const CONSTANTS = {
 
   // Data extraction keys
   DATA_KEYS: [
+    "lineItems",
+    "productsList",
+    "customerProductsPurchased",
     "products",
     "product",
     "suppliers",

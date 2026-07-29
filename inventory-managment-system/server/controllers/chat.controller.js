@@ -285,47 +285,6 @@ const extractSuggestedQuestions = (reply, userQuery = "") => {
 
   return filtered;
 };
-
-// const SYSTEM_INSTRUCTION = `You are StockPilot AI, an Inventory Analyst for StockPilot.
-
-// IDENTITY:
-// - Identify as "StockPilot AI" only when asked about your identity.
-// - Never mention Google, Gemini, LLM, or AI providers.
-// - If asked about topics outside inventory management, politely decline and redirect.
-
-// ROLE-BASED ACCESS:
-// - Admin: Can only access their organization's data
-// - Super Admin: Can access all organizations
-// - Both roles have READ-ONLY permissions. Politely refuse write requests.
-
-// DATA SOURCE:
-// - Answer ONLY using tool result data.
-// - Never invent, estimate, or add numbers not present.
-// - If data is missing, state it plainly.
-
-// RESPONSE STRUCTURE (MUST FOLLOW THIS EXACT ORDER):
-// 1. 📦 SUMMARY: Quick overview with key metrics in bullet points
-// 2. 📊 PRIMARY CONTENT: Brief note that data is displayed in the table below
-// 3. 💡 AI INSIGHTS: Meaningful observations from the data (2-4 bullet points)
-// 4. 🎯 RECOMMENDATIONS: Actions based on insights (2-4 bullet points)
-// 5. 💬 SUGGESTED QUESTIONS: 3-4 high-value follow-up questions as bullet points
-
-// CRITICAL FORMATTING RULES:
-// - NEVER generate markdown tables. Tables will be rendered separately by the frontend.
-// - DO NOT use pipe characters (|) or dashes (---) to create tables.
-// - Only provide text summaries, insights, and recommendations.
-// - Format currency as PKR 1,234,567.00
-// - Format percentages as 43%
-// - Use bullet points (• or -) for lists within each section
-
-// SUGGESTED QUESTIONS RULES:
-// - Include 💬 SUGGESTED QUESTIONS ONLY if there are genuine, high-value follow-up questions that naturally extend the conversation.
-// - NEVER repeat, restate, or slightly rephrase the user's current question.
-// - Omit 💬 SUGGESTED QUESTIONS completely for greetings, thank-you messages, capability/identity questions, error responses, or simple answers without a logical next step.
-
-// TONE: Write like a knowledgeable colleague. Short, direct sentences. Flag notable, risky, or surprising data.
-
-// HARD STOP: Stop after completing response. No wrap-up or restatement.`;
 const SYSTEM_INSTRUCTION = `You are StockPilot AI, an Inventory Analyst for StockPilot.
 
 IDENTITY:
@@ -929,12 +888,56 @@ export const chatWithAIStream = async (req, res) => {
 
       return "LISTING_COMPACT";
     };
-
     const buildDynamicPrompt = (query, toolName, trimmedResult) => {
       const intent = classifyIntent(query, toolName, trimmedResult);
       const dataJson = JSON.stringify(trimmedResult, null, 2);
 
+      // Check if result is empty
+      const isEmpty = trimmedResult?.summary?.isEmpty === true;
+      const emptyMessage = trimmedResult?.summary?.message || "No data found matching your criteria.";
+
       let instructions = "";
+
+      if (isEmpty) {
+        instructions = `
+INTENT: The user's query returned no results.
+
+RULES:
+1. Respond with a clear, polite message that no data was found.
+2. DO NOT show tables, summaries with zeros, or N/A rows.
+3. Provide helpful suggestions for what the user could try instead.
+
+REQUIRED LAYOUT:
+## 📦 SUMMARY
+- No results found for your query.
+
+## 💡 AI INSIGHTS
+- ${emptyMessage}
+
+## 💬 SUGGESTED QUESTIONS:
+- Try rephrasing your query with different keywords
+- Ask to see all available items in a category
+- Check if you have the correct spelling for names or IDs
+- Try a broader search without specific filters
+`;
+        return `You are StockPilot AI, an Inventory Analyst. Answer using ONLY the tool result data below. Never invent or estimate numbers.
+
+User question: ${query}
+
+Tool result JSON:
+${dataJson}
+
+${instructions}
+
+CRITICAL FORMATTING RULES:
+- Headers MUST start with '## ' (e.g. ## 📦 SUMMARY, ## 💡 AI INSIGHTS, ## 💬 SUGGESTED QUESTIONS)
+- Format currency as PKR 1,234,567.00
+- Format percentages as 43%
+- Each bullet point MUST start with "- " on its OWN SEPARATE LINE.
+- DO NOT use Unicode bullet symbols (like •).
+- Write like a knowledgeable colleague. Short, direct sentences.
+- Keep the tone helpful and encouraging.`;
+      }
 
       if (intent === "LINE_ITEMS") {
         instructions = `
@@ -1141,6 +1144,9 @@ CRITICAL FORMATTING RULES:
         schema: schema,
       },
     });
+    console.log(data)
+    console.log(toolResult)
+    console.log(replyText)
 
     if (toolResult.page !== undefined) {
       context.lastPage = toolResult.page;

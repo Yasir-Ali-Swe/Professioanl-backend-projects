@@ -111,6 +111,28 @@ const COLUMN_SCHEMAS = {
         { key: "category", label: "Category", align: "left" },
         { key: "supplier", label: "Supplier", align: "left" },
     ],
+    invoice_items: [
+        { key: "productName", label: "Product Name", align: "left" },
+        { key: "sku", label: "SKU", align: "left" },
+        { key: "quantity", label: "Quantity", align: "right" },
+        { key: "unitPrice", label: "Unit Price", align: "right", format: "currency" },
+        { key: "subtotal", label: "Subtotal", align: "right", format: "currency" },
+        { key: "profit", label: "Profit", align: "right", format: "currency" },
+        { key: "margin", label: "Margin", align: "right" },
+    ],
+    po_items: [
+        { key: "productName", label: "Product Name", align: "left" },
+        { key: "sku", label: "SKU", align: "left" },
+        { key: "quantity", label: "Quantity", align: "right" },
+        { key: "unitCost", label: "Unit Cost", align: "right", format: "currency" },
+        { key: "totalCost", label: "Total Cost", align: "right", format: "currency" },
+    ],
+    customer_purchases: [
+        { key: "productName", label: "Product Name", align: "left" },
+        { key: "sku", label: "SKU", align: "left" },
+        { key: "quantityPurchased", label: "Qty Bought", align: "right" },
+        { key: "totalSpent", label: "Total Spent", align: "right", format: "currency" },
+    ],
 };
 
 const isDetailedRequest = (userQueryText = "") => {
@@ -135,6 +157,15 @@ const resolveTableConfig = (data, toolName, userQueryText = "") => {
     }
     const sample = data[0];
 
+    if (sample.unitPrice !== undefined && sample.quantity !== undefined) {
+        return { schema: COLUMN_SCHEMAS.invoice_items, title: "Invoice Line Items" };
+    }
+    if (sample.unitCost !== undefined && sample.totalCost !== undefined) {
+        return { schema: COLUMN_SCHEMAS.po_items, title: "Purchase Order Items" };
+    }
+    if (sample.quantityPurchased !== undefined && sample.totalSpent !== undefined) {
+        return { schema: COLUMN_SCHEMAS.customer_purchases, title: "Purchased Products" };
+    }
     if (toolName === "query_inventory" || (sample.sku !== undefined && sample.quantity !== undefined && sample.sellingPrice !== undefined)) {
         const isDetailed = isDetailedRequest(userQueryText);
         return {
@@ -432,52 +463,29 @@ const markdownComponents = {
         <h1 className="text-base font-bold mt-4 mb-2 text-foreground wrap-break-word [word-break:break-word]" {...props} />
     ),
     h2: ({ node, ...props }) => (
-        <h2 className="text-sm font-semibold mt-3 mb-1.5 text-foreground wrap-break-word [word-break:break-word]" {...props} />
+        <h2 className="text-sm font-bold mt-4 mb-2 text-foreground wrap-break-word [word-break:break-word]" {...props} />
     ),
     h3: ({ node, ...props }) => (
         <h3 className="text-xs font-semibold mt-3 mb-1 text-foreground wrap-break-word [word-break:break-word]" {...props} />
     ),
-    // p: ({ node, ...props }) => (
-    //     <p className="mb-2.5 last:mb-0 leading-relaxed text-sm text-foreground wrap-break-word [word-break:break-word]" {...props} />
-    // ),
-    // ul: ({ node, ...props }) => (
-    //     <ul className="list-disc pl-5 mb-3.5 space-y-1.5 text-sm text-foreground wrap-break-word [word-break:break-word]" {...props} />
-    // ),
-    p: ({ node, children, ...props }) => {
-        // Check if the content contains bullet points
-        const content = children?.toString() || "";
-        if (content.includes('•')) {
-            // If it has bullet points, render as pre-formatted text
-            return (
-                <div className="mb-2.5 last:mb-0 leading-relaxed text-sm text-foreground whitespace-pre-line wrap-break-word [word-break:break-word]">
-                    {children}
-                </div>
-            );
-        }
-        return (
-            <p className="mb-2.5 last:mb-0 leading-relaxed text-sm text-foreground wrap-break-word [word-break:break-word]" {...props}>
-                {children}
-            </p>
-        );
-    },
-
+    p: ({ node, children, ...props }) => (
+        <p className="mb-2.5 last:mb-0 leading-relaxed text-sm text-foreground wrap-break-word [word-break:break-word]" {...props}>
+            {children}
+        </p>
+    ),
     ul: ({ node, children, ...props }) => (
         <ul className="list-disc pl-5 mb-3.5 space-y-1.5 text-sm text-foreground wrap-break-word [word-break:break-word]" {...props}>
             {children}
         </ul>
     ),
-
     li: ({ node, children, ...props }) => (
-        <li className="pl-0.5 wrap-break-word [word-break:break-word] leading-relaxed" {...props}>
+        <li className="pl-0.5 wrap-break-word [word-break:break-word] leading-relaxed text-sm" {...props}>
             {children}
         </li>
     ),
     ol: ({ node, ...props }) => (
         <ol className="list-decimal pl-5 mb-3.5 space-y-1.5 text-sm text-foreground wrap-break-word [word-break:break-word]" {...props} />
     ),
-    // li: ({ node, ...props }) => (
-    //     <li className="pl-0.5 wrap-break-word [word-break:break-word]" {...props} />
-    // ),
     blockquote: ({ node, ...props }) => (
         <blockquote className="border-l-4 border-primary/50 bg-muted/40 pl-3 py-1 my-2.5 italic rounded-r text-foreground/80 text-sm wrap-break-word [word-break:break-word]" {...props} />
     ),
@@ -487,12 +495,26 @@ const markdownComponents = {
     em: ({ node, ...props }) => (
         <em className="italic text-foreground" {...props} />
     ),
-    table: ({ node, ...props }) => null,
-    thead: ({ node, ...props }) => null,
-    tbody: ({ node, ...props }) => null,
-    tr: ({ node, ...props }) => null,
-    th: ({ node, ...props }) => null,
-    td: ({ node, ...props }) => null,
+    table: ({ node, ...props }) => (
+        <div className="my-3 overflow-x-auto rounded-lg border border-border bg-card/60 shadow-sm scrollbar-thin">
+            <table className="w-full text-xs text-left text-foreground border-collapse" {...props} />
+        </div>
+    ),
+    thead: ({ node, ...props }) => (
+        <thead className="bg-muted/70 text-muted-foreground uppercase text-[11px] font-semibold tracking-wider border-b border-border" {...props} />
+    ),
+    tbody: ({ node, ...props }) => (
+        <tbody className="divide-y divide-border/50 bg-background/50" {...props} />
+    ),
+    tr: ({ node, ...props }) => (
+        <tr className="hover:bg-muted/40 transition-colors" {...props} />
+    ),
+    th: ({ node, ...props }) => (
+        <th className="px-3 py-2 font-semibold border-b border-border text-foreground" {...props} />
+    ),
+    td: ({ node, ...props }) => (
+        <td className="px-3 py-2 whitespace-nowrap text-foreground" {...props} />
+    ),
     code: ({ node, className, children, ...props }) => {
         const inline = !className;
         if (inline) {
@@ -587,12 +609,35 @@ export function MessageAnimated({
 
     const suggestionsDisabled = isHistoryConversation || isChatPending || pageLoading;
 
+    const cleanContent = useMemo(() => {
+        if (!content) return "";
+
+        // 1. Strip 💬 SUGGESTED QUESTIONS header and plain text questions following it
+        let cleaned = content.replace(/💬\s*SUGGESTED QUESTIONS[\s\S]*$/i, "").trim();
+
+        // 2. Normalize unicode bullets • to markdown hyphen bullets - (for history messages & backwards compatibility)
+        cleaned = cleaned.replace(/(\n|^)[ \t]*•[ \t]*/g, "$1- ");
+
+        // 3. Guarantee inline table placement under PRIMARY CONTENT if tableData is available but model did not output table pipes
+        const hasData = tableData && Array.isArray(tableData) && tableData.length > 0;
+        if (hasData && !cleaned.includes("|")) {
+            const primaryRegex = /(##?\s*📊\s*PRIMARY CONTENT[^\n]*)/i;
+            if (primaryRegex.test(cleaned)) {
+                cleaned = cleaned.replace(primaryRegex, "$1\n\n| Data Table |\n| --- |\n");
+            } else {
+                cleaned = cleaned + "\n\n## 📊 PRIMARY CONTENT\n| Data Table |\n| --- |\n";
+            }
+        }
+
+        return cleaned;
+    }, [content, tableData]);
+
     const customMarkdownComponents = useMemo(() => {
         const hasData = tableData && Array.isArray(tableData) && tableData.length > 0;
 
         return {
             ...markdownComponents,
-            table: () => {
+            table: (props) => {
                 if (hasData) {
                     return (
                         <StructuredTable
@@ -607,7 +652,7 @@ export function MessageAnimated({
                         />
                     );
                 }
-                return null;
+                return markdownComponents.table(props);
             },
         };
     }, [tableData, pagination, message.id, onPageChange, pageLoading, message.toolName, message.userQueryText, schema, message.query]);
@@ -627,7 +672,7 @@ export function MessageAnimated({
                 className={cn(
                     "transition-all duration-200 wrap-break-word [word-break:break-word] overflow-hidden flex flex-col",
                     isUser
-                        ? "max-w-[75%] bg-primary text-slate-950 px-4 py-3 rounded-tr-none shadow-sm rounded-2xl font-semibold"
+                        ? "max-w-[75%] bg-primary mt-4 text-slate-950 px-4 py-3 rounded-tr-none shadow-sm rounded-2xl font-semibold"
                         : "w-full bg-background px-5 py-4 rounded-tl-none ring-0 text-foreground",
                 )}
             >
@@ -638,21 +683,8 @@ export function MessageAnimated({
                             rehypePlugins={[rehypeHighlight]}
                             components={customMarkdownComponents}
                         >
-                            {content}
+                            {cleanContent}
                         </ReactMarkdown>
-
-                        {tableData && !content.includes("|") && (
-                            <StructuredTable
-                                data={tableData}
-                                pagination={pagination}
-                                messageId={message.id}
-                                onPageChange={onPageChange}
-                                isLoading={pageLoading}
-                                toolName={message.toolName}
-                                userQueryText={message.userQueryText || message.query}
-                                schema={schema}
-                            />
-                        )}
 
                         <SuggestedQuestions
                             questions={suggestedQuestions}

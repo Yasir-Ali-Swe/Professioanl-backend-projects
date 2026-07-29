@@ -1,4 +1,3 @@
-
 // src/components/chatbot/MessageAnimate.jsx
 import { useEffect, useRef, useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown"
@@ -133,6 +132,70 @@ const COLUMN_SCHEMAS = {
         { key: "quantityPurchased", label: "Qty Bought", align: "right" },
         { key: "totalSpent", label: "Total Spent", align: "right", format: "currency" },
     ],
+    // GROUP BY SCHEMAS
+    grouped_categories: [
+        { key: "categoryName", label: "Category Name", align: "left" },
+        { key: "productCount", label: "Products", align: "right" },
+        { key: "totalStock", label: "Stock", align: "right" },
+        { key: "totalCostValue", label: "Cost Value", align: "right", format: "currency" },
+        { key: "totalSellingValue", label: "Selling Value", align: "right", format: "currency" },
+        { key: "totalPotentialProfit", label: "Potential Profit", align: "right", format: "currency" },
+        { key: "averageMargin", label: "Avg Margin", align: "right", format: "percentage" },
+    ],
+    grouped_suppliers: [
+        { key: "supplierName", label: "Supplier", align: "left" },
+        { key: "productCount", label: "Products", align: "right" },
+        { key: "totalStock", label: "Total Stock", align: "right" },
+        { key: "totalCostValue", label: "Total Cost", align: "right", format: "currency" },
+        { key: "totalSellingValue", label: "Total Value", align: "right", format: "currency" },
+        { key: "totalPotentialProfit", label: "Potential Profit", align: "right", format: "currency" },
+        { key: "averageMargin", label: "Avg Margin", align: "right", format: "percentage" },
+    ],
+    grouped_status: [
+        { key: "statusDisplay", label: "Status", align: "center" },
+        { key: "productCount", label: "Products", align: "right" },
+        { key: "totalStock", label: "Total Stock", align: "right" },
+        { key: "totalCostValue", label: "Total Cost", align: "right", format: "currency" },
+        { key: "totalSellingValue", label: "Total Value", align: "right", format: "currency" },
+        { key: "totalPotentialProfit", label: "Potential Profit", align: "right", format: "currency" },
+        { key: "averageMargin", label: "Avg Margin", align: "right", format: "percentage" },
+    ],
+    grouped_customers: [
+        { key: "_id", label: "Customer", align: "left" },
+        { key: "salesCount", label: "Orders", align: "right" },
+        { key: "totalRevenue", label: "Total Revenue", align: "right", format: "currency" },
+        { key: "averageRevenue", label: "Avg Revenue", align: "right", format: "currency" },
+    ],
+    grouped_sales_monthly: [
+        { key: "_id", label: "Month", align: "left" },
+        { key: "salesCount", label: "Orders", align: "right" },
+        { key: "totalRevenue", label: "Total Revenue", align: "right", format: "currency" },
+        { key: "averageRevenue", label: "Avg Revenue", align: "right", format: "currency" },
+    ],
+    grouped_sales_daily: [
+        { key: "_id", label: "Date", align: "left" },
+        { key: "salesCount", label: "Orders", align: "right" },
+        { key: "totalRevenue", label: "Total Revenue", align: "right", format: "currency" },
+        { key: "averageRevenue", label: "Avg Revenue", align: "right", format: "currency" },
+    ],
+    grouped_sales_status: [
+        { key: "_id", label: "Status", align: "center" },
+        { key: "salesCount", label: "Orders", align: "right" },
+        { key: "totalRevenue", label: "Total Revenue", align: "right", format: "currency" },
+        { key: "averageRevenue", label: "Avg Revenue", align: "right", format: "currency" },
+    ],
+    grouped_purchase_suppliers: [
+        { key: "supplierName", label: "Supplier", align: "left" },
+        { key: "orderCount", label: "Orders", align: "right" },
+        { key: "totalSpent", label: "Total Spent", align: "right", format: "currency" },
+        { key: "averageSpent", label: "Avg Spent", align: "right", format: "currency" },
+    ],
+    grouped_purchase_status: [
+        { key: "status", label: "Status", align: "center" },
+        { key: "orderCount", label: "Orders", align: "right" },
+        { key: "totalSpent", label: "Total Spent", align: "right", format: "currency" },
+        { key: "averageSpent", label: "Avg Spent", align: "right", format: "currency" },
+    ],
 };
 
 const isDetailedRequest = (userQueryText = "") => {
@@ -157,6 +220,33 @@ const resolveTableConfig = (data, toolName, userQueryText = "") => {
     }
     const sample = data[0];
 
+    // Check for grouped data - ORDER MATTERS!
+    if (sample.categoryName !== undefined && sample.productCount !== undefined) {
+        return { schema: COLUMN_SCHEMAS.grouped_categories, title: "Categories" };
+    }
+    if (sample.supplierName !== undefined && sample.productCount !== undefined) {
+        return { schema: COLUMN_SCHEMAS.grouped_suppliers, title: "Suppliers" };
+    }
+    if (sample.statusDisplay !== undefined && sample.productCount !== undefined) {
+        return { schema: COLUMN_SCHEMAS.grouped_status, title: "Stock Status" };
+    }
+    if (sample.status !== undefined && sample.orderCount !== undefined) {
+        return { schema: COLUMN_SCHEMAS.grouped_purchase_status, title: "Purchase Status" };
+    }
+    if (sample.salesCount !== undefined && sample.totalRevenue !== undefined) {
+        if (sample._id && /^\d{4}-\d{2}$/.test(sample._id)) {
+            return { schema: COLUMN_SCHEMAS.grouped_sales_monthly, title: "Monthly Sales" };
+        }
+        if (sample._id && /^\d{4}-\d{2}-\d{2}$/.test(sample._id)) {
+            return { schema: COLUMN_SCHEMAS.grouped_sales_daily, title: "Daily Sales" };
+        }
+        return { schema: COLUMN_SCHEMAS.grouped_customers, title: "Customer Sales" };
+    }
+    if (sample.orderCount !== undefined && sample.totalSpent !== undefined) {
+        return { schema: COLUMN_SCHEMAS.grouped_purchase_suppliers, title: "Supplier Orders" };
+    }
+
+    // Regular data detection
     if (sample.unitPrice !== undefined && sample.quantity !== undefined) {
         return { schema: COLUMN_SCHEMAS.invoice_items, title: "Invoice Line Items" };
     }
@@ -222,6 +312,10 @@ const getValueByPath = (obj, path) => {
     return path.split(".").reduce((acc, part) => acc && acc[part], obj);
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FIXED: formatCellValue - percentage now multiplies by 100
+// ─────────────────────────────────────────────────────────────────────────────
+
 const formatCellValue = (row, col) => {
     const val = getValueByPath(row, col.key);
     if (val === null || val === undefined) return "—";
@@ -233,7 +327,8 @@ const formatCellValue = (row, col) => {
         })}`;
     }
     if (col.format === "percentage") {
-        return `${Math.round(val)}%`;
+        // FIX: Multiply by 100 to convert decimal to percentage
+        return `${Math.round(Number(val) * 100)}%`;
     }
     if (col.format === "date" || val instanceof Date) {
         const d = new Date(val);
@@ -242,6 +337,9 @@ const formatCellValue = (row, col) => {
     if (col.format === "boolean") {
         return val ? "Yes" : "No";
     }
+    if (col.format === "status") {
+        return val;
+    }
     return String(val);
 };
 
@@ -249,17 +347,19 @@ const formatCellValue = (row, col) => {
 // EMPTY STATE
 // ─────────────────────────────────────────────────────────────────────────────
 
-function EmptyState() {
+function EmptyState({ message }) {
     return (
         <div className="w-full my-4 p-6 border border-border rounded-xl bg-card text-center select-none shadow-2xs">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/60 text-muted-foreground mx-auto mb-3">
                 <PackageX className="h-6 w-6" />
             </div>
             <h3 className="text-sm font-semibold text-foreground mb-1">
-                No matching records found
+                {message || "No matching records found"}
             </h3>
             <p className="text-xs text-muted-foreground mb-4 max-w-xs mx-auto leading-relaxed">
-                We couldn't find any data matching your criteria.
+                {message === "No data found matching your criteria."
+                    ? "We couldn't find any data matching your search criteria."
+                    : "Try adjusting your search terms or filters."}
             </p>
             <div className="text-left bg-muted/40 border border-border/60 rounded-lg p-3 max-w-sm mx-auto text-xs">
                 <span className="font-semibold text-foreground block mb-1">Try asking:</span>
@@ -274,7 +374,7 @@ function EmptyState() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STRUCTURED TABLE
+// STRUCTURED TABLE - UPDATED WITH FIXES
 // ─────────────────────────────────────────────────────────────────────────────
 
 function StructuredTable({
@@ -287,14 +387,59 @@ function StructuredTable({
     userQueryText,
     schema,
 }) {
-    if (!Array.isArray(data) || data.length === 0) {
+    // Check if data is empty
+    const isEmpty = !Array.isArray(data) || data.length === 0;
+
+    if (isEmpty) {
         return <EmptyState />;
     }
 
-    let resolvedSchema;
-    let resolvedTitle;
+    let resolvedSchema = [];
+    let resolvedTitle = "";
 
-    if (schema && COLUMN_SCHEMAS[schema]) {
+    // --- CRITICAL: Check for grouped data FIRST ---
+    const sample = data[0];
+
+    // Category grouping
+    if (sample.categoryName !== undefined && sample.productCount !== undefined) {
+        resolvedSchema = COLUMN_SCHEMAS.grouped_categories;
+        resolvedTitle = "Categories";
+    }
+    // Supplier grouping
+    else if (sample.supplierName !== undefined && sample.productCount !== undefined) {
+        resolvedSchema = COLUMN_SCHEMAS.grouped_suppliers;
+        resolvedTitle = "Suppliers";
+    }
+    // Status grouping
+    else if ((sample.statusDisplay !== undefined || sample.status !== undefined) && sample.productCount !== undefined) {
+        resolvedSchema = COLUMN_SCHEMAS.grouped_status;
+        resolvedTitle = "Stock Status";
+    }
+    // Sales grouping
+    else if (sample.salesCount !== undefined && sample.totalRevenue !== undefined) {
+        if (sample._id && /^\d{4}-\d{2}$/.test(sample._id)) {
+            resolvedSchema = COLUMN_SCHEMAS.grouped_sales_monthly;
+            resolvedTitle = "Monthly Sales";
+        } else if (sample._id && /^\d{4}-\d{2}-\d{2}$/.test(sample._id)) {
+            resolvedSchema = COLUMN_SCHEMAS.grouped_sales_daily;
+            resolvedTitle = "Daily Sales";
+        } else {
+            resolvedSchema = COLUMN_SCHEMAS.grouped_customers;
+            resolvedTitle = "Customer Sales";
+        }
+    }
+    // Purchase grouping
+    else if (sample.orderCount !== undefined && sample.totalSpent !== undefined) {
+        if (sample.supplierName !== undefined) {
+            resolvedSchema = COLUMN_SCHEMAS.grouped_purchase_suppliers;
+            resolvedTitle = "Supplier Orders";
+        } else {
+            resolvedSchema = COLUMN_SCHEMAS.grouped_purchase_status;
+            resolvedTitle = "Purchase Status";
+        }
+    }
+    // Schema prop provided
+    else if (schema && COLUMN_SCHEMAS[schema]) {
         resolvedSchema = COLUMN_SCHEMAS[schema];
         const titleMap = {
             products_compact: "Products",
@@ -308,12 +453,38 @@ function StructuredTable({
             anomalies: "Anomalies",
             suggestions: "Reorder Suggestions",
             deadStock: "Dead Stock",
+            grouped_categories: "Categories",
+            grouped_suppliers: "Suppliers",
+            grouped_status: "Stock Status",
+            grouped_customers: "Customer Sales",
+            grouped_sales_monthly: "Monthly Sales",
+            grouped_sales_daily: "Daily Sales",
+            grouped_sales_status: "Sales by Status",
+            grouped_purchase_suppliers: "Supplier Orders",
+            grouped_purchase_status: "Purchase Status",
         };
         resolvedTitle = titleMap[schema] || "Results";
-    } else {
+    }
+    // Fallback: resolve from data
+    else {
         const config = resolveTableConfig(data, toolName, userQueryText);
         resolvedSchema = config.schema;
         resolvedTitle = config.title;
+    }
+
+    // If still no schema, create dynamic one
+    if (!resolvedSchema || resolvedSchema.length === 0) {
+        const keys = Object.keys(sample).filter(k => !k.startsWith('_') && !['__v', 'organizationId'].includes(k));
+        resolvedSchema = keys.map(k => ({
+            key: k,
+            label: k.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
+            align: typeof sample[k] === "number" ? "right" : "left",
+            format: typeof sample[k] === "number" &&
+                (k.toLowerCase().includes('cost') || k.toLowerCase().includes('revenue') ||
+                    k.toLowerCase().includes('spent') || k.toLowerCase().includes('value')) ? "currency" :
+                k.toLowerCase().includes('margin') || k.toLowerCase().includes('percentage') ? "percentage" : undefined,
+        }));
+        resolvedTitle = "Results";
     }
 
     const page = pagination?.page || 1;
@@ -323,22 +494,11 @@ function StructuredTable({
     const start = count > 0 ? (page - 1) * limit + 1 : 0;
     const end = Math.min(page * limit, count);
 
-    const rangeText = count > 0 ? `Showing ${start}–${end} of ${count}` : "";
-
     const isPrevDisabled = page <= 1 || isLoading;
     const isNextDisabled = page >= totalPages || isLoading;
 
     return (
         <div className="w-full my-4 shadow-2xs bg-card overflow-hidden transition-all">
-            {/* <div className="bg-muted/40 flex items-center justify-between text-xs">
-                {isLoading && (
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground px-4 py-2.5 ">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                        <span>Loading...</span>
-                    </span>
-                )}
-            </div> */}
-
             <div className="w-full overflow-x-auto max-h-[380px] scrollbar-thin relative">
                 <table className="w-full text-xs border-collapse min-w-[550px]">
                     <thead className="bg-muted/90 backdrop-blur-xs text-foreground border-b border-border font-semibold sticky top-0 z-10 select-none">
@@ -357,25 +517,41 @@ function StructuredTable({
                         </tr>
                     </thead>
                     <tbody className={cn("divide-y divide-border transition-opacity duration-200", isLoading && "opacity-40")}>
-                        {data.map((row, rowIdx) => (
-                            <tr key={rowIdx} className="hover:bg-muted/40 transition-colors">
-                                {resolvedSchema.map((col) => {
-                                    const formatted = formatCellValue(row, col);
-                                    const hasEmoji = hasStatusEmoji(formatted);
-                                    return (
-                                        <td
-                                            key={col.key}
-                                            className={cn(
-                                                "px-3.5 py-2.5 border-r last:border-0 border-border text-foreground whitespace-nowrap text-xs",
-                                                col.align === "right" ? "text-right font-mono text-[11px]" : col.align === "center" || hasEmoji ? "text-center" : "text-left"
-                                            )}
-                                        >
-                                            {formatted}
-                                        </td>
-                                    );
-                                })}
-                            </tr>
-                        ))}
+                        {data.map((row, rowIdx) => {
+                            // For grouped data, ensure we have proper display values
+                            const displayRow = { ...row };
+
+                            // If status exists but statusDisplay doesn't, create it
+                            if (row.status !== undefined && row.statusDisplay === undefined) {
+                                const statusMap = {
+                                    'in_stock': '🟢 In Stock',
+                                    'low_stock': '🟡 Low Stock',
+                                    'out_of_stock': '🔴 Out of Stock',
+                                    'dead_stock': '⚫ Dead Stock',
+                                };
+                                displayRow.statusDisplay = statusMap[row.status] || row.status;
+                            }
+
+                            return (
+                                <tr key={rowIdx} className="hover:bg-muted/40 transition-colors">
+                                    {resolvedSchema.map((col) => {
+                                        const formatted = formatCellValue(displayRow, col);
+                                        const hasEmoji = hasStatusEmoji(formatted);
+                                        return (
+                                            <td
+                                                key={col.key}
+                                                className={cn(
+                                                    "px-3.5 py-2.5 border-r last:border-0 border-border text-foreground whitespace-nowrap text-xs",
+                                                    col.align === "right" ? "text-right font-mono text-[11px]" : col.align === "center" || hasEmoji ? "text-center" : "text-left"
+                                                )}
+                                            >
+                                                {formatted}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -551,7 +727,7 @@ const markdownComponents = {
             );
         }
 
-        return <span className={className} {...props}>{children}</span>;
+        return <span className={className} {...props}>{children}</span>
     },
 };
 
@@ -609,18 +785,50 @@ export function MessageAnimated({
 
     const suggestionsDisabled = isHistoryConversation || isChatPending || pageLoading;
 
+    // Check if this is grouped data from the backend
+    const isGroupedData = tableData && Array.isArray(tableData) && tableData.length > 0 &&
+        (tableData[0].categoryName !== undefined ||
+            tableData[0].supplierName !== undefined ||
+            (tableData[0].status !== undefined && tableData[0].orderCount !== undefined) ||
+            (tableData[0].statusDisplay !== undefined && tableData[0].productCount !== undefined) ||
+            (tableData[0].salesCount !== undefined && tableData[0].totalRevenue !== undefined) ||
+            (tableData[0].orderCount !== undefined && tableData[0].totalSpent !== undefined));
+
     const cleanContent = useMemo(() => {
         if (!content) return "";
 
-        // 1. Strip 💬 SUGGESTED QUESTIONS header and plain text questions following it
+        // 1. Strip 💬 SUGGESTED QUESTIONS header
         let cleaned = content.replace(/💬\s*SUGGESTED QUESTIONS[\s\S]*$/i, "").trim();
 
-        // 2. Normalize unicode bullets • to markdown hyphen bullets - (for history messages & backwards compatibility)
+        // 2. Normalize unicode bullets to markdown hyphen bullets
         cleaned = cleaned.replace(/(\n|^)[ \t]*•[ \t]*/g, "$1- ");
 
-        // 3. Guarantee inline table placement under PRIMARY CONTENT if tableData is available but model did not output table pipes
-        const hasData = tableData && Array.isArray(tableData) && tableData.length > 0;
-        if (hasData && !cleaned.includes("|")) {
+        // 3. Check if the result is empty
+        const hasEmptyData = message?.summary?.isEmpty === true ||
+            message?.isEmpty === true ||
+            (message?.pagination?.count === 0);
+
+        // 4. If empty data, clean up zero-summary and N/A rows
+        if (hasEmptyData) {
+            cleaned = cleaned.replace(/\|.*N\/A.*\|/g, "").trim();
+            cleaned = cleaned.replace(/\|[\s\-:]+\|/g, "").trim();
+            cleaned = cleaned.replace(/\| Name\/Number \| SKU \| Quantity \| Selling Price \| Status \|/g, "").trim();
+            cleaned = cleaned.replace(/\| \-\-\- \| \-\-\- \| \-\-\- \| \-\-\- \| \-\-\- \|/g, "").trim();
+        }
+
+        // 5. For grouped data, ensure the table renders properly
+        if (isGroupedData && !cleaned.includes("|")) {
+            const primaryRegex = /(##?\s*📊\s*PRIMARY CONTENT[^\n]*)/i;
+            if (primaryRegex.test(cleaned)) {
+                cleaned = cleaned.replace(primaryRegex, "$1\n\n| Data |\n| --- |\n");
+            } else {
+                cleaned = cleaned + "\n\n## 📊 PRIMARY CONTENT\n| Data |\n| --- |\n";
+            }
+        }
+
+        // 6. Regular data table placeholder
+        const hasData = message?.tableData && Array.isArray(message.tableData) && message.tableData.length > 0;
+        if (hasData && !hasEmptyData && !isGroupedData && !cleaned.includes("|")) {
             const primaryRegex = /(##?\s*📊\s*PRIMARY CONTENT[^\n]*)/i;
             if (primaryRegex.test(cleaned)) {
                 cleaned = cleaned.replace(primaryRegex, "$1\n\n| Data Table |\n| --- |\n");
@@ -630,7 +838,7 @@ export function MessageAnimated({
         }
 
         return cleaned;
-    }, [content, tableData]);
+    }, [content, message?.tableData, message?.summary, message?.pagination, message?.isEmpty, isGroupedData]);
 
     const customMarkdownComponents = useMemo(() => {
         const hasData = tableData && Array.isArray(tableData) && tableData.length > 0;

@@ -4,6 +4,7 @@ import {
   chatWithAIStream,
   getChatHistory,
   clearContext,
+  getChatPage,
 } from "../controllers/chat.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import chatLogModel from "../models/chatLog.model.js";
@@ -12,9 +13,30 @@ import { authorizeChatbotAccess } from "../middleware/featureAccess.middleware.j
 const router = express.Router();
 
 router.post("/chat", authMiddleware, authorizeChatbotAccess, chatWithAI);
-router.post("/chat/stream", authMiddleware, authorizeChatbotAccess, chatWithAIStream);
-router.get("/chat/history", authMiddleware, authorizeChatbotAccess, getChatHistory);
-router.delete("/chat/context", authMiddleware, authorizeChatbotAccess, clearContext);
+router.post(
+  "/chat/stream",
+  authMiddleware,
+  authorizeChatbotAccess,
+  chatWithAIStream,
+);
+router.post(
+  "/chat/page",
+  authMiddleware,
+  authorizeChatbotAccess,
+  getChatPage,
+);
+router.get(
+  "/chat/history",
+  authMiddleware,
+  authorizeChatbotAccess,
+  getChatHistory,
+);
+router.delete(
+  "/chat/context",
+  authMiddleware,
+  authorizeChatbotAccess,
+  clearContext,
+);
 
 router.get(
   "/chat/analytics",

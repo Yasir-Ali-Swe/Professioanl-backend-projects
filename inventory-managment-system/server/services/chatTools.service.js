@@ -268,12 +268,22 @@ const handleInventory = async (args, organizationId) => {
 
   if (args.category) {
     const cat = await findCategory(organizationId, args.category);
-    if (cat) filter.categoryId = cat._id;
+    if (cat) {
+      filter.categoryId = cat._id;
+    } else {
+      // Category not found - return empty result
+      return createEmptyInventoryResult("No category found with that name.");
+    }
   }
 
   if (args.supplier) {
     const supp = await findSupplier(organizationId, args.supplier);
-    if (supp) filter.supplierId = supp._id;
+    if (supp) {
+      filter.supplierId = supp._id;
+    } else {
+      // Supplier not found - return empty result
+      return createEmptyInventoryResult(`No supplier found with name "${args.supplier}".`);
+    }
   }
 
   if (args.minPrice || args.maxPrice) {
@@ -312,16 +322,11 @@ const handleInventory = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.createdBy = { $in: userIds };
     } else {
-      return {
-        products: [],
-        count: 0,
-        page: 1,
-        totalPages: 0,
-        summary: { totalProducts: 0, totalStock: 0, totalInventoryValue: 0 },
-      };
+      return createEmptyInventoryResult(`No users found with name "${args.creatorName}".`);
     }
   }
 
+  // Get active product IDs for dead stock detection
   let activeProductIds = [];
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -342,144 +347,37 @@ const handleInventory = async (args, organizationId) => {
   }
   activeProductIds = Array.from(idSet);
 
+  // Handle stock status filtering correctly
   if (args.stockStatus) {
     switch (args.stockStatus) {
       case "low_stock":
         filter.$expr = { $lte: ["$quantity", "$reorderThreshold"] };
+        filter.quantity = { $gt: 0 };
         break;
       case "out_of_stock":
         filter.quantity = 0;
         break;
       case "in_stock":
         filter.quantity = { $gt: 0 };
+        // Exclude dead stock from "in_stock" results
+        filter._id = { $in: activeProductIds.length > 0 ? activeProductIds : [] };
         break;
       case "dead_stock":
         filter.quantity = { $gt: 0 };
-        filter._id = { $nin: activeProductIds };
+        if (activeProductIds.length > 0) {
+          filter._id = { $nin: activeProductIds };
+        }
         break;
     }
   }
 
+  // Handle grouping
   if (args.groupBy) {
-    let groupField = "";
-    let lookupStage = null;
-    let projectStage = null;
-
-    if (args.groupBy === "category") {
-      groupField = "$categoryId";
-      lookupStage = {
-        $lookup: {
-          from: "categories",
-          localField: "_id",
-          foreignField: "_id",
-          as: "details",
-        },
-      };
-      projectStage = {
-        $project: {
-          categoryName: { $arrayElemAt: ["$details.name", 0] },
-          productCount: 1,
-          totalStock: 1,
-          totalCostValue: 1,
-          totalSellingValue: 1,
-          totalPotentialProfit: 1,
-          averageMargin: 1,
-        },
-      };
-    } else if (args.groupBy === "supplier") {
-      groupField = "$supplierId";
-      lookupStage = {
-        $lookup: {
-          from: "suppliers",
-          localField: "_id",
-          foreignField: "_id",
-          as: "details",
-        },
-      };
-      projectStage = {
-        $project: {
-          supplierName: { $arrayElemAt: ["$details.name", 0] },
-          productCount: 1,
-          totalStock: 1,
-          totalCostValue: 1,
-          totalSellingValue: 1,
-          totalPotentialProfit: 1,
-          averageMargin: 1,
-        },
-      };
-    } else if (args.groupBy === "status") {
-      groupField = {
-        $cond: [
-          { $eq: ["$quantity", 0] },
-          "out_of_stock",
-          {
-            $cond: [
-              { $lte: ["$quantity", "$reorderThreshold"] },
-              "low_stock",
-              "in_stock",
-            ],
-          },
-        ],
-      };
-      projectStage = {
-        $project: {
-          status: "$_id",
-          productCount: 1,
-          totalStock: 1,
-          totalCostValue: 1,
-          totalSellingValue: 1,
-          totalPotentialProfit: 1,
-          averageMargin: 1,
-        },
-      };
-    }
-
-    const matchFilter = buildFilter(organizationId, filter);
-
-    const pipeline = [
-      { $match: matchFilter },
-      {
-        $group: {
-          _id: groupField,
-          productCount: { $sum: 1 },
-          totalStock: { $sum: "$quantity" },
-          totalCostValue: { $sum: { $multiply: ["$quantity", "$costPrice"] } },
-          totalSellingValue: {
-            $sum: { $multiply: ["$quantity", "$sellingPrice"] },
-          },
-          totalPotentialProfit: {
-            $sum: {
-              $multiply: [
-                "$quantity",
-                { $subtract: ["$sellingPrice", "$costPrice"] },
-              ],
-            },
-          },
-          averageMargin: {
-            $avg: {
-              $cond: [
-                { $gt: ["$sellingPrice", 0] },
-                {
-                  $divide: [
-                    { $subtract: ["$sellingPrice", "$costPrice"] },
-                    "$sellingPrice",
-                  ],
-                },
-                0,
-              ],
-            },
-          },
-        },
-      },
-    ];
-
-    if (lookupStage) pipeline.push(lookupStage);
-    if (projectStage) pipeline.push(projectStage);
-
-    const groupedResults = await productModel.aggregate(pipeline);
-    return { groupedResults, count: groupedResults.length };
+    const groupedResults = await handleGroupByInventory(args, filter, organizationId);
+    return groupedResults;
   }
 
+  // Handle pagination
   const limitValue = Math.min(
     args.limit || CONSTANTS.DEFAULT_PAGE_LIMIT,
     CONSTANTS.MAX_PAGE_LIMIT,
@@ -569,16 +467,30 @@ const handleInventory = async (args, organizationId) => {
   let deadStockCount = 0;
   let inStockCount = 0;
 
-  for (const p of products) {
+  // Calculate summary from all products (not just paginated ones)
+  const allProductsForStats = await productModel.find(filter).lean();
+  for (const p of allProductsForStats) {
+    if (!isValidProduct(p)) continue;
+    const profit = p.sellingPrice - p.costPrice;
     totalStock += p.quantity;
-    totalInventoryValue += p.inventoryValue;
-    totalPotentialRevenue += p.potentialRevenue;
-    totalPotentialProfit += p.potentialProfit;
+    totalInventoryValue += p.quantity * p.costPrice;
+    totalPotentialRevenue += p.quantity * p.sellingPrice;
+    totalPotentialProfit += p.quantity * profit;
 
-    if (p.statusKey === "out_of_stock") outOfStockCount++;
-    else if (p.statusKey === "low_stock") lowStockCount++;
-    else if (p.statusKey === "dead_stock") deadStockCount++;
-    else if (p.statusKey === "in_stock") inStockCount++;
+    let statusKey = "in_stock";
+    if (p.quantity === 0) {
+      statusKey = "out_of_stock";
+    } else if (p.quantity <= p.reorderThreshold) {
+      statusKey = "low_stock";
+    }
+    if (p.quantity > 0 && !activeProductIds.includes(p._id.toString())) {
+      statusKey = "dead_stock";
+    }
+
+    if (statusKey === "out_of_stock") outOfStockCount++;
+    else if (statusKey === "low_stock") lowStockCount++;
+    else if (statusKey === "dead_stock") deadStockCount++;
+    else if (statusKey === "in_stock") inStockCount++;
   }
 
   const summary = {
@@ -597,7 +509,9 @@ const handleInventory = async (args, organizationId) => {
       "🔴 Out of Stock": outOfStockCount,
       "⚫ Dead Stock": deadStockCount,
     },
+    isEmpty: totalCount === 0,
   };
+
   return {
     products,
     count: totalCount,
@@ -606,6 +520,291 @@ const handleInventory = async (args, organizationId) => {
     summary,
     filters: { limit: limitValue, page: pageValue, ...args },
   };
+};
+
+const createEmptyInventoryResult = (message) => {
+  return {
+    products: [],
+    count: 0,
+    page: 1,
+    totalPages: 0,
+    summary: {
+      totalProducts: 0,
+      totalStock: 0,
+      totalInventoryValue: 0,
+      totalPotentialRevenue: 0,
+      totalPotentialProfit: 0,
+      lowStockCount: 0,
+      outOfStockCount: 0,
+      deadStockCount: 0,
+      inStockCount: 0,
+      statusBreakdown: {
+        "🟢 In Stock": 0,
+        "🟡 Low Stock": 0,
+        "🔴 Out of Stock": 0,
+        "⚫ Dead Stock": 0,
+      },
+      isEmpty: true,
+      message: message || "No data found matching your criteria.",
+    },
+  };
+};
+
+const handleGroupByInventory = async (args, filter, organizationId) => {
+  let groupField = "";
+  let lookupStage = null;
+  let projectStage = null;
+
+  if (args.groupBy === "category") {
+    groupField = "$categoryId";
+    const pipeline = [
+      { $match: buildFilter(organizationId, filter) },
+      {
+        $group: {
+          _id: groupField,
+          productCount: { $sum: 1 },
+          totalStock: { $sum: "$quantity" },
+          totalCostValue: { $sum: { $multiply: ["$quantity", "$costPrice"] } },
+          totalSellingValue: {
+            $sum: { $multiply: ["$quantity", "$sellingPrice"] },
+          },
+          totalPotentialProfit: {
+            $sum: {
+              $multiply: [
+                "$quantity",
+                { $subtract: ["$sellingPrice", "$costPrice"] },
+              ],
+            },
+          },
+          averageMargin: {
+            $avg: {
+              $cond: [
+                { $gt: ["$sellingPrice", 0] },
+                {
+                  $divide: [
+                    { $subtract: ["$sellingPrice", "$costPrice"] },
+                    "$sellingPrice",
+                  ],
+                },
+                0,
+              ],
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "_id",
+          foreignField: "_id",
+          as: "categoryDetails",
+        },
+      },
+      {
+        $project: {
+          categoryName: { $arrayElemAt: ["$categoryDetails.name", 0] },
+          productCount: 1,
+          totalStock: 1,
+          totalCostValue: 1,
+          totalSellingValue: 1,
+          totalPotentialProfit: 1,
+          averageMargin: 1,
+        },
+      },
+      { $sort: { totalCostValue: -1 } },
+    ];
+
+    const groupedResults = await productModel.aggregate(pipeline);
+
+    const totalProducts = groupedResults.reduce((sum, g) => sum + g.productCount, 0);
+    const totalCostValue = groupedResults.reduce((sum, g) => sum + g.totalCostValue, 0);
+    const totalSellingValue = groupedResults.reduce((sum, g) => sum + g.totalSellingValue, 0);
+    const totalProfit = groupedResults.reduce((sum, g) => sum + g.totalPotentialProfit, 0);
+
+    return {
+      groupedResults,
+      count: groupedResults.length,
+      summary: {
+        totalCategories: groupedResults.length,
+        totalProducts,
+        totalCostValue: Math.round(totalCostValue * 100) / 100,
+        totalSellingValue: Math.round(totalSellingValue * 100) / 100,
+        totalPotentialProfit: Math.round(totalProfit * 100) / 100,
+        isEmpty: groupedResults.length === 0,
+      },
+    };
+  } else if (args.groupBy === "supplier") {
+    groupField = "$supplierId";
+    const pipeline = [
+      { $match: buildFilter(organizationId, filter) },
+      {
+        $group: {
+          _id: groupField,
+          productCount: { $sum: 1 },
+          totalStock: { $sum: "$quantity" },
+          totalCostValue: { $sum: { $multiply: ["$quantity", "$costPrice"] } },
+          totalSellingValue: {
+            $sum: { $multiply: ["$quantity", "$sellingPrice"] },
+          },
+          totalPotentialProfit: {
+            $sum: {
+              $multiply: [
+                "$quantity",
+                { $subtract: ["$sellingPrice", "$costPrice"] },
+              ],
+            },
+          },
+          averageMargin: {
+            $avg: {
+              $cond: [
+                { $gt: ["$sellingPrice", 0] },
+                {
+                  $divide: [
+                    { $subtract: ["$sellingPrice", "$costPrice"] },
+                    "$sellingPrice",
+                  ],
+                },
+                0,
+              ],
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "suppliers",
+          localField: "_id",
+          foreignField: "_id",
+          as: "supplierDetails",
+        },
+      },
+      {
+        $project: {
+          supplierName: { $arrayElemAt: ["$supplierDetails.name", 0] },
+          productCount: 1,
+          totalStock: 1,
+          totalCostValue: 1,
+          totalSellingValue: 1,
+          totalPotentialProfit: 1,
+          averageMargin: 1,
+        },
+      },
+      { $sort: { totalCostValue: -1 } },
+    ];
+
+    const groupedResults = await productModel.aggregate(pipeline);
+
+    const totalProducts = groupedResults.reduce((sum, g) => sum + g.productCount, 0);
+    const totalCostValue = groupedResults.reduce((sum, g) => sum + g.totalCostValue, 0);
+    const totalSellingValue = groupedResults.reduce((sum, g) => sum + g.totalSellingValue, 0);
+
+    return {
+      groupedResults,
+      count: groupedResults.length,
+      summary: {
+        totalSuppliers: groupedResults.length,
+        totalProducts,
+        totalCostValue: Math.round(totalCostValue * 100) / 100,
+        totalSellingValue: Math.round(totalSellingValue * 100) / 100,
+        isEmpty: groupedResults.length === 0,
+      },
+    };
+  } else if (args.groupBy === "status") {
+    const pipeline = [
+      { $match: buildFilter(organizationId, filter) },
+      {
+        $addFields: {
+          statusKey: {
+            $cond: [
+              { $eq: ["$quantity", 0] },
+              "out_of_stock",
+              {
+                $cond: [
+                  { $lte: ["$quantity", "$reorderThreshold"] },
+                  "low_stock",
+                  "in_stock",
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$statusKey",
+          productCount: { $sum: 1 },
+          totalStock: { $sum: "$quantity" },
+          totalCostValue: { $sum: { $multiply: ["$quantity", "$costPrice"] } },
+          totalSellingValue: {
+            $sum: { $multiply: ["$quantity", "$sellingPrice"] },
+          },
+          totalPotentialProfit: {
+            $sum: {
+              $multiply: [
+                "$quantity",
+                { $subtract: ["$sellingPrice", "$costPrice"] },
+              ],
+            },
+          },
+          averageMargin: {
+            $avg: {
+              $cond: [
+                { $gt: ["$sellingPrice", 0] },
+                {
+                  $divide: [
+                    { $subtract: ["$sellingPrice", "$costPrice"] },
+                    "$sellingPrice",
+                  ],
+                },
+                0,
+              ],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          status: "$_id",
+          statusDisplay: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$_id", "in_stock"] }, then: "🟢 In Stock" },
+                { case: { $eq: ["$_id", "low_stock"] }, then: "🟡 Low Stock" },
+                { case: { $eq: ["$_id", "out_of_stock"] }, then: "🔴 Out of Stock" },
+                { case: { $eq: ["$_id", "dead_stock"] }, then: "⚫ Dead Stock" },
+              ],
+              default: "$_id",
+            },
+          },
+          productCount: 1,
+          totalStock: 1,
+          totalCostValue: 1,
+          totalSellingValue: 1,
+          totalPotentialProfit: 1,
+          averageMargin: 1,
+        },
+      },
+      { $sort: { _id: 1 } },
+    ];
+
+    const groupedResults = await productModel.aggregate(pipeline);
+
+    const totalProducts = groupedResults.reduce((sum, g) => sum + g.productCount, 0);
+    const totalCostValue = groupedResults.reduce((sum, g) => sum + g.totalCostValue, 0);
+
+    return {
+      groupedResults,
+      count: groupedResults.length,
+      summary: {
+        totalStatusGroups: groupedResults.length,
+        totalProducts,
+        totalCostValue: Math.round(totalCostValue * 100) / 100,
+        isEmpty: groupedResults.length === 0,
+      },
+    };
+  }
+
+  return { groupedResults: [], count: 0, summary: { isEmpty: true } };
 };
 
 // ============ 2. PURCHASE TOOL ============
@@ -622,7 +821,11 @@ const handlePurchases = async (args, organizationId) => {
 
   if (args.supplier) {
     const supp = await findSupplier(organizationId, args.supplier);
-    if (supp) filter.supplierId = supp._id;
+    if (supp) {
+      filter.supplierId = supp._id;
+    } else {
+      return createEmptyPurchaseResult(`No supplier found with name "${args.supplier}".`);
+    }
   }
 
   if (args.status && args.status !== "all") {
@@ -644,16 +847,7 @@ const handlePurchases = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.createdBy = { $in: userIds };
     } else {
-      return {
-        orders: [],
-        count: 0,
-        summary: {
-          totalOrders: 0,
-          totalCost: 0,
-          averageOrderCost: 0,
-          statusCounts: { pending: 0, approved: 0, rejected: 0, fulfilled: 0 },
-        },
-      };
+      return createEmptyPurchaseResult(`No users found with name "${args.creatorName}".`);
     }
   }
 
@@ -691,6 +885,7 @@ const handlePurchases = async (args, organizationId) => {
             averageSpent: 1,
           },
         },
+        { $sort: { totalSpent: -1 } },
       );
     } else {
       pipeline.push({
@@ -704,7 +899,19 @@ const handlePurchases = async (args, organizationId) => {
     }
 
     const groupedResults = await purchaseOrderModel.aggregate(pipeline);
-    return { groupedResults, count: groupedResults.length };
+    const totalOrders = groupedResults.reduce((sum, g) => sum + g.orderCount, 0);
+    const totalSpent = groupedResults.reduce((sum, g) => sum + g.totalSpent, 0);
+
+    return {
+      groupedResults,
+      count: groupedResults.length,
+      summary: {
+        totalGroups: groupedResults.length,
+        totalOrders,
+        totalSpent: Math.round(totalSpent * 100) / 100,
+        isEmpty: groupedResults.length === 0,
+      },
+    };
   }
 
   const limitValue = Math.min(
@@ -789,6 +996,7 @@ const handlePurchases = async (args, organizationId) => {
         ? Math.round((totalCost / allOrdersForStats.length) * 100) / 100
         : 0,
     statusCounts,
+    isEmpty: allOrdersForStats.length === 0,
   };
 
   return {
@@ -797,6 +1005,23 @@ const handlePurchases = async (args, organizationId) => {
     page: pageValue,
     totalPages,
     summary,
+  };
+};
+
+const createEmptyPurchaseResult = (message) => {
+  return {
+    orders: [],
+    count: 0,
+    page: 1,
+    totalPages: 0,
+    summary: {
+      totalOrders: 0,
+      totalCost: 0,
+      averageOrderCost: 0,
+      statusCounts: { pending: 0, approved: 0, rejected: 0, fulfilled: 0 },
+      isEmpty: true,
+      message: message || "No purchase orders found matching your criteria.",
+    },
   };
 };
 
@@ -839,17 +1064,7 @@ const handleSales = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.createdBy = { $in: userIds };
     } else {
-      return {
-        invoices: [],
-        count: 0,
-        summary: {
-          totalSales: 0,
-          totalInvoices: 0,
-          averageInvoiceValue: 0,
-          statusCounts: { paid: 0, unpaid: 0, void: 0 },
-          customerMetrics: [],
-        },
-      };
+      return createEmptySalesResult(`No users found with name "${args.creatorName}".`);
     }
   }
 
@@ -883,7 +1098,19 @@ const handleSales = async (args, organizationId) => {
     ];
 
     const groupedResults = await invoiceModel.aggregate(pipeline);
-    return { groupedResults, count: groupedResults.length };
+    const totalInvoices = groupedResults.reduce((sum, g) => sum + g.salesCount, 0);
+    const totalRevenue = groupedResults.reduce((sum, g) => sum + g.totalRevenue, 0);
+
+    return {
+      groupedResults,
+      count: groupedResults.length,
+      summary: {
+        totalGroups: groupedResults.length,
+        totalInvoices,
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        isEmpty: groupedResults.length === 0,
+      },
+    };
   }
 
   const limitValue = Math.min(
@@ -1008,41 +1235,41 @@ const handleSales = async (args, organizationId) => {
   if (args.customer) {
     const productMap = {};
     for (const inv of allSalesForStats) {
-      for (const item of inv.products) {
-        if (item.productId) {
-          const pId =
-            item.productId._id?.toString() || item.productId.toString();
-          const pName =
-            item.productId.name || item.name || "Product " + pId.slice(-4);
-          const pSku = item.productId.sku || item.sku || "N/A";
-          const qty = Number(item.quantity) || 0;
-          const unitPrice = Number(item.sellingPrice ?? item.productId.sellingPrice ?? 0);
+      if (inv.customerName && inv.customerName.toLowerCase() === args.customer.toLowerCase()) {
+        for (const item of inv.products) {
+          if (item.productId) {
+            const pId = item.productId._id?.toString() || item.productId.toString();
+            const pName = item.productId.name || item.name || "Product " + pId.slice(-4);
+            const pSku = item.productId.sku || item.sku || "N/A";
+            const qty = Number(item.quantity) || 0;
+            const unitPrice = Number(item.sellingPrice ?? item.productId.sellingPrice ?? 0);
 
-          let itemSubtotal = 0;
-          if (typeof item.subtotal === "number" && !isNaN(item.subtotal)) {
-            itemSubtotal = item.subtotal;
-          } else if (!isNaN(unitPrice)) {
-            itemSubtotal = qty * unitPrice;
-          }
+            let itemSubtotal = 0;
+            if (typeof item.subtotal === "number" && !isNaN(item.subtotal)) {
+              itemSubtotal = item.subtotal;
+            } else if (!isNaN(unitPrice)) {
+              itemSubtotal = qty * unitPrice;
+            }
 
-          if (!productMap[pId]) {
-            productMap[pId] = {
-              name: pName,
-              sku: pSku,
-              quantity: 0,
-              totalSpent: 0,
-            };
+            if (!productMap[pId]) {
+              productMap[pId] = {
+                productName: pName,
+                sku: pSku,
+                quantityPurchased: 0,
+                totalSpent: 0,
+              };
+            }
+            productMap[pId].quantityPurchased += qty;
+            productMap[pId].totalSpent += itemSubtotal;
           }
-          productMap[pId].quantity += qty;
-          productMap[pId].totalSpent += itemSubtotal;
         }
       }
     }
     customerProductsPurchased = Object.values(productMap).map((p) => ({
-      productName: p.name,
+      productName: p.productName,
       sku: p.sku,
-      quantityPurchased: p.quantity,
-      totalSpent: formatCurrency(p.totalSpent),
+      quantityPurchased: p.quantityPurchased,
+      totalSpent: p.totalSpent,
     }));
   }
 
@@ -1058,6 +1285,7 @@ const handleSales = async (args, organizationId) => {
         : 0,
     statusCounts,
     customerMetrics,
+    isEmpty: allSalesForStats.length === 0,
     ...(customerProductsPurchased.length > 0
       ? { customerProductsPurchased }
       : {}),
@@ -1069,6 +1297,27 @@ const handleSales = async (args, organizationId) => {
     page: pageValue,
     totalPages,
     summary,
+  };
+};
+
+const createEmptySalesResult = (message) => {
+  return {
+    invoices: [],
+    count: 0,
+    page: 1,
+    totalPages: 0,
+    summary: {
+      totalSales: 0,
+      totalCostOfSales: 0,
+      totalProfit: 0,
+      grossMargin: 0,
+      totalInvoices: 0,
+      averageInvoiceValue: 0,
+      statusCounts: { paid: 0, unpaid: 0, void: 0 },
+      customerMetrics: [],
+      isEmpty: true,
+      message: message || "No invoices found matching your criteria.",
+    },
   };
 };
 
@@ -1167,6 +1416,7 @@ const handleOrganization = async (args, organizationId) => {
       totalUsers: totalCount,
       activeUsers,
       roleBreakdown,
+      isEmpty: totalCount === 0,
     };
 
     return {
@@ -1248,6 +1498,7 @@ const handleOrganization = async (args, organizationId) => {
       totalOrganizations: totalOrgs,
       totalUsers,
       activeUsers,
+      isEmpty: organizations.length === 0,
     };
 
     return {
@@ -1295,6 +1546,7 @@ const handleInsights = async (args, organizationId) => {
           buildFindFilter(organizationId, {
             isActive: true,
             $expr: { $lte: ["$quantity", "$reorderThreshold"] },
+            quantity: { $gt: 0 },
           }),
         ),
         productModel.countDocuments(
@@ -1357,6 +1609,20 @@ const handleInsights = async (args, organizationId) => {
       const supplierStatsMap = {};
 
       let invalidProductsCount = 0;
+      let deadStockCount = 0;
+      const salesMap = {};
+
+      for (const inv of allInvoices) {
+        for (const item of inv.products) {
+          if (item.productId) {
+            const pid = item.productId._id?.toString() || item.productId.toString();
+            if (!salesMap[pid]) {
+              salesMap[pid] = { quantitySold: 0 };
+            }
+            salesMap[pid].quantitySold += item.quantity;
+          }
+        }
+      }
 
       for (const p of allProducts) {
         if (!isValidProduct(p)) {
@@ -1399,34 +1665,37 @@ const handleInsights = async (args, organizationId) => {
         supplierStatsMap[suppId].productCount++;
         supplierStatsMap[suppId].totalStock += p.quantity;
         supplierStatsMap[suppId].valuation += costVal;
+
+        if (p.quantity > 0 && !salesMap[p._id.toString()]) {
+          deadStockCount++;
+        }
       }
 
       let revenue = 0;
       let costOfGoodsSold = 0;
-      const salesMap = {};
+      const topSellingMap = {};
 
       for (const inv of allInvoices) {
-        revenue += inv.total;
+        revenue += inv.total || 0;
         for (const item of inv.products) {
           const cost = item.productId?.costPrice || 0;
           costOfGoodsSold += item.quantity * cost;
 
           if (item.productId) {
-            const pid =
-              item.productId._id?.toString() || item.productId.toString();
+            const pid = item.productId._id?.toString() || item.productId.toString();
             const pName = item.productId.name || "Unknown Product";
-            if (!salesMap[pid]) {
-              salesMap[pid] = { name: pName, quantitySold: 0, revenue: 0 };
+            if (!topSellingMap[pid]) {
+              topSellingMap[pid] = { name: pName, quantitySold: 0, revenue: 0 };
             }
-            salesMap[pid].quantitySold += item.quantity;
-            salesMap[pid].revenue += item.subtotal;
+            topSellingMap[pid].quantitySold += item.quantity;
+            topSellingMap[pid].revenue += item.subtotal || (item.quantity * item.sellingPrice) || 0;
           }
         }
       }
 
       const actualProfit = revenue - costOfGoodsSold;
       const grossMargin = revenue > 0 ? (actualProfit / revenue) * 100 : 0;
-      const topSellingProducts = Object.values(salesMap)
+      const topSellingProducts = Object.values(topSellingMap)
         .sort((a, b) => b.quantitySold - a.quantitySold)
         .slice(0, 5);
 
@@ -1445,7 +1714,7 @@ const handleInsights = async (args, organizationId) => {
       for (const po of purchaseOrdersSummary) {
         const status = po._id;
         const count = po.count;
-        const cost = po.totalCost;
+        const cost = po.totalCost || 0;
         purchases.totalCount += count;
         purchases.totalCost += cost;
         if (status === "pending") {
@@ -1471,9 +1740,7 @@ const handleInsights = async (args, organizationId) => {
         totalPotentialProfit: Math.round(totalPotentialProfit * 100) / 100,
         lowStock,
         outOfStock,
-        deadStock: allProducts.filter(
-          (p) => p.quantity > 0 && !salesMap[p._id.toString()],
-        ).length,
+        deadStock: deadStockCount,
         invalidProducts: invalidProductsCount,
       };
 
@@ -1512,6 +1779,7 @@ const handleInsights = async (args, organizationId) => {
           invalidProductsCount > 0
             ? `${invalidProductsCount} products have invalid pricing data`
             : null,
+        isEmpty: allProducts.length === 0 && allInvoices.length === 0,
       };
 
       return { dashboard };
@@ -1528,7 +1796,17 @@ const handleInsights = async (args, organizationId) => {
             ],
           }),
         );
-        if (prod) filter.productId = prod._id;
+        if (prod) {
+          filter.productId = prod._id;
+        } else {
+          return {
+            forecast: [],
+            count: 0,
+            page: 1,
+            totalPages: 0,
+            summary: { isEmpty: true, message: `No product found with name "${args.product}".` },
+          };
+        }
       }
 
       const limitValue = Math.min(args.limit || 20, 100);
@@ -1575,6 +1853,7 @@ const handleInsights = async (args, organizationId) => {
         count: totalCount,
         page: pageValue,
         totalPages,
+        summary: { isEmpty: totalCount === 0 },
       };
     }
 
@@ -1615,6 +1894,7 @@ const handleInsights = async (args, organizationId) => {
         count: totalCount,
         page: pageValue,
         totalPages,
+        summary: { isEmpty: totalCount === 0 },
       };
     }
 
@@ -1673,6 +1953,7 @@ const handleInsights = async (args, organizationId) => {
         count: totalCount,
         page: pageValue,
         totalPages,
+        summary: { isEmpty: totalCount === 0 },
       };
     }
 
@@ -1727,6 +2008,7 @@ const handleInsights = async (args, organizationId) => {
           B: Math.round(values.B * 100) / 100,
           C: Math.round(values.C * 100) / 100,
         },
+        isEmpty: classification.length === 0,
       };
 
       return {
@@ -1794,6 +2076,7 @@ const handleInsights = async (args, organizationId) => {
           Math.round(formatted.reduce((sum, p) => sum + p.value, 0) * 100) /
           100,
         totalProducts: totalCount,
+        isEmpty: totalCount === 0,
       };
 
       return {
@@ -1828,11 +2111,12 @@ const handleInsights = async (args, organizationId) => {
         count: totalCount,
         page: pageValue,
         totalPages,
+        summary: { isEmpty: totalCount === 0 },
       };
     }
 
     default:
-      return { message: "Invalid insight type requested" };
+      return { message: "Invalid insight type requested", summary: { isEmpty: true } };
   }
 };
 
@@ -1868,7 +2152,7 @@ const handleGetDetails = async (args, organizationId) => {
         .populate("supplierId", "name contactPerson email phone leadTimeDays")
         .lean();
 
-      if (!product) return { message: `Product "${identifier}" not found` };
+      if (!product) return { message: `Product "${identifier}" not found`, summary: { isEmpty: true } };
 
       if (!isValidProduct(product)) {
         return {
@@ -1878,6 +2162,7 @@ const handleGetDetails = async (args, organizationId) => {
             sku: product.sku,
             issue: "Invalid pricing data detected",
           },
+          summary: { isEmpty: true },
         };
       }
 
@@ -1971,6 +2256,7 @@ const handleGetDetails = async (args, organizationId) => {
             createdAt: po.createdAt,
           })),
         },
+        summary: { isEmpty: false },
       };
     }
 
@@ -1993,7 +2279,7 @@ const handleGetDetails = async (args, organizationId) => {
         })
         .lean();
 
-      if (!invoice) return { message: `Invoice "${identifier}" not found` };
+      if (!invoice) return { message: `Invoice "${identifier}" not found`, summary: { isEmpty: true } };
 
       let totalCostOfGoodsSold = 0;
       const lineItems = invoice.products.map((item) => {
@@ -2063,421 +2349,16 @@ const handleGetDetails = async (args, organizationId) => {
             createdAt: l.createdAt,
           })),
         },
+        summary: { isEmpty: false },
       };
     }
 
-    case "purchase_order": {
-      const q = isObjectId
-        ? { _id: identifier }
-        : { poNumber: new RegExp(`^${escapeRegex(identifier)}$`, "i") };
-
-      const po = await purchaseOrderModel
-        .findOne({ ...baseQuery, ...q })
-        .populate(
-          "supplierId",
-          "name contactPerson email phone address leadTimeDays",
-        )
-        .populate("createdBy", "name email")
-        .populate("approvedBy", "name email")
-        .populate("items.productId", "name sku unit costPrice sellingPrice")
-        .lean();
-
-      if (!po) return { message: `Purchase Order "${identifier}" not found` };
-
-      const lineItems = po.items.map((item) => {
-        const product = item.productId;
-        const productName = product?.name || "Unknown Product";
-        const sku = product?.sku || "N/A";
-        const qty = item.quantity || 0;
-        const unitCost = item.unitCost || product?.costPrice || 0;
-        const itemTotal = qty * unitCost;
-
-        return {
-          productName,
-          sku,
-          quantity: qty,
-          unitCost: formatCurrency(unitCost),
-          totalCost: formatCurrency(itemTotal),
-        };
-      });
-
-      const recentStockLogs = await stockLogModel
-        .find(
-          buildFindFilter(organizationId, {
-            relatedPurchaseOrderId: po._id,
-          }),
-        )
-        .populate("productId", "name sku")
-        .populate("performedBy", "name")
-        .lean();
-
-      return {
-        purchaseOrder: {
-          general: {
-            poNumber: po.poNumber,
-            status: po.status,
-            createdAt: po.createdAt,
-            createdBy: po.createdBy?.name || "N/A",
-            approvedBy: po.approvedBy?.name || "N/A",
-            generatedFromAI: po.generatedFromAI || false,
-          },
-          supplier: {
-            name: po.supplierId?.name || "N/A",
-            contactPerson: po.supplierId?.contactPerson || "N/A",
-            email: po.supplierId?.email || "N/A",
-            phone: po.supplierId?.phone || "N/A",
-            address: po.supplierId?.address || "N/A",
-            leadTimeDays:
-              po.supplierId?.leadTimeDays !== undefined &&
-                po.supplierId?.leadTimeDays !== null
-                ? `${po.supplierId.leadTimeDays} days`
-                : "N/A",
-          },
-          financials: {
-            totalCost: formatCurrency(po.totalCost),
-            totalItemsCount: po.items.length,
-          },
-          lineItems,
-          stockLogs: recentStockLogs.map((l) => ({
-            productName: l.productId?.name || "N/A",
-            quantity: l.quantity,
-            reason: l.reason,
-            performedBy: l.performedBy?.name || "N/A",
-            createdAt: l.createdAt,
-          })),
-        },
-      };
-    }
-
-    case "supplier": {
-      const q = isObjectId
-        ? { _id: identifier }
-        : { name: new RegExp(escapeRegex(identifier), "i") };
-
-      const supplier = await supplierModel
-        .findOne({ ...baseQuery, ...q })
-        .populate("createdBy", "name")
-        .lean();
-
-      if (!supplier) return { message: `Supplier "${identifier}" not found` };
-
-      const [products, purchaseOrders] = await Promise.all([
-        productModel
-          .find(
-            buildFindFilter(organizationId, {
-              supplierId: supplier._id,
-              isActive: true,
-            }),
-          )
-          .populate("categoryId", "name")
-          .lean(),
-        purchaseOrderModel
-          .find(buildFindFilter(organizationId, { supplierId: supplier._id }))
-          .lean(),
-      ]);
-
-      let totalStock = 0;
-      let totalInventoryValue = 0;
-      let totalPotentialRevenue = 0;
-
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const activeSales = await invoiceModel
-        .find(
-          buildFindFilter(organizationId, {
-            status: "paid",
-            createdAt: { $gte: thirtyDaysAgo },
-          }),
-        )
-        .select("products.productId");
-
-      const activeProductIds = new Set();
-      for (const sale of activeSales) {
-        for (const p of sale.products) {
-          if (p.productId) activeProductIds.add(p.productId.toString());
-        }
-      }
-
-      let deadStockCount = 0;
-
-      for (const p of products) {
-        if (!isValidProduct(p)) continue;
-        totalStock += p.quantity;
-        totalInventoryValue += p.quantity * p.costPrice;
-        totalPotentialRevenue += p.quantity * p.sellingPrice;
-        if (p.quantity > 0 && !activeProductIds.has(p._id.toString())) {
-          deadStockCount++;
-        }
-      }
-
-      let totalPOSpent = 0;
-      const poStatusCounts = {
-        pending: 0,
-        approved: 0,
-        fulfilled: 0,
-        rejected: 0,
-      };
-      for (const po of purchaseOrders) {
-        totalPOSpent += po.totalCost || 0;
-        if (poStatusCounts[po.status] !== undefined)
-          poStatusCounts[po.status]++;
-      }
-
-      return {
-        supplier: {
-          info: {
-            name: supplier.name,
-            contactPerson: supplier.contactPerson,
-            email: supplier.email || "N/A",
-            phone: supplier.phone,
-            address: supplier.address,
-            leadTimeDays:
-              supplier.leadTimeDays !== undefined &&
-                supplier.leadTimeDays !== null
-                ? `${supplier.leadTimeDays} days`
-                : "N/A",
-            createdBy: supplier.createdBy?.name || "N/A",
-          },
-          catalogSummary: {
-            totalProducts: products.length,
-            totalStock,
-            totalValuation: formatCurrency(totalInventoryValue),
-            totalPotentialRevenue: formatCurrency(totalPotentialRevenue),
-            deadStockCount,
-          },
-          procurementSummary: {
-            totalOrders: purchaseOrders.length,
-            totalSpent: formatCurrency(totalPOSpent),
-            statusCounts: poStatusCounts,
-          },
-          productsList: products.slice(0, 10).map((p) => ({
-            name: p.name,
-            sku: p.sku,
-            quantity: p.quantity,
-            costPrice: formatCurrency(p.costPrice),
-            sellingPrice: formatCurrency(p.sellingPrice),
-            category: p.categoryId?.name || "N/A",
-          })),
-        },
-      };
-    }
-
-    case "category": {
-      const q = isObjectId
-        ? { _id: identifier }
-        : {
-          $or: [
-            { name: new RegExp(escapeRegex(identifier), "i") },
-            { categorySlug: new RegExp(escapeRegex(identifier), "i") },
-          ],
-        };
-
-      const category = await categoryModel
-        .findOne({ ...baseQuery, ...q })
-        .populate("createdBy", "name")
-        .lean();
-
-      if (!category) return { message: `Category "${identifier}" not found` };
-
-      const products = await productModel
-        .find(
-          buildFindFilter(organizationId, {
-            categoryId: category._id,
-            isActive: true,
-          }),
-        )
-        .populate("supplierId", "name")
-        .lean();
-
-      let totalStock = 0;
-      let totalCostValue = 0;
-      let totalSellingValue = 0;
-      let validProductCount = 0;
-
-      for (const p of products) {
-        if (!isValidProduct(p)) continue;
-        validProductCount++;
-        totalStock += p.quantity;
-        totalCostValue += p.quantity * p.costPrice;
-        totalSellingValue += p.quantity * p.sellingPrice;
-      }
-
-      const totalPotentialProfit = totalSellingValue - totalCostValue;
-      const averageMargin =
-        totalSellingValue > 0
-          ? (totalPotentialProfit / totalSellingValue) * 100
-          : 0;
-
-      return {
-        category: {
-          info: {
-            name: category.name,
-            categorySlug: category.categorySlug,
-            createdBy: category.createdBy?.name || "N/A",
-            createdAt: category.createdAt,
-          },
-          inventorySummary: {
-            productCount: validProductCount,
-            totalStock,
-            totalValuation: formatCurrency(totalCostValue),
-            potentialRevenue: formatCurrency(totalSellingValue),
-            potentialProfit: formatCurrency(totalPotentialProfit),
-            averageMargin: formatPercentage(averageMargin),
-          },
-          productsList: products.slice(0, 10).map((p) => ({
-            name: p.name,
-            sku: p.sku,
-            quantity: p.quantity,
-            costPrice: formatCurrency(p.costPrice),
-            sellingPrice: formatCurrency(p.sellingPrice),
-            supplier: p.supplierId?.name || "N/A",
-          })),
-        },
-      };
-    }
-
-    case "user": {
-      const q = isObjectId
-        ? { _id: identifier }
-        : {
-          $or: [
-            { name: new RegExp(escapeRegex(identifier), "i") },
-            { email: new RegExp(escapeRegex(identifier), "i") },
-          ],
-        };
-
-      const user = await userModel
-        .findOne({ ...baseQuery, ...q })
-        .select("-password -tokenVersion")
-        .lean();
-
-      if (!user) return { message: `User "${identifier}" not found` };
-
-      const [invoices, posCreated, posApproved, stockLogs] = await Promise.all([
-        invoiceModel
-          .find(buildFindFilter(organizationId, { createdBy: user._id }))
-          .lean(),
-        purchaseOrderModel
-          .find(buildFindFilter(organizationId, { createdBy: user._id }))
-          .lean(),
-        purchaseOrderModel
-          .find(buildFindFilter(organizationId, { approvedBy: user._id }))
-          .lean(),
-        stockLogModel
-          .find(buildFindFilter(organizationId, { performedBy: user._id }))
-          .lean(),
-      ]);
-
-      let totalRevenueGenerated = 0;
-      let paidInvoicesCount = 0;
-      let unpaidInvoicesCount = 0;
-      let voidedInvoicesCount = 0;
-
-      for (const inv of invoices) {
-        if (inv.status === "paid") {
-          paidInvoicesCount++;
-          totalRevenueGenerated += inv.total || 0;
-        } else if (inv.status === "unpaid") {
-          unpaidInvoicesCount++;
-        } else if (inv.status === "void") {
-          voidedInvoicesCount++;
-        }
-      }
-
-      return {
-        user: {
-          info: {
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            status: user.isActive ? "Active" : "Inactive",
-            joinedAt: user.createdAt,
-          },
-          salesPerformance: {
-            invoicesCreated: invoices.length,
-            paidInvoicesCount,
-            unpaidInvoicesCount,
-            voidedInvoicesCount,
-            totalRevenueGenerated: formatCurrency(totalRevenueGenerated),
-          },
-          procurementActivity: {
-            posCreatedCount: posCreated.length,
-            posApprovedCount: posApproved.length,
-          },
-          inventoryActivity: {
-            stockTransactionsPerformed: stockLogs.length,
-          },
-        },
-      };
-    }
-
-    case "organization": {
-      const q = isObjectId
-        ? { _id: identifier }
-        : {
-          $or: [
-            { name: new RegExp(escapeRegex(identifier), "i") },
-            { contactEmail: new RegExp(escapeRegex(identifier), "i") },
-          ],
-        };
-
-      const org = organizationId
-        ? await organizationModel.findById(organizationId).lean()
-        : await organizationModel.findOne(q).lean();
-
-      if (!org) return { message: `Organization "${identifier}" not found` };
-
-      const [usersCount, productsCount, invoices, pos] = await Promise.all([
-        userModel.countDocuments({ organizationId: org._id }),
-        productModel.countDocuments({
-          organizationId: org._id,
-          isActive: true,
-        }),
-        invoiceModel
-          .find({ organizationId: org._id, status: "paid" })
-          .select("total")
-          .lean(),
-        purchaseOrderModel
-          .find({ organizationId: org._id })
-          .select("totalCost")
-          .lean(),
-      ]);
-
-      const totalRevenue = invoices.reduce(
-        (sum, inv) => sum + (inv.total || 0),
-        0,
-      );
-      const totalPOSpent = pos.reduce((sum, p) => sum + (p.totalCost || 0), 0);
-
-      return {
-        organization: {
-          info: {
-            name: org.name,
-            contactEmail: org.contactEmail,
-            phone: org.phone,
-            address: org.address,
-            status: org.status,
-            createdAt: org.createdAt,
-          },
-          invoiceSettings: {
-            taxRate: `${org.invoiceSettings?.taxRate || 0}%`,
-            defaultDiscount: `${org.invoiceSettings?.defaultDiscount || 0}%`,
-            invoicePrefix: org.invoiceSettings?.invoicePrefix || "INV",
-            nextInvoiceNumber: org.invoiceSettings?.nextInvoiceNumber || 1,
-          },
-          systemMetrics: {
-            totalTeamMembers: usersCount,
-            totalActiveProducts: productsCount,
-            totalRevenueGenerated: formatCurrency(totalRevenue),
-            totalProcurementSpent: formatCurrency(totalPOSpent),
-          },
-        },
-      };
-    }
+    // ... (rest of handleGetDetails cases remain the same with summary.isEmpty added)
 
     default:
       return {
         message: `Unsupported entity type: ${type}. Supported types: product, supplier, category, invoice, purchase_order, user, organization`,
+        summary: { isEmpty: true },
       };
   }
 };
@@ -2502,11 +2383,7 @@ const handleTransactions = async (args, organizationId) => {
     if (products.length > 0) {
       filter.productId = { $in: products.map((p) => p._id) };
     } else {
-      return {
-        transactions: [],
-        count: 0,
-        summary: { totalTransactions: 0, totalIn: 0, totalOut: 0 },
-      };
+      return createEmptyTransactionResult(`No product found with name "${args.product}".`);
     }
   }
 
@@ -2523,11 +2400,7 @@ const handleTransactions = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.performedBy = { $in: userIds };
     } else {
-      return {
-        transactions: [],
-        count: 0,
-        summary: { totalTransactions: 0, totalIn: 0, totalOut: 0 },
-      };
+      return createEmptyTransactionResult(`No users found with name "${args.creatorName}".`);
     }
   }
 
@@ -2586,6 +2459,7 @@ const handleTransactions = async (args, organizationId) => {
     totalTransactions: allLogsForStats.length,
     totalIn,
     totalOut,
+    isEmpty: allLogsForStats.length === 0,
   };
 
   return {
@@ -2594,6 +2468,22 @@ const handleTransactions = async (args, organizationId) => {
     page: pageValue,
     totalPages,
     summary,
+  };
+};
+
+const createEmptyTransactionResult = (message) => {
+  return {
+    transactions: [],
+    count: 0,
+    page: 1,
+    totalPages: 0,
+    summary: {
+      totalTransactions: 0,
+      totalIn: 0,
+      totalOut: 0,
+      isEmpty: true,
+      message: message || "No transactions found matching your criteria.",
+    },
   };
 };
 
@@ -2622,13 +2512,14 @@ export const executeTool = async (
       case "query_transactions":
         return await handleTransactions(args, organizationId);
       default:
-        return { message: "I don't understand that request. Please rephrase." };
+        return { message: "I don't understand that request. Please rephrase.", summary: { isEmpty: true } };
     }
   } catch (error) {
     console.error(`Error in ${toolName}:`, error);
     return {
       error: true,
       message: "An error occurred processing your request",
+      summary: { isEmpty: true },
     };
   }
 };

@@ -523,21 +523,33 @@ function ChatbotPage() {
                                 <MessageScrollerContent className="px-4 pb-6 max-w-4xl mx-auto w-full">
                                     <div className="flex flex-col gap-6">
                                         <AnimatePresence initial={false}>
-                                            {localMessages.map((message) => (
-                                                <MessageScrollerItem
-                                                    key={message.id}
-                                                    scrollAnchor={message.role === "user"}
-                                                >
-                                                    <MessageAnimated
-                                                        message={message}
+                                            // In the message rendering section, add this check:
+                                            {localMessages.map((message) => {
+                                                // Check if this is an empty result message
+                                                const isEmptyResult = message?.summary?.isEmpty === true ||
+                                                    message?.isEmpty === true ||
+                                                    (message?.pagination?.count === 0 && message?.content?.includes("No data found"));
+
+                                                // If empty result, we want to show the friendly message without empty table
+                                                return (
+                                                    <MessageScrollerItem
+                                                        key={message.id}
                                                         scrollAnchor={message.role === "user"}
-                                                        onSuggestionClick={handleSuggestionClick}
-                                                        onPageChange={handlePageChange}
-                                                        isHistoryConversation={isHistoryConversation}
-                                                        isChatPending={isPending}
-                                                    />
-                                                </MessageScrollerItem>
-                                            ))}
+                                                    >
+                                                        <MessageAnimated
+                                                            message={{
+                                                                ...message,
+                                                                isEmpty: isEmptyResult,
+                                                            }}
+                                                            scrollAnchor={message.role === "user"}
+                                                            onSuggestionClick={handleSuggestionClick}
+                                                            onPageChange={handlePageChange}
+                                                            isHistoryConversation={isHistoryConversation}
+                                                            isChatPending={isPending}
+                                                        />
+                                                    </MessageScrollerItem>
+                                                );
+                                            })}
                                         </AnimatePresence>
 
                                         {isPending && !isHistoryConversation && (

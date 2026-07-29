@@ -282,7 +282,9 @@ const handleInventory = async (args, organizationId) => {
       filter.supplierId = supp._id;
     } else {
       // Supplier not found - return empty result
-      return createEmptyInventoryResult(`No supplier found with name "${args.supplier}".`);
+      return createEmptyInventoryResult(
+        `No supplier found with name "${args.supplier}".`,
+      );
     }
   }
 
@@ -322,7 +324,9 @@ const handleInventory = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.createdBy = { $in: userIds };
     } else {
-      return createEmptyInventoryResult(`No users found with name "${args.creatorName}".`);
+      return createEmptyInventoryResult(
+        `No users found with name "${args.creatorName}".`,
+      );
     }
   }
 
@@ -360,7 +364,9 @@ const handleInventory = async (args, organizationId) => {
       case "in_stock":
         filter.quantity = { $gt: 0 };
         // Exclude dead stock from "in_stock" results
-        filter._id = { $in: activeProductIds.length > 0 ? activeProductIds : [] };
+        filter._id = {
+          $in: activeProductIds.length > 0 ? activeProductIds : [],
+        };
         break;
       case "dead_stock":
         filter.quantity = { $gt: 0 };
@@ -373,7 +379,11 @@ const handleInventory = async (args, organizationId) => {
 
   // Handle grouping
   if (args.groupBy) {
-    const groupedResults = await handleGroupByInventory(args, filter, organizationId);
+    const groupedResults = await handleGroupByInventory(
+      args,
+      filter,
+      organizationId,
+    );
     return groupedResults;
   }
 
@@ -616,10 +626,22 @@ const handleGroupByInventory = async (args, filter, organizationId) => {
 
     const groupedResults = await productModel.aggregate(pipeline);
 
-    const totalProducts = groupedResults.reduce((sum, g) => sum + g.productCount, 0);
-    const totalCostValue = groupedResults.reduce((sum, g) => sum + g.totalCostValue, 0);
-    const totalSellingValue = groupedResults.reduce((sum, g) => sum + g.totalSellingValue, 0);
-    const totalProfit = groupedResults.reduce((sum, g) => sum + g.totalPotentialProfit, 0);
+    const totalProducts = groupedResults.reduce(
+      (sum, g) => sum + g.productCount,
+      0,
+    );
+    const totalCostValue = groupedResults.reduce(
+      (sum, g) => sum + g.totalCostValue,
+      0,
+    );
+    const totalSellingValue = groupedResults.reduce(
+      (sum, g) => sum + g.totalSellingValue,
+      0,
+    );
+    const totalProfit = groupedResults.reduce(
+      (sum, g) => sum + g.totalPotentialProfit,
+      0,
+    );
 
     return {
       groupedResults,
@@ -694,9 +716,18 @@ const handleGroupByInventory = async (args, filter, organizationId) => {
 
     const groupedResults = await productModel.aggregate(pipeline);
 
-    const totalProducts = groupedResults.reduce((sum, g) => sum + g.productCount, 0);
-    const totalCostValue = groupedResults.reduce((sum, g) => sum + g.totalCostValue, 0);
-    const totalSellingValue = groupedResults.reduce((sum, g) => sum + g.totalSellingValue, 0);
+    const totalProducts = groupedResults.reduce(
+      (sum, g) => sum + g.productCount,
+      0,
+    );
+    const totalCostValue = groupedResults.reduce(
+      (sum, g) => sum + g.totalCostValue,
+      0,
+    );
+    const totalSellingValue = groupedResults.reduce(
+      (sum, g) => sum + g.totalSellingValue,
+      0,
+    );
 
     return {
       groupedResults,
@@ -770,8 +801,14 @@ const handleGroupByInventory = async (args, filter, organizationId) => {
               branches: [
                 { case: { $eq: ["$_id", "in_stock"] }, then: "🟢 In Stock" },
                 { case: { $eq: ["$_id", "low_stock"] }, then: "🟡 Low Stock" },
-                { case: { $eq: ["$_id", "out_of_stock"] }, then: "🔴 Out of Stock" },
-                { case: { $eq: ["$_id", "dead_stock"] }, then: "⚫ Dead Stock" },
+                {
+                  case: { $eq: ["$_id", "out_of_stock"] },
+                  then: "🔴 Out of Stock",
+                },
+                {
+                  case: { $eq: ["$_id", "dead_stock"] },
+                  then: "⚫ Dead Stock",
+                },
               ],
               default: "$_id",
             },
@@ -789,8 +826,14 @@ const handleGroupByInventory = async (args, filter, organizationId) => {
 
     const groupedResults = await productModel.aggregate(pipeline);
 
-    const totalProducts = groupedResults.reduce((sum, g) => sum + g.productCount, 0);
-    const totalCostValue = groupedResults.reduce((sum, g) => sum + g.totalCostValue, 0);
+    const totalProducts = groupedResults.reduce(
+      (sum, g) => sum + g.productCount,
+      0,
+    );
+    const totalCostValue = groupedResults.reduce(
+      (sum, g) => sum + g.totalCostValue,
+      0,
+    );
 
     return {
       groupedResults,
@@ -824,7 +867,9 @@ const handlePurchases = async (args, organizationId) => {
     if (supp) {
       filter.supplierId = supp._id;
     } else {
-      return createEmptyPurchaseResult(`No supplier found with name "${args.supplier}".`);
+      return createEmptyPurchaseResult(
+        `No supplier found with name "${args.supplier}".`,
+      );
     }
   }
 
@@ -847,7 +892,9 @@ const handlePurchases = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.createdBy = { $in: userIds };
     } else {
-      return createEmptyPurchaseResult(`No users found with name "${args.creatorName}".`);
+      return createEmptyPurchaseResult(
+        `No users found with name "${args.creatorName}".`,
+      );
     }
   }
 
@@ -899,7 +946,10 @@ const handlePurchases = async (args, organizationId) => {
     }
 
     const groupedResults = await purchaseOrderModel.aggregate(pipeline);
-    const totalOrders = groupedResults.reduce((sum, g) => sum + g.orderCount, 0);
+    const totalOrders = groupedResults.reduce(
+      (sum, g) => sum + g.orderCount,
+      0,
+    );
     const totalSpent = groupedResults.reduce((sum, g) => sum + g.totalSpent, 0);
 
     return {
@@ -1064,7 +1114,9 @@ const handleSales = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.createdBy = { $in: userIds };
     } else {
-      return createEmptySalesResult(`No users found with name "${args.creatorName}".`);
+      return createEmptySalesResult(
+        `No users found with name "${args.creatorName}".`,
+      );
     }
   }
 
@@ -1098,8 +1150,14 @@ const handleSales = async (args, organizationId) => {
     ];
 
     const groupedResults = await invoiceModel.aggregate(pipeline);
-    const totalInvoices = groupedResults.reduce((sum, g) => sum + g.salesCount, 0);
-    const totalRevenue = groupedResults.reduce((sum, g) => sum + g.totalRevenue, 0);
+    const totalInvoices = groupedResults.reduce(
+      (sum, g) => sum + g.salesCount,
+      0,
+    );
+    const totalRevenue = groupedResults.reduce(
+      (sum, g) => sum + g.totalRevenue,
+      0,
+    );
 
     return {
       groupedResults,
@@ -1235,14 +1293,21 @@ const handleSales = async (args, organizationId) => {
   if (args.customer) {
     const productMap = {};
     for (const inv of allSalesForStats) {
-      if (inv.customerName && inv.customerName.toLowerCase() === args.customer.toLowerCase()) {
+      if (
+        inv.customerName &&
+        inv.customerName.toLowerCase() === args.customer.toLowerCase()
+      ) {
         for (const item of inv.products) {
           if (item.productId) {
-            const pId = item.productId._id?.toString() || item.productId.toString();
-            const pName = item.productId.name || item.name || "Product " + pId.slice(-4);
+            const pId =
+              item.productId._id?.toString() || item.productId.toString();
+            const pName =
+              item.productId.name || item.name || "Product " + pId.slice(-4);
             const pSku = item.productId.sku || item.sku || "N/A";
             const qty = Number(item.quantity) || 0;
-            const unitPrice = Number(item.sellingPrice ?? item.productId.sellingPrice ?? 0);
+            const unitPrice = Number(
+              item.sellingPrice ?? item.productId.sellingPrice ?? 0,
+            );
 
             let itemSubtotal = 0;
             if (typeof item.subtotal === "number" && !isNaN(item.subtotal)) {
@@ -1615,7 +1680,8 @@ const handleInsights = async (args, organizationId) => {
       for (const inv of allInvoices) {
         for (const item of inv.products) {
           if (item.productId) {
-            const pid = item.productId._id?.toString() || item.productId.toString();
+            const pid =
+              item.productId._id?.toString() || item.productId.toString();
             if (!salesMap[pid]) {
               salesMap[pid] = { quantitySold: 0 };
             }
@@ -1682,13 +1748,15 @@ const handleInsights = async (args, organizationId) => {
           costOfGoodsSold += item.quantity * cost;
 
           if (item.productId) {
-            const pid = item.productId._id?.toString() || item.productId.toString();
+            const pid =
+              item.productId._id?.toString() || item.productId.toString();
             const pName = item.productId.name || "Unknown Product";
             if (!topSellingMap[pid]) {
               topSellingMap[pid] = { name: pName, quantitySold: 0, revenue: 0 };
             }
             topSellingMap[pid].quantitySold += item.quantity;
-            topSellingMap[pid].revenue += item.subtotal || (item.quantity * item.sellingPrice) || 0;
+            topSellingMap[pid].revenue +=
+              item.subtotal || item.quantity * item.sellingPrice || 0;
           }
         }
       }
@@ -1804,7 +1872,10 @@ const handleInsights = async (args, organizationId) => {
             count: 0,
             page: 1,
             totalPages: 0,
-            summary: { isEmpty: true, message: `No product found with name "${args.product}".` },
+            summary: {
+              isEmpty: true,
+              message: `No product found with name "${args.product}".`,
+            },
           };
         }
       }
@@ -2116,7 +2187,10 @@ const handleInsights = async (args, organizationId) => {
     }
 
     default:
-      return { message: "Invalid insight type requested", summary: { isEmpty: true } };
+      return {
+        message: "Invalid insight type requested",
+        summary: { isEmpty: true },
+      };
   }
 };
 
@@ -2140,11 +2214,11 @@ const handleGetDetails = async (args, organizationId) => {
       const q = isObjectId
         ? { _id: identifier }
         : {
-          $or: [
-            { sku: identifier },
-            { name: new RegExp(escapeRegex(identifier), "i") },
-          ],
-        };
+            $or: [
+              { sku: identifier },
+              { name: new RegExp(escapeRegex(identifier), "i") },
+            ],
+          };
 
       const product = await productModel
         .findOne({ ...baseQuery, ...q, isActive: true })
@@ -2152,7 +2226,11 @@ const handleGetDetails = async (args, organizationId) => {
         .populate("supplierId", "name contactPerson email phone leadTimeDays")
         .lean();
 
-      if (!product) return { message: `Product "${identifier}" not found`, summary: { isEmpty: true } };
+      if (!product)
+        return {
+          message: `Product "${identifier}" not found`,
+          summary: { isEmpty: true },
+        };
 
       if (!isValidProduct(product)) {
         return {
@@ -2235,10 +2313,10 @@ const handleGetDetails = async (args, organizationId) => {
           },
           forecast: demandForecast
             ? {
-              predictedDemand: demandForecast.predictedDemand,
-              period: demandForecast.forecastPeriod,
-              confidence: `${Math.round(demandForecast.confidence * 100)}%`,
-            }
+                predictedDemand: demandForecast.predictedDemand,
+                period: demandForecast.forecastPeriod,
+                confidence: `${Math.round(demandForecast.confidence * 100)}%`,
+              }
             : null,
           recentStockLogs: recentStockLogs.map((l) => ({
             quantity: l.quantity,
@@ -2279,7 +2357,11 @@ const handleGetDetails = async (args, organizationId) => {
         })
         .lean();
 
-      if (!invoice) return { message: `Invoice "${identifier}" not found`, summary: { isEmpty: true } };
+      if (!invoice)
+        return {
+          message: `Invoice "${identifier}" not found`,
+          summary: { isEmpty: true },
+        };
 
       let totalCostOfGoodsSold = 0;
       const lineItems = invoice.products.map((item) => {
@@ -2316,7 +2398,9 @@ const handleGetDetails = async (args, organizationId) => {
         invoice.total > 0 ? (totalProfit / invoice.total) * 100 : 0;
 
       const recentStockLogs = await stockLogModel
-        .find(buildFindFilter(organizationId, { relatedInvoiceId: invoice._id }))
+        .find(
+          buildFindFilter(organizationId, { relatedInvoiceId: invoice._id }),
+        )
         .populate("productId", "name sku")
         .populate("performedBy", "name")
         .lean();
@@ -2383,7 +2467,9 @@ const handleTransactions = async (args, organizationId) => {
     if (products.length > 0) {
       filter.productId = { $in: products.map((p) => p._id) };
     } else {
-      return createEmptyTransactionResult(`No product found with name "${args.product}".`);
+      return createEmptyTransactionResult(
+        `No product found with name "${args.product}".`,
+      );
     }
   }
 
@@ -2400,7 +2486,9 @@ const handleTransactions = async (args, organizationId) => {
     if (userIds.length > 0) {
       filter.performedBy = { $in: userIds };
     } else {
-      return createEmptyTransactionResult(`No users found with name "${args.creatorName}".`);
+      return createEmptyTransactionResult(
+        `No users found with name "${args.creatorName}".`,
+      );
     }
   }
 
@@ -2512,7 +2600,10 @@ export const executeTool = async (
       case "query_transactions":
         return await handleTransactions(args, organizationId);
       default:
-        return { message: "I don't understand that request. Please rephrase.", summary: { isEmpty: true } };
+        return {
+          message: "I don't understand that request. Please rephrase.",
+          summary: { isEmpty: true },
+        };
     }
   } catch (error) {
     console.error(`Error in ${toolName}:`, error);

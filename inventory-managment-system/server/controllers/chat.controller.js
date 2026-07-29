@@ -68,6 +68,12 @@ const getConversationId = (req) =>
 
 const extractData = (toolResult) => {
   if (!toolResult) return null;
+  if (toolResult.invoice?.lineItems) return toolResult.invoice.lineItems;
+  if (toolResult.purchaseOrder?.lineItems) return toolResult.purchaseOrder.lineItems;
+  if (toolResult.supplier?.productsList) return toolResult.supplier.productsList;
+  if (toolResult.category?.productsList) return toolResult.category.productsList;
+  if (toolResult.summary?.customerProductsPurchased) return toolResult.summary.customerProductsPurchased;
+
   for (const key of CONSTANTS.DATA_KEYS) {
     if (toolResult[key]) return toolResult[key];
   }
@@ -127,19 +133,39 @@ const buildFollowUpContext = (lastResults, lastTool) => {
 
 const getEnhancedQuery = (query, context) => {
   let enhancedQuery = query;
+  const lowerQuery = query.toLowerCase();
 
-  if (
-    context.lastResults &&
-    context.lastTool &&
-    CONSTANTS.FOLLOW_UP_WORDS.some((word) =>
-      query.toLowerCase().includes(word.toLowerCase()),
-    )
-  ) {
+  const isFollowUpWord = CONSTANTS.FOLLOW_UP_WORDS.some((word) =>
+    lowerQuery.includes(word.toLowerCase()),
+  );
+  const isEntityPronoun =
+    lowerQuery.includes("it") ||
+    lowerQuery.includes("this") ||
+    lowerQuery.includes("its") ||
+    lowerQuery.includes("who") ||
+    lowerQuery.includes("product") ||
+    lowerQuery.includes("supplier") ||
+    lowerQuery.includes("customer") ||
+    lowerQuery.includes("stock") ||
+    lowerQuery.includes("category") ||
+    lowerQuery.includes("creator");
+
+  if (context.activeEntity && (isFollowUpWord || isEntityPronoun)) {
+    const activeInfo = JSON.stringify({
+      type: context.activeEntity.type,
+      identifier: context.activeEntity.identifier,
+      summary: context.activeEntity.data?.invoice?.general ||
+        context.activeEntity.data?.purchaseOrder?.general ||
+        context.activeEntity.data?.supplier?.info ||
+        context.activeEntity.data?.product?.general || {},
+    });
+    enhancedQuery = `${query} (Active context entity: ${activeInfo})`;
+  } else if (context.lastResults && context.lastTool && isFollowUpWord) {
     const contextSnippet = buildFollowUpContext(
       context.lastResults,
       context.lastTool,
     );
-    enhancedQuery = `${query} (Based on previous results of executing tool ${context.lastTool}. Previous results context: ${contextSnippet})`;
+    enhancedQuery = `${query} (Based on previous tool ${context.lastTool} results: ${contextSnippet})`;
   }
 
   return enhancedQuery;
@@ -213,12 +239,15 @@ const extractSuggestedQuestions = (reply, userQuery = "") => {
       ),
   );
 
-  const filtered = rawLines.filter((q) => {
+  const seenNorms = new Set();
+  const filtered = [];
+  for (const q of rawLines) {
     const qNorm = normalize(q);
-    if (!qNorm || qNorm.length < 8) return false;
-    if (qNorm === userNorm) return false;
+    if (!qNorm || qNorm.length < 8) continue;
+    if (qNorm === userNorm) continue;
     if (userNorm && (qNorm.includes(userNorm) || userNorm.includes(qNorm)))
-      return false;
+      continue;
+    if (seenNorms.has(qNorm)) continue;
 
     const qWords = qNorm
       .split(" ")
@@ -238,18 +267,21 @@ const extractSuggestedQuestions = (reply, userQuery = "") => {
             "items",
             "products",
             "please",
+            "details",
+            "invoice",
           ].includes(w),
       );
     if (qWords.length > 0 && userWords.size > 0) {
       const matchCount = qWords.filter((w) => userWords.has(w)).length;
       const overlapRatio = matchCount / Math.max(qWords.length, 1);
-      if (overlapRatio > 0.65) {
-        return false;
+      if (overlapRatio > 0.6) {
+        continue;
       }
     }
 
-    return true;
-  });
+    seenNorms.add(qNorm);
+    filtered.push(q);
+  }
 
   return filtered;
 };
@@ -312,32 +344,32 @@ DATA SOURCE:
 - If data is missing, state it plainly.
 
 RESPONSE STRUCTURE (MUST FOLLOW THIS EXACT ORDER WITH THESE HEADERS):
-1. 📦 SUMMARY: Quick overview with key metrics
-2. 📊 PRIMARY CONTENT: Brief note that "Data is displayed in the table below." (ONE SENTENCE ONLY)
-3. 💡 AI INSIGHTS: Meaningful observations from the data (2-4 bullet points)
-4. 🎯 RECOMMENDATIONS: Actions based on insights (2-4 bullet points)
-5. 💬 SUGGESTED QUESTIONS: 3-4 high-value follow-up questions as bullet points
+## 📦 SUMMARY
+(Quick overview with key metrics formatted as markdown bullet list)
+
+## 📊 PRIMARY CONTENT
+| Column | ... |
+(Include a Markdown table representing the data when available)
+
+## 💡 AI INSIGHTS
+(Meaningful observations from the data as 2-4 markdown bullet points)
+
+## 🎯 RECOMMENDATIONS
+(Actions based on insights as 2-4 markdown bullet points)
+
+💬 SUGGESTED QUESTIONS:
+(3-4 high-value follow-up questions as markdown bullet points)
 
 CRITICAL FORMATTING RULES:
-- NEVER generate markdown tables. Tables will be rendered separately by the frontend.
-- DO NOT use pipe characters (|) or dashes (---) to create tables.
-- Only provide text summaries, insights, and recommendations.
+- Format headers with markdown '## ' (e.g., ## 📦 SUMMARY, ## 📊 PRIMARY CONTENT, ## 💡 AI INSIGHTS, ## 🎯 RECOMMENDATIONS)
 - Format currency as PKR 1,234,567.00
 - Format percentages as 43%
 
 CRITICAL BULLET POINT FORMATTING RULES:
-- Each bullet point MUST start with "• " (bullet point followed by a space) on a NEW LINE
+- Each bullet point MUST start with "- " (dash followed by space) on a NEW LINE
 - Each bullet point MUST be on its OWN SEPARATE LINE
-- DO NOT put multiple bullet points on the same line
-- DO NOT use commas to separate bullet points
-- Each bullet point is a complete sentence or phrase
-- Example of CORRECT format:
-  • Total Products: 16
-  • Total Stock: 2,907 units
-  • Total Inventory Value: PKR 7,230,630.00
-
-- Example of INCORRECT format (DO NOT DO THIS):
-  • Total Products: 16 • Total Stock: 2,907 units • Total Inventory Value: PKR 7,230,630.00
+- DO NOT use Unicode bullet symbols (like •)
+- Use standard Markdown bullet syntax: - 
 
 SUGGESTED QUESTIONS RULES:
 - Include 💬 SUGGESTED QUESTIONS ONLY if there are genuine, high-value follow-up questions that naturally extend the conversation.
@@ -370,6 +402,28 @@ const detectSchema = (query, toolName, data) => {
     return null;
   }
 
+  if (toolName === "get_details") {
+    const sample = Array.isArray(data) && data.length > 0 ? data[0] : data;
+    if (sample.unitPrice !== undefined && sample.quantity !== undefined)
+      return "invoice_items";
+    if (sample.unitCost !== undefined && sample.totalCost !== undefined)
+      return "po_items";
+    if (
+      sample.quantityPurchased !== undefined &&
+      sample.totalSpent !== undefined
+    )
+      return "customer_purchases";
+    if (sample.costPrice !== undefined && sample.sellingPrice !== undefined)
+      return "products_compact";
+  }
+
+  if (toolName === "query_sales") {
+    const sample = Array.isArray(data) && data.length > 0 ? data[0] : null;
+    if (sample && sample.quantityPurchased !== undefined)
+      return "customer_purchases";
+    return "sales";
+  }
+
   if (toolName === "query_inventory") {
     const lowerQuery = (query || "").toLowerCase();
     const isDetailed =
@@ -389,7 +443,6 @@ const detectSchema = (query, toolName, data) => {
   }
 
   if (toolName === "query_purchases") return "purchases";
-  if (toolName === "query_sales") return "sales";
   if (toolName === "query_transactions") return "transactions";
   if (toolName === "query_organization") {
     const sample = Array.isArray(data) && data.length > 0 ? data[0] : null;
@@ -455,22 +508,24 @@ const sendStreamEvent = (res, payload) => {
 const getFallbackReply = (toolResult) => {
   const count = toolResult.count || 0;
   const summary = toolResult.summary || {};
-  return `📦 SUMMARY:
-• Found ${count} results for your query.
-• Total value: PKR ${formatCurrency(summary.totalValue || 0)}
+  return `## 📦 SUMMARY
+- Found ${count} results for your query.
+- Total value: PKR ${formatCurrency(summary.totalValue || 0)}
 
-📊 PRIMARY CONTENT:
-Data is displayed in the table below.
+## 📊 PRIMARY CONTENT
+| Result Count | Total Value |
+| --- | --- |
+| ${count} | PKR ${formatCurrency(summary.totalValue || 0)} |
 
-💡 AI INSIGHTS:
-• No additional insights available.
+## 💡 AI INSIGHTS
+- No additional insights available.
 
-🎯 RECOMMENDATIONS:
-• Please refine your query for more specific recommendations.
+## 🎯 RECOMMENDATIONS
+- Please refine your query for more specific recommendations.
 
 💬 SUGGESTED QUESTIONS:
-• Try asking "Show me more details about these products"
-• Try asking "Which products are low in stock?"`;
+- Try asking "Show me more details about these products"
+- Try asking "Which products are low in stock?"`;
 };
 
 const formatCurrency = (value) => {
@@ -591,10 +646,10 @@ export const chatWithAI = async (req, res) => {
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-            page: toolResult.page,
-            totalPages: toolResult.totalPages,
-            count: toolResult.count,
-          }
+          page: toolResult.page,
+          totalPages: toolResult.totalPages,
+          count: toolResult.count,
+        }
         : null;
 
     await chatLogModel.create({
@@ -817,115 +872,209 @@ export const chatWithAIStream = async (req, res) => {
       schema: schema,
     });
 
-    const trimmedResult = trimToolResult(toolResult);
-    const finalPrompt = `
-You are StockPilot AI, an Inventory Analyst. Answer using ONLY the tool result data below. Never invent or estimate.
+    const classifyIntent = (query = "", toolName = "", toolResult = {}) => {
+      const lower = query.toLowerCase();
+
+      if (
+        lower.includes("product") ||
+        lower.includes("item") ||
+        lower.includes("line item") ||
+        lower.includes("included") ||
+        lower.includes("purchased")
+      ) {
+        if (
+          toolName === "get_details" ||
+          toolName === "query_sales" ||
+          toolName === "query_purchases"
+        ) {
+          return "LINE_ITEMS";
+        }
+      }
+
+      if (
+        lower.includes("detail") ||
+        lower.includes("profile") ||
+        lower.includes("information") ||
+        lower.includes("who created") ||
+        lower.includes("customer info") ||
+        lower.includes("payment info") ||
+        lower.includes("tax") ||
+        lower.includes("discount")
+      ) {
+        if (toolName === "get_details") {
+          return "ENTITY_DETAILS";
+        }
+      }
+
+      if (
+        lower.includes("customer") ||
+        toolResult.summary?.customerProductsPurchased
+      ) {
+        return "CUSTOMER_PROFILE";
+      }
+
+      if (
+        lower.includes("dead stock") ||
+        lower.includes("low stock") ||
+        lower.includes("forecast") ||
+        lower.includes("anomaly") ||
+        lower.includes("suggestion") ||
+        lower.includes("performance") ||
+        lower.includes("risk") ||
+        lower.includes("insight") ||
+        toolName === "query_insights"
+      ) {
+        return "ANALYTICS_RISK";
+      }
+
+      return "LISTING_COMPACT";
+    };
+
+    const buildDynamicPrompt = (query, toolName, trimmedResult) => {
+      const intent = classifyIntent(query, toolName, trimmedResult);
+      const dataJson = JSON.stringify(trimmedResult, null, 2);
+
+      let instructions = "";
+
+      if (intent === "LINE_ITEMS") {
+        instructions = `
+INTENT: The user wants to see specific line items or products within an invoice or purchase order.
+
+RULES:
+1. Answer the user's specific request FIRST. Provide a clean summary overview.
+2. Present the line items directly under "## 📊 INVOICE ITEMS" or "## 📊 PURCHASE ORDER ITEMS" as a Markdown table.
+3. DO NOT include "## 💡 AI INSIGHTS" or "## 🎯 RECOMMENDATIONS" because recommendations are NOT relevant for simple line item requests.
+4. End with "💬 SUGGESTED QUESTIONS:" containing 2-3 logical follow-up questions.
+
+REQUIRED LAYOUT:
+## 📦 SUMMARY
+- Total Items: X
+- Total Invoice/PO Amount: PKR ...
+
+## 📊 INVOICE ITEMS
+| Product Name | SKU | Quantity | Unit Price | Subtotal | Profit | Margin |
+| --- | --- | --- | --- | --- | --- | --- |
+
+💬 SUGGESTED QUESTIONS:
+- Who created this invoice?
+- Show customer details
+`;
+      } else if (intent === "ENTITY_DETAILS") {
+        instructions = `
+INTENT: The user wants to view comprehensive details/profile for an entity (Invoice, PO, Supplier, Category, User, or Org).
+
+RULES:
+1. Present general information metrics under "## ℹ️ GENERAL INFORMATION".
+2. Present line items or catalog breakdown under "## 📊 PRIMARY CONTENT" as a Markdown table.
+3. DO NOT generate "## 🎯 RECOMMENDATIONS" unless there is an explicit critical alert or risk.
+4. End with "💬 SUGGESTED QUESTIONS:" containing 2-3 relevant follow-ups.
+
+REQUIRED LAYOUT:
+## ℹ️ GENERAL INFORMATION
+- (Entity attributes as bullet points)
+
+## 📊 PRIMARY CONTENT
+| Product/Item Name | SKU | Quantity | ... |
+
+💬 SUGGESTED QUESTIONS:
+- (Follow-up 1)
+- (Follow-up 2)
+`;
+      } else if (intent === "CUSTOMER_PROFILE") {
+        instructions = `
+INTENT: The user requested customer spending info or purchased items.
+
+RULES:
+1. Present customer spend metrics FIRST under "## 👤 CUSTOMER PROFILE".
+2. Present purchased products or invoice history under "## 📊 PURCHASED PRODUCTS" as a Markdown table.
+3. DO NOT generate generic recommendations.
+4. End with "💬 SUGGESTED QUESTIONS:".
+
+REQUIRED LAYOUT:
+## 👤 CUSTOMER PROFILE
+- Customer Name: ...
+- Total Spent: PKR ...
+
+## 📊 PURCHASED PRODUCTS
+| Product Name | SKU | Quantity Purchased | Total Spent |
+
+💬 SUGGESTED QUESTIONS:
+- (Follow-up 1)
+- (Follow-up 2)
+`;
+      } else if (intent === "LISTING_COMPACT") {
+        instructions = `
+INTENT: The user requested a product list or entity listing overview.
+
+RULES:
+1. Provide quick metric summary under "## 📦 SUMMARY".
+2. Present a clean Markdown table of the primary fields under "## 📊 PRIMARY CONTENT".
+3. Provide 2-3 brief insights under "## 💡 AI INSIGHTS" if relevant. Omit recommendations unless low/dead stock is detected.
+4. End with "💬 SUGGESTED QUESTIONS:".
+
+REQUIRED LAYOUT:
+## 📦 SUMMARY
+- (3-5 summary metrics as bullet points)
+
+## 📊 PRIMARY CONTENT
+| Name/Number | SKU | Quantity | Selling Price | Status |
+
+## 💡 AI INSIGHTS
+- (1-3 key insights)
+
+💬 SUGGESTED QUESTIONS:
+- (Follow-up 1)
+`;
+      } else {
+        instructions = `
+INTENT: Strategic analytical inquiry (Dead stock, stockout risk, forecasts, anomalies).
+
+RULES:
+1. Provide a comprehensive summary under "## 📦 SUMMARY".
+2. Present data table under "## 📊 PRIMARY CONTENT".
+3. Provide 2-4 actionable insights under "## 💡 AI INSIGHTS".
+4. Provide 2-4 strategic actions under "## 🎯 RECOMMENDATIONS".
+5. End with "💬 SUGGESTED QUESTIONS:".
+
+REQUIRED LAYOUT:
+## 📦 SUMMARY
+- (Key metrics)
+
+## 📊 PRIMARY CONTENT
+| Product Name | SKU | Quantity | ... |
+
+## 💡 AI INSIGHTS
+- (Key observations)
+
+## 🎯 RECOMMENDATIONS
+- (Actionable steps)
+
+💬 SUGGESTED QUESTIONS:
+- (Follow-up 1)
+`;
+      }
+
+      return `You are StockPilot AI, an Inventory Analyst. Answer using ONLY the tool result data below. Never invent or estimate numbers.
 
 User question: ${query}
 
 Tool result JSON:
-${JSON.stringify(trimmedResult, null, 2)}
+${dataJson}
 
-RESPONSE STRUCTURE (MUST FOLLOW THIS EXACT ORDER WITH THESE HEADERS):
-1. 📦 SUMMARY: Quick overview with key metrics
-2. 📊 PRIMARY CONTENT: "Data is displayed in the table below." (ONE SENTENCE ONLY)
-3. 💡 AI INSIGHTS: Meaningful observations from the data (2-4 bullet points)
-4. 🎯 RECOMMENDATIONS: Actions based on insights (2-4 bullet points)
-5. 💬 SUGGESTED QUESTIONS: 3-4 high-value follow-up questions as bullet points
+${instructions}
 
 CRITICAL FORMATTING RULES:
-- NEVER generate markdown tables. Tables will be rendered separately by the frontend.
-- DO NOT use pipe characters (|) or dashes (---) to create tables.
-- Only provide text summaries, insights, and recommendations.
-- Currency: PKR 1,234,567.00
-- Percentages: 43%
+- Headers MUST start with '## ' (e.g. ## 📦 SUMMARY, ## 📊 INVOICE ITEMS, ## ℹ️ GENERAL INFORMATION, ## 💡 AI INSIGHTS, ## 🎯 RECOMMENDATIONS)
+- Format currency as PKR 1,234,567.00
+- Format percentages as 43%
+- Each bullet point MUST start with "- " on its OWN SEPARATE LINE.
+- DO NOT use Unicode bullet symbols (like •).
+- Write like a knowledgeable colleague. Short, direct sentences.
+`;
+    };
 
-CRITICAL BULLET POINT FORMATTING RULES:
-- Each bullet point MUST start with "• " (bullet point followed by a space) on a NEW LINE
-- Each bullet point MUST be on its OWN SEPARATE LINE
-- DO NOT put multiple bullet points on the same line
-- DO NOT use commas to separate bullet points
-- Each bullet point is a complete sentence or phrase
-
-EXACT OUTPUT FORMAT EXAMPLE (MUST FOLLOW THIS EXACT STRUCTURE):
-
-📦 SUMMARY:
-• Total Products: 16
-• Total Stock: 2,907 units
-• Total Inventory Value: PKR 7,230,630.00
-• Total Potential Profit: PKR 3,402,620.00
-• Dead Stock Items: 4
-
-📊 PRIMARY CONTENT:
-Data is displayed in the table below.
-
-💡 AI INSIGHTS:
-• 40% of the displayed items are currently flagged as "Dead Stock," indicating potential stagnation in sales velocity.
-• The "Electronics" category holds the highest inventory value, specifically driven by the Smartphone X Pro and Laptop Pro 15.
-• Profit margins vary significantly, ranging from 29% on high-end laptops to 52% on silk thread.
-
-🎯 RECOMMENDATIONS:
-• Conduct a liquidation or promotional campaign for the four identified "Dead Stock" items to recover tied-up capital.
-• Re-evaluate the reorder levels for items with high stock counts to prevent further accumulation of non-moving inventory.
-• Prioritize marketing efforts on high-margin products like the Silk Thread to maximize overall profitability.
-
-💬 SUGGESTED QUESTIONS:
-• Which specific suppliers are associated with the highest volume of dead stock?
-• What is the average inventory turnover rate for the current product list?
-• Can you identify which products are closest to their reorder levels?
-
-IMPORTANT: Each bullet point MUST be on its own line starting with "• ".
-DO NOT put multiple bullet points on the same line.
-
-Write like a knowledgeable colleague. Short, direct sentences.`;
-    //     const finalPrompt = `
-    // You are StockPilot AI, an Inventory Analyst. Answer using ONLY the tool result data below. Never invent or estimate.
-
-    // User question: ${query}
-
-    // Tool result JSON:
-    // ${JSON.stringify(trimmedResult, null, 2)}
-
-    // RESPONSE STRUCTURE (MUST FOLLOW THIS EXACT ORDER WITH THESE HEADERS):
-    // 1. 📦 SUMMARY: Quick overview with key metrics in bullet points (use • or -)
-    // 2. 📊 PRIMARY CONTENT: Brief note that "Data is displayed in the table below." (ONE SENTENCE ONLY)
-    // 3. 💡 AI INSIGHTS: Meaningful observations from the data (2-4 bullet points)
-    // 4. 🎯 RECOMMENDATIONS: Actions based on insights (2-4 bullet points)
-    // 5. 💬 SUGGESTED QUESTIONS: 3-4 high-value follow-up questions as bullet points (use • or -)
-
-    // CRITICAL FORMATTING RULES:
-    // - NEVER generate markdown tables. Tables will be rendered separately by the frontend.
-    // - DO NOT use pipe characters (|) or dashes (---) to create tables.
-    // - DO NOT include the table data in your response text.
-    // - Only provide text summaries, insights, and recommendations.
-    // - Currency: PKR 1,234,567.00
-    // - Percentages: 43%
-    // - Use bullet points (• or -) for lists within each section
-    // - Keep each section concise and focused
-
-    // EXACT OUTPUT FORMAT EXAMPLE:
-    // 📦 SUMMARY:
-    // • Total Products: 16
-    // • Total Stock: 2,907 units
-    // • Total Inventory Value: PKR 7,230,630.00
-    // • Dead Stock Items: 4
-
-    // 📊 PRIMARY CONTENT:
-    // Data is displayed in the table below.
-
-    // 💡 AI INSIGHTS:
-    // • 40% of the displayed inventory is currently classified as "Dead Stock"
-    // • High-value items like the Smartphone X Pro represent significant capital tied up
-
-    // 🎯 RECOMMENDATIONS:
-    // • Initiate promotional campaigns for "Dead Stock" items
-    // • Review procurement strategy for slow-moving items
-
-    // 💬 SUGGESTED QUESTIONS:
-    // • Which products have the highest profit margins?
-    // • Can you provide a detailed breakdown of the inventory value by supplier?
-
-    // Write like a knowledgeable colleague. Short, direct sentences.`;
+    const trimmedResult = trimToolResult(toolResult);
+    const finalPrompt = buildDynamicPrompt(query, call.name, trimmedResult);
 
     const followUpResult = await getPlainModel().generateContentStream(
       finalPrompt,
@@ -970,10 +1119,10 @@ Write like a knowledgeable colleague. Short, direct sentences.`;
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-            page: toolResult.page,
-            totalPages: toolResult.totalPages,
-            count: toolResult.count,
-          }
+          page: toolResult.page,
+          totalPages: toolResult.totalPages,
+          count: toolResult.count,
+        }
         : null;
 
     await chatLogModel.create({
@@ -1002,6 +1151,14 @@ Write like a knowledgeable colleague. Short, direct sentences.`;
       lastQuery: query,
       lastResults: toolResult,
       lastTool: call.name,
+      activeEntity:
+        call.name === "get_details" && call.args
+          ? {
+            type: call.args.type,
+            identifier: call.args.identifier,
+            data: toolResult,
+          }
+          : context.activeEntity,
       conversationCount: (context.conversationCount || 0) + 1,
     });
 
@@ -1052,18 +1209,6 @@ Write like a knowledgeable colleague. Short, direct sentences.`;
   }
 };
 
-/**
- * GET /api/v1/ai/chat/page
- *
- * Fetch a specific page of table data for an existing chatbot response.
- * Does NOT generate a new AI response. Returns structured data only.
- *
- * Body: { conversationId, messageLogId, page, toolName, toolArgs }
- *
- * The frontend sends toolName + toolArgs (persisted in the message) so this
- * endpoint works reliably even after a server restart or in multi-instance
- * deployments — it does NOT depend on the in-memory context cache.
- */
 export const getChatPage = async (req, res) => {
   try {
     const organizationId = req.organizationId;
@@ -1124,10 +1269,10 @@ export const getChatPage = async (req, res) => {
     const pagination =
       toolResult.page !== undefined
         ? {
-            page: toolResult.page,
-            totalPages: toolResult.totalPages,
-            count: toolResult.count,
-          }
+          page: toolResult.page,
+          totalPages: toolResult.totalPages,
+          count: toolResult.count,
+        }
         : null;
 
     return res.json({

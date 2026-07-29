@@ -14,7 +14,17 @@ const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-const GEMINI_MODEL = process.env.GEMINI_MODEL
+const GEMINI_MODEL = process.env.GEMINI_MODEL;
+
+const requiredEnvVars = ["MONGODB_URI", "JWT_SECRET", "GEMINI_API_KEY"];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`❌ Missing required environment variable: ${envVar}`);
+    process.exit(1);
+  }
+}
+
+console.log("✅ Environment variables validated successfully");
 
 export {
   PORT,

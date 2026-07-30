@@ -4,11 +4,13 @@ export const chatTools = [
     functionDeclarations: [
       {
         name: "query_inventory",
-        description: `Query products, categories, stock levels, valuation, cost/selling prices, profits, margins, reorder thresholds, and status.
-          Supports search, price/margin filtering, date filtering (period: today/yesterday/this_week/last_week/this_month/last_month/this_year, or via startDate/endDate), stock status (all/in_stock/low_stock/out_of_stock/dead_stock), sorting, pagination, grouping (category/supplier/status), and filtering by the staff member who added/created the product.
+        description: `Query products, categories, stock levels, valuation, cost/selling prices, profits, margins, reorder thresholds, and stock status (including dead stock items/products).
+          Use this tool for listing, searching, or filtering products by dead stock (stockStatus: "dead_stock"), in stock, low stock, or out of stock.
+          Supports search, price/margin filtering, date filtering (period: today/yesterday/this_week/last_week/this_month/last_month/this_year, or via startDate/endDate), stock status (all/in_stock/low_stock/out_of_stock/dead_stock), sorting, pagination, grouping (category/supplier/status), and filtering by creator.
           
           Examples:
           - "Show all products"
+          - "Show me dead stock items / products"
           - "What products are low in stock?"
           - "Products added this week"
           - "Highest margin electronics"
@@ -201,13 +203,13 @@ export const chatTools = [
       },
       {
         name: "query_insights",
-        description: `Retrieve high-level business dashboards (including total categories, profit actuals, top selling items, and recent logs), demand forecasts, stockout predictions, anomaly logs, reorder recommendations, ABC classification, dead stock lists, and historical insights.
+        description: `Retrieve high-level business dashboards (overall metrics, categories, profit actuals, top selling items), demand forecasts, stockout predictions, anomaly logs, AI reorder suggestions, ABC classification analysis, and historical insights.
+          Note: For listing or searching dead stock items/products specifically, prefer query_inventory with stockStatus: "dead_stock".
           
           Examples:
           - "Give me a dashboard summary of my business"
           - "Show AI reorder suggestions"
           - "Which products are predicted to run out of stock?"
-          - "Show dead stock in my inventory"
           - "Run an ABC classification analysis"
           - "Show recent high severity anomalies"
           - "Give me weekly insights history"`,

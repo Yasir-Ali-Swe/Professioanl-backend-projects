@@ -78,6 +78,25 @@ const extractData = (toolResult) => {
   if (toolResult.summary?.customerProductsPurchased)
     return toolResult.summary.customerProductsPurchased;
 
+  if (toolResult.groupedResults) return toolResult.groupedResults;
+
+  if (toolResult.target === "users" && toolResult.users) return toolResult.users;
+  if (toolResult.target === "categories" && toolResult.categories) return toolResult.categories;
+  if (toolResult.target === "suppliers" && toolResult.suppliers) return toolResult.suppliers;
+
+  if (toolResult.users && !toolResult.categories && !toolResult.suppliers) {
+    return toolResult.users;
+  }
+
+  // If this is a full organization overview, return null so ReactMarkdown renders markdown tables natively
+  if (
+    toolResult.target === "overview" ||
+    toolResult.organizationInfo ||
+    (toolResult.categories && toolResult.suppliers && toolResult.users)
+  ) {
+    return null;
+  }
+
   for (const key of CONSTANTS.DATA_KEYS) {
     if (toolResult[key]) return toolResult[key];
   }
@@ -392,13 +411,32 @@ const detectSchema = (query, toolName, data) => {
   }
 
   if (toolName === "query_purchases") return "purchases";
-  if (toolName === "query_transactions") return "transactions";
+  if (toolName === "query_transactions") {
+    const sample = Array.isArray(data) && data.length > 0 ? data[0] : null;
+    if (
+      sample &&
+      (sample.role !== undefined ||
+        sample.roleDisplay !== undefined ||
+        sample.userName !== undefined ||
+        sample.typeDisplay !== undefined ||
+        sample.transactionCount !== undefined)
+    ) {
+      return "transactions_grouped";
+    }
+    return "transactions";
+  }
   if (toolName === "query_organization") {
     const sample = Array.isArray(data) && data.length > 0 ? data[0] : null;
-    if (sample && sample.contactEmail !== undefined) {
+    if (sample && (sample.role !== undefined || sample.email !== undefined)) {
+      return "users";
+    }
+    if (sample && (sample.roleDisplay !== undefined || sample.userCount !== undefined)) {
+      return "grouped_roles";
+    }
+    if (sample && sample.contactEmail !== undefined && sample.salesValue !== undefined) {
       return "organizations";
     }
-    return "users";
+    return "organization_overview";
   }
   if (toolName === "query_insights") {
     if (Array.isArray(data) && data.length > 0) {
@@ -856,10 +894,49 @@ export const chatWithAIStream = async (req, res) => {
       }
 
       if (
+        toolName === "query_transactions" &&
+        (toolResult.groupedResults ||
+          (Array.isArray(toolResult.transactions) &&
+            toolResult.transactions.length > 0 &&
+            (toolResult.transactions[0].roleDisplay !== undefined ||
+              toolResult.transactions[0].userName !== undefined ||
+              toolResult.transactions[0].typeDisplay !== undefined ||
+              toolResult.transactions[0].transactionCount !== undefined)))
+      ) {
+        return "GROUPED_TRANSACTIONS";
+      }
+
+      if (
+        lower.includes("team member") ||
+        lower.includes("user") ||
+        lower.includes("who is the admin") ||
+        lower.includes("show me the roles") ||
+        toolResult.target === "users"
+      ) {
+        if (
+          lower.includes("group") ||
+          lower.includes("role") ||
+          toolResult.groupedResults
+        ) {
+          return "GROUPED_ROLES";
+        }
+        return "TEAM_MEMBERS";
+      }
+
+      if (
         lower.includes("customer") ||
         toolResult.summary?.customerProductsPurchased
       ) {
         return "CUSTOMER_PROFILE";
+      }
+
+      if (
+        lower.includes("organization") ||
+        lower.includes("company") ||
+        lower.includes("our org") ||
+        toolName === "query_organization"
+      ) {
+        return "ORGANIZATION_OVERVIEW";
       }
 
       if (
@@ -986,6 +1063,54 @@ REQUIRED LAYOUT:
 
 ## 📊 PURCHASED PRODUCTS
 | Product Name | SKU | Quantity Purchased | Total Spent |
+`;
+      } else if (intent === "GROUPED_TRANSACTIONS") {
+        instructions = `
+INTENT: Grouped stock transactions (by role, user, type, or reason).
+
+RULES:
+1. Under "## 📦 SUMMARY", present total transaction groups and total volume.
+2. Present the grouped breakdown under "## 📊 PRIMARY CONTENT" as a Markdown table with exact columns matching the grouped data:
+   - If grouped by Role: | Role | Transaction Count | Items In | Items Out | Total Items Moved | Unique Users |
+   - If grouped by User: | User Name | Role | Transaction Count | Items In | Items Out | Total Items Moved |
+   - If grouped by Type: | Transaction Type | Transaction Count | Total Items Moved |
+   - If grouped by Reason: | Reason | Transaction Count | Total Items Moved |
+3. Provide 2-3 analytical observations under "## 💡 AI INSIGHTS".
+4. Provide 2-3 actionable next steps under "## 🎯 RECOMMENDATIONS".
+`;
+      } else if (intent === "GROUPED_ROLES") {
+        instructions = `
+INTENT: Group team members/users by role.
+
+RULES:
+1. Under "## 📦 SUMMARY", present total users, active users, and role counts.
+2. Present the role breakdown under "## 📊 PRIMARY CONTENT" as a Markdown table:
+   | Role | Total Users | Active Users | Invoices Created | Revenue Generated |
+3. Provide 2-3 analytical observations under "## 💡 AI INSIGHTS".
+4. Provide 2-3 strategic next steps under "## 🎯 RECOMMENDATIONS".
+`;
+      } else if (intent === "TEAM_MEMBERS") {
+        instructions = `
+INTENT: Show organization team members / users.
+
+RULES:
+1. Under "## 📦 SUMMARY", list total users, active users, and roles breakdown.
+2. Present the team members list under "## 👥 TEAM MEMBERS & USERS" as a Markdown table:
+   | Name | Email | Role | Active | Invoices Created | Revenue Generated |
+3. Provide 2-3 observations under "## 💡 AI INSIGHTS".
+4. Provide 2-3 next steps under "## 🎯 RECOMMENDATIONS".
+`;
+      } else if (intent === "ORGANIZATION_OVERVIEW") {
+        instructions = `
+INTENT: Full organization overview including categories, suppliers, users/team members, and performance metrics.
+
+RULES:
+1. Under "## 📦 SUMMARY", list total users, active users, total categories, total suppliers, total products, and total revenue.
+2. If categories exist in the tool result data, present a Markdown table of Product Categories under "## 📂 PRODUCT CATEGORIES" (Columns: Category Name, Description, Product Count, Valuation).
+3. If suppliers exist in the tool result data, present a Markdown table of Suppliers under "## 🏭 SUPPLIERS" (Columns: Supplier Name, Contact Person, Email/Phone, Product Count, Valuation).
+4. Under "## 👥 TEAM MEMBERS & USERS", present a Markdown table of Users (Columns: Name, Email, Role, Active, Invoices Created, Revenue Generated).
+5. Provide 2-3 analytical observations under "## 💡 AI INSIGHTS".
+6. Provide 2-3 strategic next steps under "## 🎯 RECOMMENDATIONS".
 `;
       } else if (intent === "LISTING_COMPACT") {
         instructions = `

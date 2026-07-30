@@ -142,17 +142,9 @@ const getEnhancedQuery = (query, context) => {
   const isFollowUpWord = CONSTANTS.FOLLOW_UP_WORDS.some((word) =>
     lowerQuery.includes(word.toLowerCase()),
   );
-  const isEntityPronoun =
-    lowerQuery.includes("it") ||
-    lowerQuery.includes("this") ||
-    lowerQuery.includes("its") ||
-    lowerQuery.includes("who") ||
-    lowerQuery.includes("product") ||
-    lowerQuery.includes("supplier") ||
-    lowerQuery.includes("customer") ||
-    lowerQuery.includes("stock") ||
-    lowerQuery.includes("category") ||
-    lowerQuery.includes("creator");
+
+  // Strictly referential pronouns only. Do NOT treat domain nouns like "product" or "supplier" as pronouns.
+  const isEntityPronoun = /\b(it|this|that|these|those|its|their|them|the same)\b/i.test(lowerQuery);
 
   if (context.activeEntity && (isFollowUpWord || isEntityPronoun)) {
     const activeInfo = JSON.stringify({
@@ -165,13 +157,13 @@ const getEnhancedQuery = (query, context) => {
         context.activeEntity.data?.product?.general ||
         {},
     });
-    enhancedQuery = `${query} (Active context entity: ${activeInfo})`;
+    enhancedQuery = `${query} (Background reference entity: ${activeInfo}. NOTE: Do NOT apply or reuse filters unless explicitly requested in: "${query}")`;
   } else if (context.lastResults && context.lastTool && isFollowUpWord) {
     const contextSnippet = buildFollowUpContext(
       context.lastResults,
       context.lastTool,
     );
-    enhancedQuery = `${query} (Based on previous tool ${context.lastTool} results: ${contextSnippet})`;
+    enhancedQuery = `${query} (Background reference from previous tool ${context.lastTool}: ${contextSnippet}. NOTE: Do NOT apply or reuse filters like supplier, category, or status unless explicitly requested in: "${query}")`;
   }
 
   return enhancedQuery;
@@ -291,62 +283,54 @@ const extractSuggestedQuestions = (reply, userQuery = "") => {
 
   return filtered;
 };
+
 const SYSTEM_INSTRUCTION = `You are StockPilot AI, an Inventory Analyst for StockPilot.
 
-IDENTITY:
+IDENTITY & TONE:
 - Identify as "StockPilot AI" only when asked about your identity.
 - Never mention Google, Gemini, LLM, or AI providers.
-- If asked about topics outside inventory management, politely decline and redirect.
+- Write like a knowledgeable, helpful colleague. Short, direct sentences.
 
 ROLE-BASED ACCESS:
-- Admin: Can only access their organization's data
-- Super Admin: Can access all organizations
-- Both roles have READ-ONLY permissions. Politely refuse write requests.
+- Admin: Can only access their organization's data.
+- Super Admin: Can access all organizations.
+- Both roles have READ-ONLY permissions. Politely refuse write requests in 1-2 plain sentences without headers.
 
-DATA SOURCE:
-- Answer ONLY using tool result data.
-- Never invent, estimate, or add numbers not present.
-- If data is missing, state it plainly.
+CONVERSATIONAL & SIMPLE QUERIES:
+- For greetings, identity questions, capability overviews, unsupported feature requests, write refusals, or simple queries:
+  - Respond in 1–3 plain natural sentences.
+  - DO NOT include Markdown headers (e.g. ## 📦 SUMMARY, ## 📊 PRIMARY CONTENT).
+  - DO NOT output empty markdown tables or boilerplate checklists.
 
-RESPONSE STRUCTURE (MUST FOLLOW THIS EXACT ORDER WITH THESE HEADERS):
-## 📦 SUMMARY
-(Quick overview with key metrics formatted as markdown bullet list)
+DATA-DRIVEN RESPONSES WITH RETRIEVED DATA:
+- Use the structured markdown template ONLY when reporting real retrieved dataset results:
+  ## 📦 SUMMARY
+  (Key overview metrics as bullet points)
 
-## 📊 PRIMARY CONTENT
-| Column | ... |
-(Include a Markdown table representing the data when available)
+  ## 📊 PRIMARY CONTENT
+  (Markdown table of retrieved rows)
 
-## 💡 AI INSIGHTS
-(Meaningful observations from the data as 2-4 markdown bullet points)
+  ## 💡 AI INSIGHTS
+  (2-3 comparative analytical observations — DO NOT just restate single cell values)
 
-## 🎯 RECOMMENDATIONS
-(Actions based on insights as 2-4 markdown bullet points)
+  ## 🎯 RECOMMENDATIONS
+  (2-3 actionable next steps if risks or low/dead stock exist)
 
-💬 SUGGESTED QUESTIONS:
-(3-4 high-value follow-up questions as markdown bullet points)
-
-CRITICAL FORMATTING RULES:
-- Format headers with markdown '## ' (e.g., ## 📦 SUMMARY, ## 📊 PRIMARY CONTENT, ## 💡 AI INSIGHTS, ## 🎯 RECOMMENDATIONS)
-- Format currency as PKR 1,234,567.00
-- Format percentages as 43%
-
-CRITICAL BULLET POINT FORMATTING RULES:
-- Each bullet point MUST start with "- " (dash followed by space) on a NEW LINE
-- Each bullet point MUST be on its OWN SEPARATE LINE
-- DO NOT use Unicode bullet symbols (like •)
-- Use standard Markdown bullet syntax: - 
-
-SUGGESTED QUESTIONS RULES:
-- Include 💬 SUGGESTED QUESTIONS ONLY if there are genuine, high-value follow-up questions that naturally extend the conversation.
-- NEVER repeat, restate, or slightly rephrase the user's current question.
-- Omit 💬 SUGGESTED QUESTIONS completely for greetings, thank-you messages, capability/identity questions, error responses, or simple answers without a logical next step.
-
-TONE: Write like a knowledgeable colleague. Short, direct sentences. Flag notable, risky, or surprising data.
+PAGINATION RULE:
+- When a stated pagination range is provided in the prompt (e.g. "showing 1–10 of 16"), state that exact range word-for-word. Never recalculate or alter it.
 
 HARD STOP: Stop after completing response. No wrap-up or restatement.`;
 
 const trimToolResult = (result) => {
   if (!result || typeof result !== "object") return result;
+  // Do not slice arrays if tool result is already a paginated page from backend
+  if (
+    result.page !== undefined ||
+    result.totalPages !== undefined ||
+    result.showingRange !== undefined
+  ) {
+    return result;
+  }
   const trimmed = { ...result };
 
   for (const [key, value] of Object.entries(trimmed)) {
@@ -611,10 +595,10 @@ export const chatWithAI = async (req, res) => {
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-            page: toolResult.page,
-            totalPages: toolResult.totalPages,
-            count: toolResult.count,
-          }
+          page: toolResult.page,
+          totalPages: toolResult.totalPages,
+          count: toolResult.count,
+        }
         : null;
 
     await chatLogModel.create({
@@ -898,54 +882,59 @@ export const chatWithAIStream = async (req, res) => {
       const intent = classifyIntent(query, toolName, trimmedResult);
       const dataJson = JSON.stringify(trimmedResult, null, 2);
 
-      // Check if result is empty
-      const isEmpty = trimmedResult?.summary?.isEmpty === true;
-      const emptyMessage =
-        trimmedResult?.summary?.message ||
-        "No data found matching your criteria.";
+      // Check if unsupported or error
+      if (trimmedResult?.isUnsupported === true || trimmedResult?.error === true) {
+        const msg = trimmedResult?.message || "Requested feature or entity type is not supported.";
+        return `You are StockPilot AI, an Inventory Analyst.
+User question: ${query}
 
-      let instructions = "";
+Tool error/unsupported details:
+${dataJson}
+
+INSTRUCTIONS:
+1. Respond in 1–2 plain, natural sentences explaining clearly that "${msg}".
+2. State 2–3 related inventory queries that the system CAN answer instead.
+3. CRITICAL: DO NOT output Markdown headers (like ## 📦 SUMMARY), DO NOT output markdown tables, DO NOT output empty bullet template sections.`;
+      }
+
+      // Check if result is empty
+      const isEmpty = trimmedResult?.summary?.isEmpty === true || (Array.isArray(trimmedResult?.products) && trimmedResult.products.length === 0 && Array.isArray(trimmedResult?.invoices) && trimmedResult.invoices.length === 0);
+      const emptyMessage = trimmedResult?.summary?.message || trimmedResult?.message || "No data found matching your criteria.";
 
       if (isEmpty) {
-        instructions = `
-INTENT: The user's query returned no results.
+        // Check for positive status check (e.g., asking for out-of-stock items when none exist)
+        const isPositiveCheck = query.toLowerCase().includes("out of stock") || query.toLowerCase().includes("dead stock") || query.toLowerCase().includes("anomalies");
+        let emptyInstruction = "";
 
-RULES:
-1. Respond with a clear, polite message that no data was found.
-2. DO NOT show tables, summaries with zeros, or N/A rows.
-3. Provide helpful suggestions for what the user could try instead.
+        if (isPositiveCheck) {
+          emptyInstruction = `
+INTENT: The user checked for items/issues (e.g. out of stock/dead stock/anomalies), but 0 items match.
+INSTRUCTIONS:
+1. Respond in 1–2 clear, encouraging natural sentences stating that there are 0 matching items/issues at this time (e.g., "All products are currently in stock! No out-of-stock items exist at this time.").
+2. DO NOT output Markdown headers (like ## 📦 SUMMARY), DO NOT output empty markdown tables or zero-value summaries.
+3. Suggest 2-3 logical follow-up questions directly.`;
+        } else {
+          emptyInstruction = `
+INTENT: No matching records found for user query.
+INSTRUCTIONS:
+1. Respond in 1–2 polite natural sentences stating that no records match "${query}".
+2. Suggest 2-3 specific adjustments or alternative queries.
+3. DO NOT output Markdown headers (like ## 📦 SUMMARY), DO NOT output empty markdown tables or zero-value summaries.`;
+        }
 
-REQUIRED LAYOUT:
-## 📦 SUMMARY
-- No results found for your query.
-
-## 💡 AI INSIGHTS
-- ${emptyMessage}
-
-## 💬 SUGGESTED QUESTIONS:
-- Try rephrasing your query with different keywords
-- Ask to see all available items in a category
-- Check if you have the correct spelling for names or IDs
-- Try a broader search without specific filters
-`;
-        return `You are StockPilot AI, an Inventory Analyst. Answer using ONLY the tool result data below. Never invent or estimate numbers.
-
+        return `You are StockPilot AI, an Inventory Analyst.
 User question: ${query}
 
 Tool result JSON:
 ${dataJson}
 
-${instructions}
-
-CRITICAL FORMATTING RULES:
-- Headers MUST start with '## ' (e.g. ## 📦 SUMMARY, ## 💡 AI INSIGHTS, ## 💬 SUGGESTED QUESTIONS)
-- Format currency as PKR 1,234,567.00
-- Format percentages as 43%
-- Each bullet point MUST start with "- " on its OWN SEPARATE LINE.
-- DO NOT use Unicode bullet symbols (like •).
-- Write like a knowledgeable colleague. Short, direct sentences.
-- Keep the tone helpful and encouraging.`;
+${emptyInstruction}
+Write in short, direct, friendly sentences.`;
       }
+
+      const showingRangeText = trimmedResult?.showingRange ? `PAGINATION RANGE RULE: Include the exact stated range: "${trimmedResult.showingRange}" in the SUMMARY section.` : "";
+
+      let instructions = "";
 
       if (intent === "LINE_ITEMS") {
         instructions = `
@@ -955,30 +944,24 @@ RULES:
 1. Answer the user's specific request FIRST. Provide a clean summary overview.
 2. Present the line items directly under "## 📊 INVOICE ITEMS" or "## 📊 PURCHASE ORDER ITEMS" as a Markdown table.
 3. DO NOT include "## 💡 AI INSIGHTS" or "## 🎯 RECOMMENDATIONS" because recommendations are NOT relevant for simple line item requests.
-4. End with "💬 SUGGESTED QUESTIONS:" containing 2-3 logical follow-up questions.
+4. ${showingRangeText}
 
 REQUIRED LAYOUT:
 ## 📦 SUMMARY
-- Total Items: X
-- Total Invoice/PO Amount: PKR ...
+- (Key metrics and range)
 
 ## 📊 INVOICE ITEMS
 | Product Name | SKU | Quantity | Unit Price | Subtotal | Profit | Margin |
 | --- | --- | --- | --- | --- | --- | --- |
-
-💬 SUGGESTED QUESTIONS:
-- Who created this invoice?
-- Show customer details
 `;
       } else if (intent === "ENTITY_DETAILS") {
         instructions = `
-INTENT: The user wants to view comprehensive details/profile for an entity (Invoice, PO, Supplier, Category, User, or Org).
+INTENT: Comprehensive details/profile for an entity (Invoice, PO, Supplier, Category, User, or Org).
 
 RULES:
 1. Present general information metrics under "## ℹ️ GENERAL INFORMATION".
 2. Present line items or catalog breakdown under "## 📊 PRIMARY CONTENT" as a Markdown table.
-3. DO NOT generate "## 🎯 RECOMMENDATIONS" unless there is an explicit critical alert or risk.
-4. End with "💬 SUGGESTED QUESTIONS:" containing 2-3 relevant follow-ups.
+3. ${showingRangeText}
 
 REQUIRED LAYOUT:
 ## ℹ️ GENERAL INFORMATION
@@ -986,20 +969,15 @@ REQUIRED LAYOUT:
 
 ## 📊 PRIMARY CONTENT
 | Product/Item Name | SKU | Quantity | ... |
-
-💬 SUGGESTED QUESTIONS:
-- (Follow-up 1)
-- (Follow-up 2)
 `;
       } else if (intent === "CUSTOMER_PROFILE") {
         instructions = `
-INTENT: The user requested customer spending info or purchased items.
+INTENT: Customer spending info or purchased items.
 
 RULES:
 1. Present customer spend metrics FIRST under "## 👤 CUSTOMER PROFILE".
 2. Present purchased products or invoice history under "## 📊 PURCHASED PRODUCTS" as a Markdown table.
-3. DO NOT generate generic recommendations.
-4. End with "💬 SUGGESTED QUESTIONS:".
+3. ${showingRangeText}
 
 REQUIRED LAYOUT:
 ## 👤 CUSTOMER PROFILE
@@ -1008,60 +986,48 @@ REQUIRED LAYOUT:
 
 ## 📊 PURCHASED PRODUCTS
 | Product Name | SKU | Quantity Purchased | Total Spent |
-
-💬 SUGGESTED QUESTIONS:
-- (Follow-up 1)
-- (Follow-up 2)
 `;
       } else if (intent === "LISTING_COMPACT") {
         instructions = `
-INTENT: The user requested a product list or entity listing overview.
+INTENT: Product list or entity listing overview.
 
 RULES:
-1. Provide quick metric summary under "## 📦 SUMMARY".
+1. Provide quick metric summary under "## 📦 SUMMARY". Include ${showingRangeText}.
 2. Present a clean Markdown table of the primary fields under "## 📊 PRIMARY CONTENT".
-3. Provide 2-3 brief insights under "## 💡 AI INSIGHTS" if relevant. Omit recommendations unless low/dead stock is detected.
-4. End with "💬 SUGGESTED QUESTIONS:".
+3. Provide 2-3 brief insights under "## 💡 AI INSIGHTS". INSIGHT RULE: Every insight MUST add comparative value across rows or highlight concentration risks / outliers — NEVER restate a single cell value directly.
 
 REQUIRED LAYOUT:
 ## 📦 SUMMARY
-- (3-5 summary metrics as bullet points)
+- (Summary metrics & pagination range)
 
 ## 📊 PRIMARY CONTENT
 | Name/Number | SKU | Quantity | Selling Price | Status |
 
 ## 💡 AI INSIGHTS
-- (1-3 key insights)
-
-💬 SUGGESTED QUESTIONS:
-- (Follow-up 1)
+- (2-3 analytical comparative observations)
 `;
       } else {
         instructions = `
-INTENT: Strategic analytical inquiry (Dead stock, stockout risk, forecasts, anomalies).
+INTENT: Strategic analytical inquiry (Dead stock, stockout risk, forecasts, anomalies, overall summaries).
 
 RULES:
-1. Provide a comprehensive summary under "## 📦 SUMMARY".
+1. Provide a comprehensive summary under "## 📦 SUMMARY". ${showingRangeText}
 2. Present data table under "## 📊 PRIMARY CONTENT".
-3. Provide 2-4 actionable insights under "## 💡 AI INSIGHTS".
+3. Provide 2-4 actionable insights under "## 💡 AI INSIGHTS". INSIGHT RULE: Every insight MUST provide comparative analysis across rows or identify concentration risks/outliers — NEVER restate a single cell value directly.
 4. Provide 2-4 strategic actions under "## 🎯 RECOMMENDATIONS".
-5. End with "💬 SUGGESTED QUESTIONS:".
 
 REQUIRED LAYOUT:
 ## 📦 SUMMARY
-- (Key metrics)
+- (Key metrics & pagination range)
 
 ## 📊 PRIMARY CONTENT
 | Product Name | SKU | Quantity | ... |
 
 ## 💡 AI INSIGHTS
-- (Key observations)
+- (Comparative observations)
 
 ## 🎯 RECOMMENDATIONS
 - (Actionable steps)
-
-💬 SUGGESTED QUESTIONS:
-- (Follow-up 1)
 `;
       }
 
@@ -1075,13 +1041,12 @@ ${dataJson}
 ${instructions}
 
 CRITICAL FORMATTING RULES:
-- Headers MUST start with '## ' (e.g. ## 📦 SUMMARY, ## 📊 INVOICE ITEMS, ## ℹ️ GENERAL INFORMATION, ## 💡 AI INSIGHTS, ## 🎯 RECOMMENDATIONS)
+- Headers MUST start with '## ' (e.g. ## 📦 SUMMARY, ## 📊 PRIMARY CONTENT, ## 💡 AI INSIGHTS, ## 🎯 RECOMMENDATIONS)
 - Format currency as PKR 1,234,567.00
 - Format percentages as 43%
 - Each bullet point MUST start with "- " on its OWN SEPARATE LINE.
 - DO NOT use Unicode bullet symbols (like •).
-- Write like a knowledgeable colleague. Short, direct sentences.
-`;
+- Write like a knowledgeable colleague. Short, direct sentences.`;
     };
 
     const trimmedResult = trimToolResult(toolResult);
@@ -1130,10 +1095,12 @@ CRITICAL FORMATTING RULES:
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-            page: toolResult.page,
-            totalPages: toolResult.totalPages,
-            count: toolResult.count,
-          }
+          page: toolResult.page,
+          totalPages: toolResult.totalPages,
+          count: toolResult.count,
+          pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
+          showingRange: toolResult.showingRange,
+        }
         : null;
 
     await chatLogModel.create({
@@ -1168,10 +1135,10 @@ CRITICAL FORMATTING RULES:
       activeEntity:
         call.name === "get_details" && call.args
           ? {
-              type: call.args.type,
-              identifier: call.args.identifier,
-              data: toolResult,
-            }
+            type: call.args.type,
+            identifier: call.args.identifier,
+            data: toolResult,
+          }
           : context.activeEntity,
       conversationCount: (context.conversationCount || 0) + 1,
     });
@@ -1283,10 +1250,12 @@ export const getChatPage = async (req, res) => {
     const pagination =
       toolResult.page !== undefined
         ? {
-            page: toolResult.page,
-            totalPages: toolResult.totalPages,
-            count: toolResult.count,
-          }
+          page: toolResult.page,
+          totalPages: toolResult.totalPages,
+          count: toolResult.count,
+          pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
+          showingRange: toolResult.showingRange,
+        }
         : null;
 
     return res.json({

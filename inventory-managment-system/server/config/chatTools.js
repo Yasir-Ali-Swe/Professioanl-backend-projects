@@ -115,7 +115,7 @@ export const chatTools = [
       {
         name: "query_sales",
         description: `Query sales, invoices, customers, revenue, actual profits, and creator details.
-          Supports invoice number or customer name search, status filter (paid/unpaid/void/all), amount filters, date ranges (today/yesterday/this_week/last_week/this_month/last_month/this_year, or via startDate/endDate), grouping (customer/status/daily/monthly), and filtering by creator name.
+          Supports invoice number or customer name search, status filter (paid/unpaid/void/all), amount filters, date ranges (today/yesterday/this_week/last_week/this_month/last_month/this_year, or via startDate/endDate), grouping (customer/status/daily/monthly/role/creator), and filtering by creator name.
           
           Examples:
           - "Show total revenue today"
@@ -123,6 +123,7 @@ export const chatTools = [
           - "Top customers by total spent"
           - "Monthly sales chart data"
           - "Invoices created by Ahmed Khan"
+          - "Group sales by user role"
           - "Invoices from yesterday"`,
         parameters: {
           type: "object",
@@ -146,8 +147,8 @@ export const chatTools = [
             creatorName: { type: "string", description: "Filter by the name of the staff member/user who created the invoice" },
             groupBy: {
               type: "string",
-              enum: ["customer", "status", "daily", "monthly"],
-              description: "Group results to calculate sales aggregates",
+              enum: ["customer", "status", "daily", "monthly", "role", "creator"],
+              description: "Group results to calculate sales aggregates (including by user role or specific creator)",
             },
             includeProducts: {
               type: "boolean",
@@ -169,18 +170,34 @@ export const chatTools = [
       },
       {
         name: "query_organization",
-        description: `Query organizations, users, team members, roles, permissions, and platform-wide or organization-wide metadata.
-          For Super Admins, this allows platform-wide lookups. For Org Admins, it restricts details to their own organization's team members.
+        description: `Query details of our organization, team members/users, roles, product categories, suppliers, financial totals, and overall organization metadata.
+          Use target: "users" when asked specifically for team members or users.
+          Use target: "categories" when asked for product categories.
+          Use target: "suppliers" when asked for suppliers.
+          Use groupBy: "role" when asked to group team members/users by role or show role distribution.
+          Use target: "overview" or "all" when asked for full organization details.
           
           Examples:
-          - "Show all active users"
-          - "List my team members"
-          - "How many managers do we have?"
-          - "Show all registered organizations in the system" (Super Admin)`,
+          - "Show me team members"
+          - "Who is the admin of the org"
+          - "Group team members by role"
+          - "Show me the roles in the org"
+          - "Show me details of our organization"
+          - "Show me full details like product categories suppliers and users"`,
         parameters: {
           type: "object",
           properties: {
-            search: { type: "string", description: "Search by organization name, user name, or email" },
+            search: { type: "string", description: "Search by organization name, user name, email, category, or supplier" },
+            target: {
+              type: "string",
+              enum: ["all", "overview", "users", "categories", "suppliers"],
+              description: "Specific section of organization details to return. Set to 'users' when the query is specifically about team members/users.",
+            },
+            groupBy: {
+              type: "string",
+              enum: ["role"],
+              description: "Group team members/users by role (admin, manager, staff)",
+            },
             role: {
               type: "string",
               enum: ["admin", "manager", "staff", "super_admin", "all"],
@@ -270,13 +287,15 @@ export const chatTools = [
       {
         name: "query_transactions",
         description: `Query inventory stock transactions or movements (stock logs).
-          Supports filtering by product name/SKU, transaction type (in/out), reason (purchase/sale/adjustment/return/damage), staff/user who performed the transaction, date ranges, and sorting.
+          Supports filtering by product name/SKU, transaction type (in/out), reason (purchase/sale/adjustment/return/damage), staff/user who performed the transaction, date ranges, sorting, and grouping by user role, specific user, type, or reason.
           
           Examples:
-          - "Show recent stock adjustments"
+          - "Group transactions by user role"
+          - "Transactions by user role"
+          - "Show transactions created by staff"
+          - "Recent stock movements"
           - "Transactions created by Ahmed Khan"
-          - "Show stock logs for product Samsung TV"
-          - "Stock movements in the last 7 days"`,
+          - "Show stock logs for product Samsung TV"`,
         parameters: {
           type: "object",
           properties: {
@@ -284,6 +303,12 @@ export const chatTools = [
             type: { type: "string", enum: ["in", "out", "all"], description: "Filter by transaction type" },
             reason: { type: "string", enum: ["purchase", "sale", "adjustment", "return", "damage", "all"], description: "Filter by reason" },
             creatorName: { type: "string", description: "Filter by the name of the staff member who performed the transaction" },
+            role: { type: "string", enum: ["admin", "manager", "staff", "super_admin", "all"], description: "Filter transactions by user role" },
+            groupBy: {
+              type: "string",
+              enum: ["role", "user", "type", "reason"],
+              description: "Group transaction logs and calculate aggregate statistics (e.g., group by user role, user, type, or reason)",
+            },
             period: {
               type: "string",
               enum: ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "this_year"],
@@ -292,6 +317,7 @@ export const chatTools = [
             startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
             endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
             limit: { type: "number", description: "Maximum number of results" },
+            page: { type: "number", description: "Page number" },
           },
         },
       },

@@ -50,9 +50,11 @@ export const requirePremium = async (req, res, next) => {
 export const authorizeChatbotAccess = async (req, res, next) => {
   try {
     const role = req.user?.role;
+    // Super admin can access chatbot without any premium plan check
     if (role === "super_admin") {
       return next();
     }
+    // Only organization admin can use the chatbot (requires Premium plan)
     if (role === "admin") {
       const organizationId = req.organizationId;
       if (!organizationId) {
@@ -75,9 +77,10 @@ export const authorizeChatbotAccess = async (req, res, next) => {
       return next();
     }
 
+    // Manager, staff, and other roles are denied access
     return res.status(403).json({
       success: false,
-      message: "Access denied. Chatbot is restricted to administrators.",
+      message: "Access denied. Chatbot is restricted to organization administrators.",
     });
   } catch (error) {
     console.error("Error in authorizeChatbotAccess middleware:", error.message);

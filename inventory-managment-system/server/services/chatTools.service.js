@@ -253,6 +253,34 @@ const escapeRegex = (string) => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 };
 
+const getValidProductMongoMatch = () => ({
+  costPrice: { $gte: 0 },
+  sellingPrice: { $gte: 0 },
+  quantity: { $gte: 0 },
+  reorderThreshold: { $gte: 0 },
+});
+
+const getActiveSoldProductIds = async (organizationId) => {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const activeSales = await invoiceModel
+    .find(
+      buildFindFilter(organizationId, {
+        status: "paid",
+        createdAt: { $gte: thirtyDaysAgo },
+      }),
+    )
+    .select("products.productId");
+
+  const idSet = new Set();
+  for (const sale of activeSales) {
+    for (const p of sale.products) {
+      if (p.productId) idSet.add(p.productId.toString());
+    }
+  }
+  return Array.from(idSet);
+};
+
 // ============ 1. INVENTORY TOOL ============
 
 const handleInventory = async (args, organizationId) => {
@@ -370,9 +398,7 @@ const handleInventory = async (args, organizationId) => {
         break;
       case "dead_stock":
         filter.quantity = { $gt: 0 };
-        if (activeProductIds.length > 0) {
-          filter._id = { $nin: activeProductIds };
-        }
+        filter._id = { $nin: activeProductIds };
         break;
     }
   }
@@ -468,6 +494,7 @@ const handleInventory = async (args, organizationId) => {
     });
   }
 
+  const invalidProductsList = [];
   let totalStock = 0;
   let totalInventoryValue = 0;
   let totalPotentialRevenue = 0;
@@ -480,7 +507,14 @@ const handleInventory = async (args, organizationId) => {
   // Calculate summary from all products (not just paginated ones)
   const allProductsForStats = await productModel.find(filter).lean();
   for (const p of allProductsForStats) {
-    if (!isValidProduct(p)) continue;
+    if (!isValidProduct(p)) {
+      invalidProductsList.push({
+        name: p.name || "Unknown",
+        sku: p.sku || "N/A",
+        reason: "Cost price, selling price, quantity, or reorder threshold is negative or invalid.",
+      });
+      continue;
+    }
     const profit = p.sellingPrice - p.costPrice;
     totalStock += p.quantity;
     totalInventoryValue += p.quantity * p.costPrice;
@@ -503,6 +537,10 @@ const handleInventory = async (args, organizationId) => {
     else if (statusKey === "in_stock") inStockCount++;
   }
 
+  const startItem = totalCount > 0 ? skipValue + 1 : 0;
+  const endItem = Math.min(skipValue + limitValue, totalCount);
+  const showingRange = totalCount > 0 ? `showing ${startItem}–${endItem} of ${totalCount}` : "showing 0 of 0";
+
   const summary = {
     totalProducts: totalCount,
     totalStock,
@@ -513,6 +551,8 @@ const handleInventory = async (args, organizationId) => {
     outOfStockCount,
     deadStockCount,
     inStockCount,
+    invalidProductsCount: invalidProductsList.length,
+    invalidRecords: invalidProductsList.length > 0 ? invalidProductsList : null,
     statusBreakdown: {
       "🟢 In Stock": inStockCount,
       "🟡 Low Stock": lowStockCount,
@@ -527,6 +567,8 @@ const handleInventory = async (args, organizationId) => {
     count: totalCount,
     page: pageValue,
     totalPages,
+    pageSize: limitValue,
+    showingRange,
     summary,
     filters: { limit: limitValue, page: pageValue, ...args },
   };
@@ -560,7 +602,8 @@ const createEmptyInventoryResult = (message) => {
   };
 };
 
-const handleGroupByInventory = async (args, filter, organizationId) => {
+const handleGroupByInventory = async (args, baseFilter, organizationId) => {
+  const filter = { ...baseFilter, ...getValidProductMongoMatch() };
   let groupField = "";
   let lookupStage = null;
   let projectStage = null;
@@ -1049,11 +1092,17 @@ const handlePurchases = async (args, organizationId) => {
     isEmpty: allOrdersForStats.length === 0,
   };
 
+  const startItem = totalCount > 0 ? skipValue + 1 : 0;
+  const endItem = Math.min(skipValue + limitValue, totalCount);
+  const showingRange = totalCount > 0 ? `showing ${startItem}–${endItem} of ${totalCount}` : "showing 0 of 0";
+
   return {
     orders,
     count: totalCount,
     page: pageValue,
     totalPages,
+    pageSize: limitValue,
+    showingRange,
     summary,
   };
 };
@@ -1246,14 +1295,18 @@ const handleSales = async (args, organizationId) => {
     .lean();
 
   let totalSales = 0;
+  let totalPaidSales = 0;
   let totalCostOfSales = 0;
   const statusCounts = { paid: 0, unpaid: 0, void: 0 };
   const customerMap = {};
 
   for (const inv of allSalesForStats) {
     if (statusCounts[inv.status] !== undefined) statusCounts[inv.status]++;
+    const invTotal = inv.total || 0;
+    totalSales += invTotal;
+
     if (inv.status === "paid") {
-      totalSales += inv.total || 0;
+      totalPaidSales += invTotal;
       for (const item of inv.products) {
         const itemCost = item.productId?.costPrice || 0;
         totalCostOfSales += item.quantity * itemCost;
@@ -1270,13 +1323,13 @@ const handleSales = async (args, organizationId) => {
           };
         }
         customerMap[normalizedName].count++;
-        customerMap[normalizedName].total += inv.total || 0;
+        customerMap[normalizedName].total += invTotal;
       }
     }
   }
 
-  const totalProfit = totalSales - totalCostOfSales;
-  const grossMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+  const totalProfit = totalPaidSales - totalCostOfSales;
+  const grossMargin = totalPaidSales > 0 ? (totalProfit / totalPaidSales) * 100 : 0;
 
   const customerMetrics = Object.values(customerMap)
     .map((c) => ({
@@ -1338,8 +1391,13 @@ const handleSales = async (args, organizationId) => {
     }));
   }
 
+  const startItem = totalCount > 0 ? skipValue + 1 : 0;
+  const endItem = Math.min(skipValue + limitValue, totalCount);
+  const showingRange = totalCount > 0 ? `showing ${startItem}–${endItem} of ${totalCount}` : "showing 0 of 0";
+
   const summary = {
     totalSales: Math.round(totalSales * 100) / 100,
+    totalPaidSales: Math.round(totalPaidSales * 100) / 100,
     totalCostOfSales: Math.round(totalCostOfSales * 100) / 100,
     totalProfit: Math.round(totalProfit * 100) / 100,
     grossMargin: Math.round(grossMargin * 100) / 100,
@@ -1361,7 +1419,10 @@ const handleSales = async (args, organizationId) => {
     count: totalCount,
     page: pageValue,
     totalPages,
+    pageSize: limitValue,
+    showingRange,
     summary,
+    filters: { limit: limitValue, page: pageValue, ...args },
   };
 };
 
@@ -2114,20 +2175,26 @@ const handleInsights = async (args, organizationId) => {
         _id: { $nin: Array.from(soldProductIds) },
       });
 
-      const limitValue = Math.min(args.limit || 20, 100);
+      const limitValue = Math.min(
+        args.limit || CONSTANTS.DEFAULT_PAGE_LIMIT,
+        CONSTANTS.MAX_PAGE_LIMIT,
+      );
       const pageValue = Math.max(args.page || 1, 1);
       const skipValue = (pageValue - 1) * limitValue;
 
       const totalCount = await productModel.countDocuments(deadFilter);
       const totalPages = Math.ceil(totalCount / limitValue);
 
-      const deadStock = await productModel
-        .find(deadFilter)
-        .populate("categoryId", "name")
-        .populate("supplierId", "name")
-        .skip(skipValue)
-        .limit(limitValue)
-        .lean();
+      const [deadStock, allDeadStockProds] = await Promise.all([
+        productModel
+          .find(deadFilter)
+          .populate("categoryId", "name")
+          .populate("supplierId", "name")
+          .skip(skipValue)
+          .limit(limitValue)
+          .lean(),
+        productModel.find(deadFilter).select("quantity costPrice").lean(),
+      ]);
 
       const formatted = deadStock.map((p) => ({
         name: p.name,
@@ -2141,11 +2208,18 @@ const handleInsights = async (args, organizationId) => {
         daysWithoutSale: 30,
       }));
 
+      const totalValueAll = allDeadStockProds.reduce(
+        (sum, p) => sum + (p.quantity || 0) * (p.costPrice || 0),
+        0,
+      );
+
+      const startItem = totalCount > 0 ? skipValue + 1 : 0;
+      const endItem = Math.min(skipValue + limitValue, totalCount);
+      const showingRange = totalCount > 0 ? `showing ${startItem}–${endItem} of ${totalCount}` : "showing 0 of 0";
+
       const summary = {
         count: totalCount,
-        totalValue:
-          Math.round(formatted.reduce((sum, p) => sum + p.value, 0) * 100) /
-          100,
+        totalValue: Math.round(totalValueAll * 100) / 100,
         totalProducts: totalCount,
         isEmpty: totalCount === 0,
       };
@@ -2156,6 +2230,8 @@ const handleInsights = async (args, organizationId) => {
         count: totalCount,
         page: pageValue,
         totalPages,
+        pageSize: limitValue,
+        showingRange,
       };
     }
 
@@ -2214,11 +2290,11 @@ const handleGetDetails = async (args, organizationId) => {
       const q = isObjectId
         ? { _id: identifier }
         : {
-            $or: [
-              { sku: identifier },
-              { name: new RegExp(escapeRegex(identifier), "i") },
-            ],
-          };
+          $or: [
+            { sku: identifier },
+            { name: new RegExp(escapeRegex(identifier), "i") },
+          ],
+        };
 
       const product = await productModel
         .findOne({ ...baseQuery, ...q, isActive: true })
@@ -2313,10 +2389,10 @@ const handleGetDetails = async (args, organizationId) => {
           },
           forecast: demandForecast
             ? {
-                predictedDemand: demandForecast.predictedDemand,
-                period: demandForecast.forecastPeriod,
-                confidence: `${Math.round(demandForecast.confidence * 100)}%`,
-              }
+              predictedDemand: demandForecast.predictedDemand,
+              period: demandForecast.forecastPeriod,
+              confidence: `${Math.round(demandForecast.confidence * 100)}%`,
+            }
             : null,
           recentStockLogs: recentStockLogs.map((l) => ({
             quantity: l.quantity,
@@ -2437,10 +2513,264 @@ const handleGetDetails = async (args, organizationId) => {
       };
     }
 
-    // ... (rest of handleGetDetails cases remain the same with summary.isEmpty added)
+    case "supplier": {
+      const q = isObjectId
+        ? { _id: identifier }
+        : { name: new RegExp(escapeRegex(identifier), "i") };
+
+      const supplier = await supplierModel.findOne({ ...baseQuery, ...q }).lean();
+      if (!supplier) {
+        return {
+          message: `Supplier "${identifier}" not found.`,
+          summary: { isEmpty: true },
+        };
+      }
+
+      const [products, purchaseOrders] = await Promise.all([
+        productModel
+          .find(buildFindFilter(organizationId, { supplierId: supplier._id, isActive: true }))
+          .populate("categoryId", "name")
+          .lean(),
+        purchaseOrderModel
+          .find(buildFindFilter(organizationId, { supplierId: supplier._id }))
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .lean(),
+      ]);
+
+      const validProds = products.filter((p) => isValidProduct(p));
+      const totalCostValue = validProds.reduce((sum, p) => sum + p.quantity * p.costPrice, 0);
+      const totalSellingValue = validProds.reduce((sum, p) => sum + p.quantity * p.sellingPrice, 0);
+
+      return {
+        supplier: {
+          info: {
+            name: supplier.name,
+            contactPerson: supplier.contactPerson || "N/A",
+            email: supplier.email || "N/A",
+            phone: supplier.phone || "N/A",
+            address: supplier.address || "N/A",
+            leadTimeDays: supplier.leadTimeDays ?? "N/A",
+          },
+          metrics: {
+            productsCount: validProds.length,
+            totalCostValue: formatCurrency(totalCostValue),
+            totalSellingValue: formatCurrency(totalSellingValue),
+            purchaseOrdersCount: purchaseOrders.length,
+          },
+          productsList: validProds.map((p) => ({
+            name: p.name,
+            sku: p.sku,
+            quantity: p.quantity,
+            costPrice: formatCurrency(p.costPrice),
+            sellingPrice: formatCurrency(p.sellingPrice),
+            category: p.categoryId?.name || "N/A",
+          })),
+          recentPurchaseOrders: purchaseOrders.map((po) => ({
+            poNumber: po.poNumber,
+            totalCost: formatCurrency(po.totalCost),
+            status: po.status,
+            createdAt: po.createdAt,
+          })),
+        },
+        summary: { isEmpty: false },
+      };
+    }
+
+    case "category": {
+      const q = isObjectId
+        ? { _id: identifier }
+        : { name: new RegExp(escapeRegex(identifier), "i") };
+
+      const category = await categoryModel.findOne({ ...baseQuery, ...q }).lean();
+      if (!category) {
+        return {
+          message: `Category "${identifier}" not found.`,
+          summary: { isEmpty: true },
+        };
+      }
+
+      const products = await productModel
+        .find(buildFindFilter(organizationId, { categoryId: category._id, isActive: true }))
+        .populate("supplierId", "name")
+        .lean();
+
+      const validProds = products.filter((p) => isValidProduct(p));
+      const totalCostValue = validProds.reduce((sum, p) => sum + p.quantity * p.costPrice, 0);
+      const totalSellingValue = validProds.reduce((sum, p) => sum + p.quantity * p.sellingPrice, 0);
+
+      return {
+        category: {
+          info: {
+            name: category.name,
+            description: category.description || "N/A",
+          },
+          metrics: {
+            productsCount: validProds.length,
+            totalCostValue: formatCurrency(totalCostValue),
+            totalSellingValue: formatCurrency(totalSellingValue),
+          },
+          productsList: validProds.map((p) => ({
+            name: p.name,
+            sku: p.sku,
+            quantity: p.quantity,
+            costPrice: formatCurrency(p.costPrice),
+            sellingPrice: formatCurrency(p.sellingPrice),
+            supplier: p.supplierId?.name || "N/A",
+          })),
+        },
+        summary: { isEmpty: false },
+      };
+    }
+
+    case "purchase_order": {
+      const q = isObjectId
+        ? { _id: identifier }
+        : { poNumber: new RegExp(`^${escapeRegex(identifier)}$`, "i") };
+
+      const po = await purchaseOrderModel
+        .findOne({ ...baseQuery, ...q })
+        .populate("supplierId", "name contactPerson email phone leadTimeDays")
+        .populate("createdBy", "name email")
+        .populate("items.productId", "name sku unit costPrice sellingPrice")
+        .lean();
+
+      if (!po) {
+        return {
+          message: `Purchase Order "${identifier}" not found.`,
+          summary: { isEmpty: true },
+        };
+      }
+
+      const lineItems = po.items.map((item) => {
+        const prod = item.productId;
+        const qty = item.quantity || 0;
+        const unitCost = item.costPrice || prod?.costPrice || 0;
+        const totalCost = item.totalCost || qty * unitCost;
+
+        return {
+          productName: prod?.name || "Unknown Product",
+          sku: prod?.sku || "N/A",
+          quantity: qty,
+          unitCost: formatCurrency(unitCost),
+          totalCost: formatCurrency(totalCost),
+        };
+      });
+
+      return {
+        purchaseOrder: {
+          general: {
+            poNumber: po.poNumber,
+            supplier: po.supplierId?.name || "N/A",
+            supplierContact: po.supplierId?.contactPerson || "N/A",
+            status: po.status,
+            createdAt: po.createdAt,
+            createdBy: po.createdBy?.name || "N/A",
+          },
+          financials: {
+            totalCost: formatCurrency(po.totalCost),
+          },
+          lineItems,
+        },
+        summary: { isEmpty: false },
+      };
+    }
+
+    case "user": {
+      const q = isObjectId
+        ? { _id: identifier }
+        : {
+          $or: [
+            { email: new RegExp(`^${escapeRegex(identifier)}$`, "i") },
+            { name: new RegExp(escapeRegex(identifier), "i") },
+          ],
+        };
+
+      const targetUser = await userModel.findOne({ ...baseQuery, ...q }).lean();
+      if (!targetUser) {
+        return {
+          message: `User "${identifier}" not found.`,
+          summary: { isEmpty: true },
+        };
+      }
+
+      const [invoices, purchaseOrders, stockLogs] = await Promise.all([
+        invoiceModel.find(buildFindFilter(organizationId, { createdBy: targetUser._id })).lean(),
+        purchaseOrderModel.find(buildFindFilter(organizationId, { createdBy: targetUser._id })).lean(),
+        stockLogModel.find(buildFindFilter(organizationId, { performedBy: targetUser._id })).lean(),
+      ]);
+
+      const revenueGenerated = invoices
+        .filter((inv) => inv.status === "paid")
+        .reduce((sum, inv) => sum + (inv.total || 0), 0);
+
+      return {
+        user: {
+          info: {
+            name: targetUser.name,
+            email: targetUser.email,
+            role: targetUser.role,
+            isActive: targetUser.isActive ? "Yes" : "No",
+            createdAt: targetUser.createdAt,
+          },
+          metrics: {
+            invoicesCreated: invoices.length,
+            totalRevenueGenerated: formatCurrency(revenueGenerated),
+            purchaseOrdersCreated: purchaseOrders.length,
+            stockLogsCount: stockLogs.length,
+          },
+        },
+        summary: { isEmpty: false },
+      };
+    }
+
+    case "organization": {
+      let org = null;
+      if (organizationId) {
+        org = await organizationModel.findById(organizationId).lean();
+      } else if (isObjectId) {
+        org = await organizationModel.findById(identifier).lean();
+      } else {
+        org = await organizationModel.findOne({ name: new RegExp(escapeRegex(identifier), "i") }).lean();
+      }
+
+      if (!org) {
+        return {
+          message: `Organization "${identifier}" not found.`,
+          summary: { isEmpty: true },
+        };
+      }
+
+      const targetOrgId = org._id;
+      const [usersCount, productsCount, invoices] = await Promise.all([
+        userModel.countDocuments({ organizationId: targetOrgId }),
+        productModel.countDocuments({ organizationId: targetOrgId, isActive: true }),
+        invoiceModel.find({ organizationId: targetOrgId, status: "paid" }).select("total").lean(),
+      ]);
+
+      const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+
+      return {
+        organization: {
+          info: {
+            name: org.name,
+            contactEmail: org.contactEmail || "N/A",
+            address: org.address || "N/A",
+            createdAt: org.createdAt,
+          },
+          metrics: {
+            usersCount,
+            productsCount,
+            totalRevenue: formatCurrency(totalRevenue),
+          },
+        },
+        summary: { isEmpty: false },
+      };
+    }
 
     default:
       return {
+        isUnsupported: true,
         message: `Unsupported entity type: ${type}. Supported types: product, supplier, category, invoice, purchase_order, user, organization`,
         summary: { isEmpty: true },
       };
@@ -2499,7 +2829,10 @@ const handleTransactions = async (args, organizationId) => {
     if (endDate) filter.createdAt.$lte = endDate;
   }
 
-  const limitValue = Math.min(args.limit || 50, 100);
+  const limitValue = Math.min(
+    args.limit || CONSTANTS.DEFAULT_PAGE_LIMIT,
+    CONSTANTS.MAX_PAGE_LIMIT,
+  );
   const pageValue = Math.max(args.page || 1, 1);
   const skipValue = (pageValue - 1) * limitValue;
 
@@ -2543,6 +2876,10 @@ const handleTransactions = async (args, organizationId) => {
     else if (log.type === "out") totalOut += log.quantity;
   }
 
+  const startItem = totalCount > 0 ? skipValue + 1 : 0;
+  const endItem = Math.min(skipValue + limitValue, totalCount);
+  const showingRange = totalCount > 0 ? `showing ${startItem}–${endItem} of ${totalCount}` : "showing 0 of 0";
+
   const summary = {
     totalTransactions: allLogsForStats.length,
     totalIn,
@@ -2555,7 +2892,10 @@ const handleTransactions = async (args, organizationId) => {
     count: totalCount,
     page: pageValue,
     totalPages,
+    pageSize: limitValue,
+    showingRange,
     summary,
+    filters: { limit: limitValue, page: pageValue, ...args },
   };
 };
 

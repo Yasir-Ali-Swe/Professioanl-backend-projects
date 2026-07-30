@@ -197,6 +197,39 @@ const COLUMN_SCHEMAS = {
         { key: "totalSpent", label: "Total Spent", align: "right", format: "currency" },
         { key: "averageSpent", label: "Avg Spent", align: "right", format: "currency" },
     ],
+    grouped_transactions_role: [
+        { key: "roleDisplay", label: "Role", align: "left" },
+        { key: "transactionCount", label: "Transactions", align: "right" },
+        { key: "totalQuantityIn", label: "Items In", align: "right" },
+        { key: "totalQuantityOut", label: "Items Out", align: "right" },
+        { key: "totalQuantity", label: "Total Items", align: "right" },
+        { key: "uniqueUsersCount", label: "Users", align: "right" },
+    ],
+    grouped_transactions_user: [
+        { key: "userName", label: "User Name", align: "left" },
+        { key: "userRole", label: "Role", align: "left" },
+        { key: "transactionCount", label: "Transactions", align: "right" },
+        { key: "totalQuantityIn", label: "Items In", align: "right" },
+        { key: "totalQuantityOut", label: "Items Out", align: "right" },
+        { key: "totalQuantity", label: "Total Items", align: "right" },
+    ],
+    grouped_transactions_type: [
+        { key: "typeDisplay", label: "Type", align: "center" },
+        { key: "transactionCount", label: "Transactions", align: "right" },
+        { key: "totalQuantity", label: "Total Items", align: "right" },
+    ],
+    grouped_transactions_reason: [
+        { key: "reason", label: "Reason", align: "left" },
+        { key: "transactionCount", label: "Transactions", align: "right" },
+        { key: "totalQuantity", label: "Total Items", align: "right" },
+    ],
+    grouped_roles: [
+        { key: "roleDisplay", label: "Role", align: "left" },
+        { key: "userCount", label: "Total Users", align: "right" },
+        { key: "activeCount", label: "Active Users", align: "right" },
+        { key: "invoicesCreated", label: "Invoices Created", align: "right" },
+        { key: "totalRevenue", label: "Revenue Generated", align: "right", format: "currency" },
+    ],
 };
 
 const isDetailedRequest = (userQueryText = "") => {
@@ -473,6 +506,27 @@ function StructuredTable({
             resolvedTitle = "Purchase Status";
         }
     }
+    // Transaction grouping
+    else if (sample.transactionCount !== undefined) {
+        if (sample.roleDisplay !== undefined || sample.role !== undefined) {
+            resolvedSchema = COLUMN_SCHEMAS.grouped_transactions_role;
+            resolvedTitle = "Transactions by Role";
+        } else if (sample.userName !== undefined) {
+            resolvedSchema = COLUMN_SCHEMAS.grouped_transactions_user;
+            resolvedTitle = "Transactions by User";
+        } else if (sample.typeDisplay !== undefined || sample.type !== undefined) {
+            resolvedSchema = COLUMN_SCHEMAS.grouped_transactions_type;
+            resolvedTitle = "Transactions by Type";
+        } else if (sample.reason !== undefined) {
+            resolvedSchema = COLUMN_SCHEMAS.grouped_transactions_reason;
+            resolvedTitle = "Transactions by Reason";
+        }
+    }
+    // Role grouping
+    else if (sample.userCount !== undefined && sample.roleDisplay !== undefined) {
+        resolvedSchema = COLUMN_SCHEMAS.grouped_roles;
+        resolvedTitle = "Role Breakdown";
+    }
     // Schema prop provided
     else if (schema && COLUMN_SCHEMAS[schema]) {
         resolvedSchema = COLUMN_SCHEMAS[schema];
@@ -482,7 +536,9 @@ function StructuredTable({
             purchases: "Purchase Orders",
             sales: "Invoices",
             transactions: "Transactions",
+            transactions_grouped: "Grouped Transactions",
             users: "Users",
+            grouped_roles: "Role Breakdown",
             organizations: "Organizations",
             forecast: "Demand Forecast",
             anomalies: "Anomalies",

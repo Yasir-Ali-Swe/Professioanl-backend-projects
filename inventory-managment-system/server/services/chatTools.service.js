@@ -1185,6 +1185,104 @@ const handleSales = async (args, organizationId) => {
       groupField = { $dateToString: { format: "%Y-%m", date: "$createdAt" } };
     }
 
+    if (args.groupBy === "role") {
+      const pipeline = [
+        { $match: matchFilter },
+        {
+          $lookup: {
+            from: "users",
+            localField: "createdBy",
+            foreignField: "_id",
+            as: "creatorDetails",
+          },
+        },
+        { $unwind: { path: "$creatorDetails", preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: { $ifNull: ["$creatorDetails.role", "unknown"] },
+            salesCount: { $sum: 1 },
+            totalRevenue: { $sum: "$total" },
+            averageRevenue: { $avg: "$total" },
+            userSet: { $addToSet: "$createdBy" },
+          },
+        },
+        {
+          $project: {
+            role: "$_id",
+            roleDisplay: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ["$_id", "admin"] }, then: "Admin" },
+                  { case: { $eq: ["$_id", "manager"] }, then: "Manager" },
+                  { case: { $eq: ["$_id", "staff"] }, then: "Staff" },
+                  { case: { $eq: ["$_id", "super_admin"] }, then: "Super Admin" },
+                ],
+                default: "$_id",
+              },
+            },
+            salesCount: 1,
+            totalRevenue: 1,
+            averageRevenue: 1,
+            uniqueCreatorsCount: { $size: "$userSet" },
+          },
+        },
+        { $sort: { totalRevenue: -1 } },
+      ];
+      const groupedResults = await invoiceModel.aggregate(pipeline);
+      const totalInvoices = groupedResults.reduce((sum, g) => sum + g.salesCount, 0);
+      const totalRevenue = groupedResults.reduce((sum, g) => sum + g.totalRevenue, 0);
+      return {
+        groupedResults,
+        count: groupedResults.length,
+        summary: {
+          totalGroups: groupedResults.length,
+          totalInvoices,
+          totalRevenue: Math.round(totalRevenue * 100) / 100,
+          isEmpty: groupedResults.length === 0,
+        },
+      };
+    }
+
+    if (args.groupBy === "creator") {
+      const pipeline = [
+        { $match: matchFilter },
+        {
+          $lookup: {
+            from: "users",
+            localField: "createdBy",
+            foreignField: "_id",
+            as: "creatorDetails",
+          },
+        },
+        { $unwind: { path: "$creatorDetails", preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: "$createdBy",
+            creatorName: { $first: { $ifNull: ["$creatorDetails.name", "Unknown"] } },
+            creatorEmail: { $first: { $ifNull: ["$creatorDetails.email", "N/A"] } },
+            creatorRole: { $first: { $ifNull: ["$creatorDetails.role", "N/A"] } },
+            salesCount: { $sum: 1 },
+            totalRevenue: { $sum: "$total" },
+            averageRevenue: { $avg: "$total" },
+          },
+        },
+        { $sort: { totalRevenue: -1 } },
+      ];
+      const groupedResults = await invoiceModel.aggregate(pipeline);
+      const totalInvoices = groupedResults.reduce((sum, g) => sum + g.salesCount, 0);
+      const totalRevenue = groupedResults.reduce((sum, g) => sum + g.totalRevenue, 0);
+      return {
+        groupedResults,
+        count: groupedResults.length,
+        summary: {
+          totalGroups: groupedResults.length,
+          totalInvoices,
+          totalRevenue: Math.round(totalRevenue * 100) / 100,
+          isEmpty: groupedResults.length === 0,
+        },
+      };
+    }
+
     const pipeline = [
       { $match: matchFilter },
       {
@@ -1468,61 +1566,147 @@ const handleOrganization = async (args, organizationId) => {
       filter.isActive = args.isActive;
     }
 
-    const limitValue = Math.min(args.limit || 50, 100);
-    const pageValue = Math.max(args.page || 1, 1);
-    const skipValue = (pageValue - 1) * limitValue;
-
-    const totalCount = await userModel.countDocuments(filter);
-    const totalPages = Math.ceil(totalCount / limitValue);
-
-    const users = await userModel
-      .find(filter)
-      .select("-password -tokenVersion -__v")
-      .sort(
-        args.sortBy
-          ? { [args.sortBy]: args.sortOrder === "desc" ? -1 : 1 }
-          : { createdAt: -1 },
-      )
-      .skip(skipValue)
-      .limit(limitValue)
-      .lean();
-
-    let enrichedUsers = users;
-    if (users.length > 0) {
-      const userIds = users.map((u) => u._id);
-
-      const invoiceMetrics = await invoiceModel.aggregate([
+    if (args.groupBy === "role") {
+      const matchFilter = buildFilter(organizationId, filter);
+      const pipeline = [
+        { $match: matchFilter },
         {
-          $match: {
-            organizationId: new mongoose.Types.ObjectId(organizationId),
-            createdBy: { $in: userIds },
-            status: "paid",
+          $lookup: {
+            from: "invoices",
+            let: { userId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$createdBy", "$$userId"] },
+                      { $eq: ["$status", "paid"] },
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  revenue: { $sum: "$total" },
+                },
+              },
+            ],
+            as: "invoiceStats",
           },
         },
         {
           $group: {
-            _id: "$createdBy",
-            invoicesCreated: { $sum: 1 },
-            revenueGenerated: { $sum: "$total" },
+            _id: "$role",
+            userCount: { $sum: 1 },
+            activeCount: {
+              $sum: { $cond: [{ $eq: ["$isActive", true] }, 1, 0] },
+            },
+            invoicesCreated: {
+              $sum: {
+                $ifNull: [{ $arrayElemAt: ["$invoiceStats.count", 0] }, 0],
+              },
+            },
+            totalRevenue: {
+              $sum: {
+                $ifNull: [{ $arrayElemAt: ["$invoiceStats.revenue", 0] }, 0],
+              },
+            },
           },
         },
-      ]);
+        {
+          $project: {
+            role: "$_id",
+            roleDisplay: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ["$_id", "admin"] }, then: "Admin" },
+                  { case: { $eq: ["$_id", "manager"] }, then: "Manager" },
+                  { case: { $eq: ["$_id", "staff"] }, then: "Staff" },
+                  { case: { $eq: ["$_id", "super_admin"] }, then: "Super Admin" },
+                ],
+                default: "$_id",
+              },
+            },
+            userCount: 1,
+            activeCount: 1,
+            invoicesCreated: 1,
+            totalRevenue: 1,
+          },
+        },
+        { $sort: { userCount: -1 } },
+      ];
 
-      const metricsMap = {};
-      invoiceMetrics.forEach((metric) => {
-        metricsMap[metric._id.toString()] = {
-          invoicesCreated: metric.invoicesCreated,
-          revenueGenerated: Math.round(metric.revenueGenerated * 100) / 100,
-        };
-      });
+      const groupedResults = await userModel.aggregate(pipeline);
+      const totalUsers = groupedResults.reduce((sum, g) => sum + g.userCount, 0);
 
-      enrichedUsers = users.map((user) => ({
-        ...user,
-        invoicesCreated: metricsMap[user._id.toString()]?.invoicesCreated || 0,
-        revenueGenerated:
-          metricsMap[user._id.toString()]?.revenueGenerated || 0,
-      }));
+      return {
+        groupedResults,
+        count: groupedResults.length,
+        summary: {
+          totalRoles: groupedResults.length,
+          totalUsers,
+          isEmpty: groupedResults.length === 0,
+        },
+      };
     }
+
+    const limitValue = Math.min(args.limit || 50, 100);
+    const pageValue = Math.max(args.page || 1, 1);
+    const skipValue = (pageValue - 1) * limitValue;
+
+    const [
+      orgDoc,
+      totalCount,
+      users,
+      categoriesList,
+      suppliersList,
+      productsCount,
+      allPaidInvoices,
+    ] = await Promise.all([
+      organizationModel.findById(organizationId).lean(),
+      userModel.countDocuments(filter),
+      userModel
+        .find(filter)
+        .select("-password -tokenVersion -__v")
+        .sort(
+          args.sortBy
+            ? { [args.sortBy]: args.sortOrder === "desc" ? -1 : 1 }
+            : { createdAt: -1 },
+        )
+        .skip(skipValue)
+        .limit(limitValue)
+        .lean(),
+      categoryModel.find(buildFindFilter(organizationId)).lean(),
+      supplierModel.find(buildFindFilter(organizationId)).lean(),
+      productModel.countDocuments(buildFindFilter(organizationId, { isActive: true })),
+      invoiceModel.find(buildFindFilter(organizationId, { status: "paid" })).select("total createdBy").lean(),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / limitValue);
+
+    let totalOrganizationRevenue = 0;
+    const userMetricsMap = {};
+
+    allPaidInvoices.forEach((inv) => {
+      const rev = inv.total || 0;
+      totalOrganizationRevenue += rev;
+      if (inv.createdBy) {
+        const creatorId = inv.createdBy.toString();
+        if (!userMetricsMap[creatorId]) {
+          userMetricsMap[creatorId] = { invoicesCreated: 0, revenueGenerated: 0 };
+        }
+        userMetricsMap[creatorId].invoicesCreated += 1;
+        userMetricsMap[creatorId].revenueGenerated += rev;
+      }
+    });
+
+    const enrichedUsers = users.map((user) => ({
+      ...user,
+      invoicesCreated: userMetricsMap[user._id.toString()]?.invoicesCreated || 0,
+      revenueGenerated: Math.round((userMetricsMap[user._id.toString()]?.revenueGenerated || 0) * 100) / 100,
+    }));
 
     const activeUsers = await userModel.countDocuments({
       ...filter,
@@ -1539,18 +1723,120 @@ const handleOrganization = async (args, organizationId) => {
     }
 
     const summary = {
+      organizationName: orgDoc?.name || "Organization",
       totalUsers: totalCount,
       activeUsers,
       roleBreakdown,
-      isEmpty: totalCount === 0,
+      categoriesCount: categoriesList.length,
+      suppliersCount: suppliersList.length,
+      productsCount,
+      totalRevenue: Math.round(totalOrganizationRevenue * 100) / 100,
+      isEmpty: totalCount === 0 && categoriesList.length === 0 && suppliersList.length === 0,
     };
 
+    if (args.target === "users") {
+      return {
+        target: "users",
+        users: enrichedUsers,
+        count: totalCount,
+        page: pageValue,
+        totalPages,
+        summary,
+      };
+    }
+
+    const productsInOrg = await productModel
+      .find(buildFindFilter(organizationId, { isActive: true }))
+      .select("categoryId supplierId quantity costPrice")
+      .lean();
+
+    const catMap = {};
+    categoriesList.forEach((c) => {
+      catMap[c._id.toString()] = {
+        _id: c._id,
+        name: c.name,
+        description: c.description || "N/A",
+        productCount: 0,
+        totalValuation: 0,
+      };
+    });
+
+    const suppMap = {};
+    suppliersList.forEach((s) => {
+      suppMap[s._id.toString()] = {
+        _id: s._id,
+        name: s.name,
+        contactPerson: s.contactPerson || "N/A",
+        email: s.email || "N/A",
+        phone: s.phone || "N/A",
+        productCount: 0,
+        totalValuation: 0,
+      };
+    });
+
+    productsInOrg.forEach((p) => {
+      const val = (p.quantity || 0) * (p.costPrice || 0);
+      if (p.categoryId && catMap[p.categoryId.toString()]) {
+        catMap[p.categoryId.toString()].productCount += 1;
+        catMap[p.categoryId.toString()].totalValuation += val;
+      }
+      if (p.supplierId && suppMap[p.supplierId.toString()]) {
+        suppMap[p.supplierId.toString()].productCount += 1;
+        suppMap[p.supplierId.toString()].totalValuation += val;
+      }
+    });
+
+    const enrichedCategories = Object.values(catMap).map((c) => ({
+      ...c,
+      totalValuation: Math.round(c.totalValuation * 100) / 100,
+    }));
+
+    const enrichedSuppliers = Object.values(suppMap).map((s) => ({
+      ...s,
+      totalValuation: Math.round(s.totalValuation * 100) / 100,
+    }));
+
+    if (args.target === "categories") {
+      return {
+        target: "categories",
+        categories: enrichedCategories,
+        count: enrichedCategories.length,
+        summary,
+      };
+    }
+
+    if (args.target === "suppliers") {
+      return {
+        target: "suppliers",
+        suppliers: enrichedSuppliers,
+        count: enrichedSuppliers.length,
+        summary,
+      };
+    }
+
     return {
+      target: "overview",
+      organizationInfo: {
+        name: orgDoc?.name || "Organization",
+        contactEmail: orgDoc?.contactEmail || "N/A",
+        address: orgDoc?.address || "N/A",
+        createdAt: orgDoc?.createdAt,
+      },
+      summary,
+      metrics: {
+        totalUsers: totalCount,
+        activeUsers,
+        categoriesCount: categoriesList.length,
+        suppliersCount: suppliersList.length,
+        productsCount,
+        totalRevenue: Math.round(totalOrganizationRevenue * 100) / 100,
+      },
+      categories: enrichedCategories,
+      suppliers: enrichedSuppliers,
       users: enrichedUsers,
       count: totalCount,
       page: pageValue,
       totalPages,
-      summary,
     };
   } else {
     if (args.search) {
@@ -2742,8 +3028,10 @@ const handleGetDetails = async (args, organizationId) => {
       }
 
       const targetOrgId = org._id;
-      const [usersCount, productsCount, invoices] = await Promise.all([
-        userModel.countDocuments({ organizationId: targetOrgId }),
+      const [users, categories, suppliers, productsCount, invoices] = await Promise.all([
+        userModel.find({ organizationId: targetOrgId }).select("name email role isActive").lean(),
+        categoryModel.find({ organizationId: targetOrgId }).select("name description").lean(),
+        supplierModel.find({ organizationId: targetOrgId }).select("name contactPerson email phone").lean(),
         productModel.countDocuments({ organizationId: targetOrgId, isActive: true }),
         invoiceModel.find({ organizationId: targetOrgId, status: "paid" }).select("total").lean(),
       ]);
@@ -2759,10 +3047,15 @@ const handleGetDetails = async (args, organizationId) => {
             createdAt: org.createdAt,
           },
           metrics: {
-            usersCount,
+            usersCount: users.length,
+            categoriesCount: categories.length,
+            suppliersCount: suppliers.length,
             productsCount,
             totalRevenue: formatCurrency(totalRevenue),
           },
+          categories: categories.map((c) => ({ name: c.name, description: c.description || "N/A" })),
+          suppliers: suppliers.map((s) => ({ name: s.name, contactPerson: s.contactPerson || "N/A", email: s.email || "N/A", phone: s.phone || "N/A" })),
+          users: users.map((u) => ({ name: u.name, email: u.email, role: u.role, isActive: u.isActive ? "Yes" : "No" })),
         },
         summary: { isEmpty: false },
       };
@@ -2822,11 +3115,165 @@ const handleTransactions = async (args, organizationId) => {
     }
   }
 
+  if (args.role && args.role !== "all") {
+    const userQuery = buildFindFilter(organizationId, { role: args.role });
+    const usersWithRole = await userModel.find(userQuery).select("_id").lean();
+    const roleUserIds = usersWithRole.map((u) => u._id);
+    if (filter.performedBy) {
+      if (filter.performedBy.$in) {
+        filter.performedBy.$in = filter.performedBy.$in.filter((id) =>
+          roleUserIds.some((rId) => rId.toString() === id.toString()),
+        );
+      }
+    } else {
+      filter.performedBy = { $in: roleUserIds };
+    }
+  }
+
   const { startDate, endDate } = parseDateRange(args);
   if (startDate || endDate) {
     filter.createdAt = {};
     if (startDate) filter.createdAt.$gte = startDate;
     if (endDate) filter.createdAt.$lte = endDate;
+  }
+
+  if (args.groupBy) {
+    const matchFilter = buildFilter(organizationId, filter);
+    let pipeline = [{ $match: matchFilter }];
+
+    if (args.groupBy === "role") {
+      pipeline.push(
+        {
+          $lookup: {
+            from: "users",
+            localField: "performedBy",
+            foreignField: "_id",
+            as: "userDetails",
+          },
+        },
+        { $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: { $ifNull: ["$userDetails.role", "unknown"] },
+            transactionCount: { $sum: 1 },
+            totalQuantityIn: {
+              $sum: { $cond: [{ $eq: ["$type", "in"] }, "$quantity", 0] },
+            },
+            totalQuantityOut: {
+              $sum: { $cond: [{ $eq: ["$type", "out"] }, "$quantity", 0] },
+            },
+            totalQuantity: { $sum: "$quantity" },
+            usersSet: { $addToSet: "$performedBy" },
+          },
+        },
+        {
+          $project: {
+            role: "$_id",
+            roleDisplay: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ["$_id", "admin"] }, then: "Admin" },
+                  { case: { $eq: ["$_id", "manager"] }, then: "Manager" },
+                  { case: { $eq: ["$_id", "staff"] }, then: "Staff" },
+                  { case: { $eq: ["$_id", "super_admin"] }, then: "Super Admin" },
+                ],
+                default: "$_id",
+              },
+            },
+            transactionCount: 1,
+            totalQuantityIn: 1,
+            totalQuantityOut: 1,
+            totalQuantity: 1,
+            uniqueUsersCount: { $size: "$usersSet" },
+          },
+        },
+        { $sort: { transactionCount: -1 } },
+      );
+    } else if (args.groupBy === "user") {
+      pipeline.push(
+        {
+          $lookup: {
+            from: "users",
+            localField: "performedBy",
+            foreignField: "_id",
+            as: "userDetails",
+          },
+        },
+        { $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: "$performedBy",
+            userName: { $first: { $ifNull: ["$userDetails.name", "Unknown"] } },
+            userEmail: { $first: { $ifNull: ["$userDetails.email", "N/A"] } },
+            userRole: { $first: { $ifNull: ["$userDetails.role", "N/A"] } },
+            transactionCount: { $sum: 1 },
+            totalQuantityIn: {
+              $sum: { $cond: [{ $eq: ["$type", "in"] }, "$quantity", 0] },
+            },
+            totalQuantityOut: {
+              $sum: { $cond: [{ $eq: ["$type", "out"] }, "$quantity", 0] },
+            },
+            totalQuantity: { $sum: "$quantity" },
+          },
+        },
+        { $sort: { transactionCount: -1 } },
+      );
+    } else if (args.groupBy === "type") {
+      pipeline.push(
+        {
+          $group: {
+            _id: "$type",
+            transactionCount: { $sum: 1 },
+            totalQuantity: { $sum: "$quantity" },
+          },
+        },
+        {
+          $project: {
+            type: "$_id",
+            typeDisplay: {
+              $cond: [{ $eq: ["$_id", "in"] }, "📥 In", "📤 Out"],
+            },
+            transactionCount: 1,
+            totalQuantity: 1,
+          },
+        },
+        { $sort: { transactionCount: -1 } },
+      );
+    } else if (args.groupBy === "reason") {
+      pipeline.push(
+        {
+          $group: {
+            _id: "$reason",
+            transactionCount: { $sum: 1 },
+            totalQuantity: { $sum: "$quantity" },
+          },
+        },
+        {
+          $project: {
+            reason: "$_id",
+            transactionCount: 1,
+            totalQuantity: 1,
+          },
+        },
+        { $sort: { transactionCount: -1 } },
+      );
+    }
+
+    const groupedResults = await stockLogModel.aggregate(pipeline);
+    const totalTransactions = groupedResults.reduce(
+      (sum, g) => sum + g.transactionCount,
+      0,
+    );
+
+    return {
+      groupedResults,
+      count: groupedResults.length,
+      summary: {
+        totalGroups: groupedResults.length,
+        totalTransactions,
+        isEmpty: groupedResults.length === 0,
+      },
+    };
   }
 
   const limitValue = Math.min(
@@ -2969,8 +3416,8 @@ export const getResponseType = (toolName) => {
 };
 
 export const getToolsForRole = (allTools, role) => {
-  if (role !== "admin" && role !== "super_admin") {
-    return [];
+  if (role === "admin" || role === "super_admin") {
+    return allTools;
   }
-  return allTools;
+  return [];
 };

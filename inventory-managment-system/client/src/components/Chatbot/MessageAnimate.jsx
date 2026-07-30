@@ -115,9 +115,10 @@ const COLUMN_SCHEMAS = {
         { key: "sku", label: "SKU", align: "left" },
         { key: "quantity", label: "Quantity", align: "right" },
         { key: "unitPrice", label: "Unit Price", align: "right", format: "currency" },
+        { key: "unitCost", label: "Unit Cost", align: "right", format: "currency" },
         { key: "subtotal", label: "Subtotal", align: "right", format: "currency" },
         { key: "profit", label: "Profit", align: "right", format: "currency" },
-        { key: "margin", label: "Margin", align: "right" },
+        { key: "margin", label: "Margin", align: "right", format: "percentage" },
     ],
     po_items: [
         { key: "productName", label: "Product Name", align: "left" },
@@ -318,21 +319,55 @@ const getValueByPath = (obj, path) => {
 
 const formatCellValue = (row, col) => {
     const val = getValueByPath(row, col.key);
-    if (val === null || val === undefined) return "—";
+    if (val === null || val === undefined || val === "") return "—";
 
     if (col.format === "currency") {
-        return `PKR ${Number(val).toLocaleString("en-PK", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        })}`;
+        if (typeof val === "string") {
+            const trimmed = val.trim();
+            if (trimmed.startsWith("PKR") || trimmed.startsWith("$")) {
+                return trimmed;
+            }
+            const cleanNum = parseFloat(trimmed.replace(/[^0-9.-]+/g, ""));
+            if (!isNaN(cleanNum)) {
+                return `PKR ${cleanNum.toLocaleString("en-PK", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                })}`;
+            }
+            return trimmed;
+        }
+        if (typeof val === "number" && !isNaN(val)) {
+            return `PKR ${val.toLocaleString("en-PK", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            })}`;
+        }
+        return String(val);
     }
+
     if (col.format === "percentage") {
-        // FIX: Multiply by 100 to convert decimal to percentage
-        return `${Math.round(Number(val) * 100)}%`;
+        if (typeof val === "string") {
+            const trimmed = val.trim();
+            if (trimmed.endsWith("%")) {
+                return trimmed;
+            }
+            const cleanNum = parseFloat(trimmed.replace(/[^0-9.-]+/g, ""));
+            if (!isNaN(cleanNum)) {
+                const pctVal = cleanNum > 1 ? cleanNum : cleanNum * 100;
+                return `${Math.round(pctVal)}%`;
+            }
+            return trimmed;
+        }
+        if (typeof val === "number" && !isNaN(val)) {
+            const pctVal = val > 1 ? val : val * 100;
+            return `${Math.round(pctVal)}%`;
+        }
+        return String(val);
     }
+
     if (col.format === "date" || val instanceof Date) {
         const d = new Date(val);
-        return !isNaN(d) ? d.toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" }) : String(val);
+        return !isNaN(d.getTime()) ? d.toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" }) : String(val);
     }
     if (col.format === "boolean") {
         return val ? "Yes" : "No";
@@ -490,7 +525,7 @@ function StructuredTable({
     const page = pagination?.page || 1;
     const totalPages = pagination?.totalPages || 1;
     const count = pagination?.count !== undefined ? pagination.count : data.length;
-    const limit = totalPages > 0 ? Math.ceil(count / totalPages) : 10;
+    const limit = pagination?.pageSize || 10;
     const start = count > 0 ? (page - 1) * limit + 1 : 0;
     const end = Math.min(page * limit, count);
 

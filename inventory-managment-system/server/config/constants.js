@@ -14,7 +14,7 @@ export const CONSTANTS = {
   // Array trimming for LLM
   MAX_ARRAY_ITEMS: 15,
 
-  // Follow-up detection words
+  // Follow-up detection words (strictly referential pronouns and indicators)
   FOLLOW_UP_WORDS: [
     "those",
     "them",
@@ -22,19 +22,14 @@ export const CONSTANTS = {
     "that",
     "they",
     "it",
-    "more",
-    "again",
-    "update",
-    "instead",
-    "previous",
-    "earlier",
-    "last",
-    "prior",
-    "those",
+    "its",
+    "their",
+    "this",
+    "the same",
     "these ones",
     "the ones",
-    "listed",
-    "above",
+    "listed above",
+    "previous result",
   ],
 
   // Summary keys (never trim these)

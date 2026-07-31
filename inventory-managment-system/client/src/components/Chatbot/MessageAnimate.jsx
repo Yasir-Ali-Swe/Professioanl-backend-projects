@@ -35,6 +35,12 @@ const formatPercentage = (value) => {
 const formatCellValue = (value, col) => {
     if (value === null || value === undefined || value === "") return "—";
 
+    const keyLower = (col?.key || '').toLowerCase();
+    const isIdentifier = keyLower.includes('invoicenumber') || keyLower.includes('ponumber') || keyLower.includes('sku') || keyLower.includes('categoryslug');
+    if (isIdentifier) {
+        return String(value);
+    }
+
     // If value is already a formatted string, return it
     if (typeof value === 'string') {
         if (value.startsWith('PKR')) return value;

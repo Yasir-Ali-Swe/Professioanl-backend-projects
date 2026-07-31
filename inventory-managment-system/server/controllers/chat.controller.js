@@ -204,8 +204,33 @@ const getEnhancedQuery = (query, context) => {
   return enhancedQuery;
 };
 
+const isSimpleQuery = (query = "") => {
+  const lower = String(query || "").toLowerCase().trim();
+  const simplePatterns = [
+    /who\s+(is|are)\s+(the\s+)?admin/i,
+    /admin\s+(profile|user|email|name|info)/i,
+    /admin\s+profile/i,
+    /show\s+(me\s+)?(the\s+)?admin/i,
+    /what\s+is\s+(the\s+)?(name\s+of\s+our\s+)?org(anization)?(\s+name)?/i,
+    /org(anization)?\s+name/i,
+    /company\s+name/i,
+    /tax\s+rate/i,
+    /default\s+discount/i,
+    /invoice\s+prefix/i,
+    /what\s+is\s+(the\s+)?invoice\s+prefix/i,
+    /how\s+many\s+suppliers/i,
+    /supplier\s+count/i,
+    /how\s+many\s+products/i,
+    /product\s+count/i,
+    /subscription\s+plan/i,
+    /what\s+subscription/i,
+    /show\s+subscription/i,
+  ];
+  return simplePatterns.some((pattern) => pattern.test(lower));
+};
+
 const extractSuggestedQuestions = (reply, userQuery = "") => {
-  if (!reply) return [];
+  if (!reply || isSimpleQuery(userQuery)) return [];
 
   let rawLines = [];
   const match = reply.match(
@@ -317,25 +342,6 @@ const extractSuggestedQuestions = (reply, userQuery = "") => {
   }
 
   return filtered;
-};
-
-const isSimpleQuery = (query) => {
-  const lower = query.toLowerCase();
-  const simplePatterns = [
-    /what is the name of our org/i,
-    /what is our org name/i,
-    /tell me the name of our org/i,
-    /company name/i,
-    /org name/i,
-    /organization name/i,
-    /tax rate/i,
-    /what is the tax rate/i,
-    /show me the tax rate/i,
-    /subscription details/i,
-    /show subscription/i,
-    /what is our subscription/i,
-  ];
-  return simplePatterns.some((pattern) => pattern.test(lower));
 };
 
 const SYSTEM_INSTRUCTION = `You are StockPilot AI, an Inventory Analyst for StockPilot.
@@ -589,9 +595,10 @@ export const chatWithAI = async (req, res) => {
     const userId = req.user._id;
     const role = req.user.role;
     const { query } = req.body;
-    console.log("Received query:", query);
 
     const conversationId = getConversationId(req);
+
+    console.log("Received query:", query);
 
     if (!query || query.trim().length === 0) {
       return res.status(400).json({
@@ -695,10 +702,10 @@ export const chatWithAI = async (req, res) => {
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-            page: toolResult.page,
-            totalPages: toolResult.totalPages,
-            count: toolResult.count,
-          }
+          page: toolResult.page,
+          totalPages: toolResult.totalPages,
+          count: toolResult.count,
+        }
         : null;
 
     const extractedData = extractData(toolResult);
@@ -1431,12 +1438,12 @@ CRITICAL FORMATTING RULES:
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-            page: toolResult.page,
-            totalPages: toolResult.totalPages,
-            count: toolResult.count,
-            pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
-            showingRange: toolResult.showingRange,
-          }
+          page: toolResult.page,
+          totalPages: toolResult.totalPages,
+          count: toolResult.count,
+          pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
+          showingRange: toolResult.showingRange,
+        }
         : null;
 
     let finalTableData = tableData;
@@ -1492,10 +1499,10 @@ CRITICAL FORMATTING RULES:
       activeEntity:
         call.name === "get_details" && call.args
           ? {
-              type: call.args.type,
-              identifier: call.args.identifier,
-              data: toolResult,
-            }
+            type: call.args.type,
+            identifier: call.args.identifier,
+            data: toolResult,
+          }
           : context.activeEntity,
       conversationCount: (context.conversationCount || 0) + 1,
     });
@@ -1630,12 +1637,12 @@ export const getChatPage = async (req, res) => {
     const pagination =
       toolResult.page !== undefined
         ? {
-            page: toolResult.page,
-            totalPages: toolResult.totalPages,
-            count: toolResult.count,
-            pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
-            showingRange: toolResult.showingRange,
-          }
+          page: toolResult.page,
+          totalPages: toolResult.totalPages,
+          count: toolResult.count,
+          pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
+          showingRange: toolResult.showingRange,
+        }
         : null;
 
     return res.json({

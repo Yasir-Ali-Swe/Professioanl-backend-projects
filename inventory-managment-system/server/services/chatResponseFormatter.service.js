@@ -21,17 +21,17 @@ export const FORMAT_TYPES = {
  */
 export const COLUMN_DEFINITIONS = {
   products_compact: [
-    { key: "productName", label: "Product Name", type: "string" },
-    { key: "sku", label: "SKU", type: "string" },
+    { key: "productName", label: "Product Name", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "sku", label: "SKU", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "quantity", label: "Quantity", type: "number" },
     { key: "sellingPrice", label: "Selling Price", type: "number", format: FORMAT_TYPES.CURRENCY },
     { key: "status", label: "Status", type: "string", align: "center" },
   ],
   products_detailed: [
-    { key: "productName", label: "Product Name", type: "string" },
-    { key: "sku", label: "SKU", type: "string" },
-    { key: "categoryName", label: "Category", type: "string" },
-    { key: "supplierName", label: "Supplier", type: "string" },
+    { key: "productName", label: "Product Name", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "sku", label: "SKU", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "categoryName", label: "Category", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "supplierName", label: "Supplier", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "quantity", label: "Quantity", type: "number" },
     { key: "reorderThreshold", label: "Reorder Threshold", type: "number" },
     { key: "costPrice", label: "Cost Price", type: "number", format: FORMAT_TYPES.CURRENCY },
@@ -40,86 +40,86 @@ export const COLUMN_DEFINITIONS = {
     { key: "status", label: "Status", type: "string", align: "center" },
   ],
   invoices_compact: [
-    { key: "invoiceNumber", label: "Invoice #", type: "string" },
-    { key: "customerName", label: "Customer Name", type: "string" },
+    { key: "invoiceNumber", label: "Invoice #", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "customerName", label: "Customer Name", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "date", label: "Date", type: "string", format: FORMAT_TYPES.DATE },
     { key: "total", label: "Total Amount", type: "number", format: FORMAT_TYPES.CURRENCY },
     { key: "status", label: "Status", type: "string", align: "center" },
   ],
   invoices_detailed: [
-    { key: "invoiceNumber", label: "Invoice #", type: "string" },
-    { key: "customerName", label: "Customer Name", type: "string" },
+    { key: "invoiceNumber", label: "Invoice #", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "customerName", label: "Customer Name", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "date", label: "Date", type: "string", format: FORMAT_TYPES.DATE },
     { key: "subtotal", label: "Subtotal", type: "number", format: FORMAT_TYPES.CURRENCY },
     { key: "tax", label: "Tax", type: "number", format: FORMAT_TYPES.CURRENCY },
     { key: "discount", label: "Discount", type: "number", format: FORMAT_TYPES.CURRENCY },
     { key: "total", label: "Total Amount", type: "number", format: FORMAT_TYPES.CURRENCY },
     { key: "status", label: "Status", type: "string", align: "center" },
-    { key: "createdBy", label: "Created By", type: "string" },
+    { key: "createdBy", label: "Created By", type: "string", format: FORMAT_TYPES.TEXT },
   ],
   invoice_items: [
-    { key: "productName", label: "Product", type: "string" },
-    { key: "sku", label: "SKU", type: "string" },
+    { key: "productName", label: "Product", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "sku", label: "SKU", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "quantity", label: "Quantity", type: "number" },
     { key: "sellingPrice", label: "Unit Price", type: "number", format: FORMAT_TYPES.CURRENCY },
     { key: "subtotal", label: "Subtotal", type: "number", format: FORMAT_TYPES.CURRENCY },
   ],
   purchase_orders_compact: [
-    { key: "poNumber", label: "PO #", type: "string" },
-    { key: "supplierName", label: "Supplier", type: "string" },
+    { key: "poNumber", label: "PO #", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "supplierName", label: "Supplier", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "date", label: "Date", type: "string", format: FORMAT_TYPES.DATE },
     { key: "totalCost", label: "Total Cost", type: "number", format: FORMAT_TYPES.CURRENCY },
     { key: "status", label: "Status", type: "string", align: "center" },
   ],
   purchase_order_items: [
-    { key: "productName", label: "Product", type: "string" },
-    { key: "sku", label: "SKU", type: "string" },
+    { key: "productName", label: "Product", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "sku", label: "SKU", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "quantity", label: "Quantity", type: "number" },
     { key: "unitCost", label: "Unit Cost", type: "number", format: FORMAT_TYPES.CURRENCY },
     { key: "subtotal", label: "Subtotal", type: "number", format: FORMAT_TYPES.CURRENCY },
   ],
   suppliers_compact: [
-    { key: "supplierName", label: "Supplier Name", type: "string" },
-    { key: "contactPerson", label: "Contact Person", type: "string" },
-    { key: "email", label: "Email", type: "string" },
-    { key: "phone", label: "Phone", type: "string" },
+    { key: "supplierName", label: "Supplier Name", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "contactPerson", label: "Contact Person", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "email", label: "Email", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "phone", label: "Phone", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "leadTimeDays", label: "Lead Time (Days)", type: "number" },
   ],
   categories_compact: [
-    { key: "categoryName", label: "Category Name", type: "string" },
+    { key: "categoryName", label: "Category Name", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "productCount", label: "Total Products", type: "number" },
     { key: "createdAt", label: "Created Date", type: "string", format: FORMAT_TYPES.DATE },
   ],
   users_compact: [
-    { key: "userName", label: "Name", type: "string" },
-    { key: "email", label: "Email", type: "string" },
-    { key: "role", label: "Role", type: "string" },
+    { key: "userName", label: "Name", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "email", label: "Email", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "role", label: "Role", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "status", label: "Active Status", type: "string", align: "center" },
   ],
   anomalies_compact: [
     { key: "severity", label: "Severity", type: "string", align: "center" },
-    { key: "type", label: "Anomaly Type", type: "string" },
-    { key: "productName", label: "Product", type: "string" },
-    { key: "description", label: "Description", type: "string" },
+    { key: "type", label: "Anomaly Type", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "productName", label: "Product", type: "string", format: FORMAT_TYPES.TEXT },
+    { key: "description", label: "Description", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "status", label: "Resolution Status", type: "string", align: "center" },
     { key: "date", label: "Detected Date", type: "string", format: FORMAT_TYPES.DATE },
   ],
   forecast_compact: [
-    { key: "productName", label: "Product", type: "string" },
+    { key: "productName", label: "Product", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "predictedDemand", label: "Predicted Demand", type: "number" },
-    { key: "forecastPeriod", label: "Period", type: "string" },
+    { key: "forecastPeriod", label: "Period", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "daysUntilStockout", label: "Days To Stockout", type: "number" },
     { key: "confidence", label: "Confidence Score", type: "number", format: FORMAT_TYPES.PERCENTAGE },
   ],
   reorder_suggestions: [
-    { key: "productName", label: "Product", type: "string" },
+    { key: "productName", label: "Product", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "suggestedQuantity", label: "Suggested Qty", type: "number" },
     { key: "suggestedReorderDate", label: "Reorder Date", type: "string", format: FORMAT_TYPES.DATE },
-    { key: "reasoning", label: "Reasoning", type: "string" },
+    { key: "reasoning", label: "Reasoning", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "status", label: "Status", type: "string", align: "center" },
   ],
   grouped_summary: [
-    { key: "groupName", label: "Group / Entity", type: "string" },
+    { key: "groupName", label: "Group / Entity", type: "string", format: FORMAT_TYPES.TEXT },
     { key: "totalCount", label: "Total Count / Items", type: "number" },
     { key: "totalValue", label: "Total Value / Revenue", type: "number", format: FORMAT_TYPES.CURRENCY },
   ],
@@ -130,6 +130,10 @@ export const COLUMN_DEFINITIONS = {
  */
 export const formatPrimitiveValue = (val, formatType) => {
   if (val === null || val === undefined) return "—";
+
+  if (formatType === FORMAT_TYPES.TEXT) {
+    return String(val);
+  }
 
   if (formatType === FORMAT_TYPES.CURRENCY) {
     const num = typeof val === "number" ? val : parseFloat(val);

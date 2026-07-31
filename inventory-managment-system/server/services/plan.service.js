@@ -1,5 +1,6 @@
 // services/plan.service.js
 import organizationModel from "../models/organization.model.js";
+import subscriptionModel from "../models/subscription.model.js";
 
 /**
  * Check if an organization has access to LLM/AI features (Premium)
@@ -20,14 +21,17 @@ export const checkPremiumAccess = async (organizationId) => {
   }
 
   const planName = organization.subscriptionPlan?.name || "free";
-  const aiFeatures = organization.subscriptionPlan?.aiFeatures || false;
+  const aiFeatures = organization.subscriptionPlan?.aiFeatures === true;
 
-  // Check if organization has premium for LLM features
-  if (planName !== "premium" || !aiFeatures) {
+  const subRecord = await subscriptionModel.findOne({ organizationId }).lean();
+  const isStatusActive = subRecord ? subRecord.status === "active" : true;
+
+  // Check if organization has premium for LLM features and active subscription status
+  if (!aiFeatures || !isStatusActive) {
     return {
       hasAccess: false,
       plan: planName,
-      message: `AI features are only available on Premium plans. Current plan: ${planName}`,
+      message: `The StockPilot AI Chatbot requires an active Premium subscription with AI features enabled.`,
       upgradeRequired: true,
     };
   }

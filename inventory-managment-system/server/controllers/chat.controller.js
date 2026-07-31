@@ -68,6 +68,20 @@ const getConversationId = (req) =>
 
 const extractData = (toolResult) => {
   if (!toolResult) return null;
+
+  if (toolResult.data && toolResult.fields) {
+    return {
+      data: toolResult.data,
+      fields: toolResult.fields,
+      count: toolResult.count,
+      tableTitle: toolResult.tableTitle || "Results",
+    };
+  }
+
+  if (toolResult.isDashboard && toolResult.dashboard) {
+    return toolResult.dashboard;
+  }
+
   if (toolResult.invoice?.lineItems) return toolResult.invoice.lineItems;
   if (toolResult.purchaseOrder?.lineItems)
     return toolResult.purchaseOrder.lineItems;
@@ -77,18 +91,19 @@ const extractData = (toolResult) => {
     return toolResult.category.productsList;
   if (toolResult.summary?.customerProductsPurchased)
     return toolResult.summary.customerProductsPurchased;
-
   if (toolResult.groupedResults) return toolResult.groupedResults;
 
-  if (toolResult.target === "users" && toolResult.users) return toolResult.users;
-  if (toolResult.target === "categories" && toolResult.categories) return toolResult.categories;
-  if (toolResult.target === "suppliers" && toolResult.suppliers) return toolResult.suppliers;
+  if (toolResult.target === "users" && toolResult.users)
+    return toolResult.users;
+  if (toolResult.target === "categories" && toolResult.categories)
+    return toolResult.categories;
+  if (toolResult.target === "suppliers" && toolResult.suppliers)
+    return toolResult.suppliers;
 
   if (toolResult.users && !toolResult.categories && !toolResult.suppliers) {
     return toolResult.users;
   }
 
-  // If this is a full organization overview, return null so ReactMarkdown renders markdown tables natively
   if (
     toolResult.target === "overview" ||
     toolResult.organizationInfo ||
@@ -111,6 +126,7 @@ const createEmptyContext = () => ({
   organizationId: null,
   lastPage: 1,
   lastFilters: null,
+  activeEntity: null,
 });
 
 const getContextKey = (organizationId, userId, conversationId) => {
@@ -162,8 +178,8 @@ const getEnhancedQuery = (query, context) => {
     lowerQuery.includes(word.toLowerCase()),
   );
 
-  // Strictly referential pronouns only. Do NOT treat domain nouns like "product" or "supplier" as pronouns.
-  const isEntityPronoun = /\b(it|this|that|these|those|its|their|them|the same)\b/i.test(lowerQuery);
+  const isEntityPronoun =
+    /\b(it|this|that|these|those|its|their|them|the same)\b/i.test(lowerQuery);
 
   if (context.activeEntity && (isFollowUpWord || isEntityPronoun)) {
     const activeInfo = JSON.stringify({
@@ -303,6 +319,25 @@ const extractSuggestedQuestions = (reply, userQuery = "") => {
   return filtered;
 };
 
+const isSimpleQuery = (query) => {
+  const lower = query.toLowerCase();
+  const simplePatterns = [
+    /what is the name of our org/i,
+    /what is our org name/i,
+    /tell me the name of our org/i,
+    /company name/i,
+    /org name/i,
+    /organization name/i,
+    /tax rate/i,
+    /what is the tax rate/i,
+    /show me the tax rate/i,
+    /subscription details/i,
+    /show subscription/i,
+    /what is our subscription/i,
+  ];
+  return simplePatterns.some((pattern) => pattern.test(lower));
+};
+
 const SYSTEM_INSTRUCTION = `You are StockPilot AI, an Inventory Analyst for StockPilot.
 
 IDENTITY & TONE:
@@ -315,34 +350,29 @@ ROLE-BASED ACCESS:
 - Super Admin: Can access all organizations.
 - Both roles have READ-ONLY permissions. Politely refuse write requests in 1-2 plain sentences without headers.
 
-CONVERSATIONAL & SIMPLE QUERIES:
-- For greetings, identity questions, capability overviews, unsupported feature requests, write refusals, or simple queries:
-  - Respond in 1–3 plain natural sentences.
-  - DO NOT include Markdown headers (e.g. ## 📦 SUMMARY, ## 📊 PRIMARY CONTENT).
-  - DO NOT output empty markdown tables or boilerplate checklists.
+RESPONSE FORMAT:
+For simple queries (e.g., organization name, tax rate, subscription details):
+- Respond with ONLY the direct answer in 1-2 plain sentences.
+- DO NOT include Markdown headers (like ## 📦 SUMMARY).
+- DO NOT include insights or recommendations.
 
-DATA-DRIVEN RESPONSES WITH RETRIEVED DATA:
-- Use the structured markdown template ONLY when reporting real retrieved dataset results:
-  ## 📦 SUMMARY
-  (Key overview metrics as bullet points)
+For data-driven responses:
+- Use this exact order:
+  1. ## 📦 SUMMARY (Key metrics as bullet points)
+  2. ## 📊 PRIMARY CONTENT (Markdown table of retrieved rows)
+  3. ## 💡 AI INSIGHTS (2-3 comparative observations)
+  4. ## 🎯 RECOMMENDATIONS (2-3 actionable steps)
 
-  ## 📊 PRIMARY CONTENT
-  (Markdown table of retrieved rows)
-
-  ## 💡 AI INSIGHTS
-  (2-3 comparative analytical observations — DO NOT just restate single cell values)
-
-  ## 🎯 RECOMMENDATIONS
-  (2-3 actionable next steps if risks or low/dead stock exist)
-
-PAGINATION RULE:
-- When a stated pagination range is provided in the prompt (e.g. "showing 1–10 of 16"), state that exact range word-for-word. Never recalculate or alter it.
+CRITICAL RULE - NEVER GENERATE TABLES:
+- You MUST NEVER generate markdown tables using pipes (|) and dashes (---).
+- The table data will be rendered separately by the frontend.
+- Only provide text summaries, insights, and recommendations.
+- Under PRIMARY CONTENT, just state "Data is displayed in the table below."
 
 HARD STOP: Stop after completing response. No wrap-up or restatement.`;
 
 const trimToolResult = (result) => {
   if (!result || typeof result !== "object") return result;
-  // Do not slice arrays if tool result is already a paginated page from backend
   if (
     result.page !== undefined ||
     result.totalPages !== undefined ||
@@ -370,6 +400,27 @@ const detectSchema = (query, toolName, data) => {
     return null;
   }
 
+  const lowerQuery = (query || "").toLowerCase();
+
+  if (
+    lowerQuery.includes("profit") ||
+    lowerQuery.includes("margin") ||
+    lowerQuery.includes("profitability")
+  ) {
+    if (toolName === "query_inventory") {
+      return "products_detailed";
+    }
+  }
+
+  if (
+    lowerQuery.includes("detail") ||
+    lowerQuery.includes("complete") ||
+    lowerQuery.includes("full info") ||
+    lowerQuery.includes("comprehensive")
+  ) {
+    return "products_detailed";
+  }
+
   if (toolName === "get_details") {
     const sample = Array.isArray(data) && data.length > 0 ? data[0] : data;
     if (sample.unitPrice !== undefined && sample.quantity !== undefined)
@@ -393,19 +444,22 @@ const detectSchema = (query, toolName, data) => {
   }
 
   if (toolName === "query_inventory") {
-    const lowerQuery = (query || "").toLowerCase();
     const isDetailed =
       lowerQuery.includes("detail") ||
       lowerQuery.includes("complete") ||
       lowerQuery.includes("all field") ||
       lowerQuery.includes("every field") ||
       lowerQuery.includes("full info") ||
-      lowerQuery.includes("margin") ||
       lowerQuery.includes("cost price") ||
       lowerQuery.includes("profit") ||
+      lowerQuery.includes("margin") ||
       lowerQuery.includes("valuation") ||
       lowerQuery.includes("supplier") ||
       lowerQuery.includes("category");
+
+    if (lowerQuery.includes("profit") || lowerQuery.includes("margin")) {
+      return "products_detailed";
+    }
 
     return isDetailed ? "products_detailed" : "products_compact";
   }
@@ -430,10 +484,17 @@ const detectSchema = (query, toolName, data) => {
     if (sample && (sample.role !== undefined || sample.email !== undefined)) {
       return "users";
     }
-    if (sample && (sample.roleDisplay !== undefined || sample.userCount !== undefined)) {
+    if (
+      sample &&
+      (sample.roleDisplay !== undefined || sample.userCount !== undefined)
+    ) {
       return "grouped_roles";
     }
-    if (sample && sample.contactEmail !== undefined && sample.salesValue !== undefined) {
+    if (
+      sample &&
+      sample.contactEmail !== undefined &&
+      sample.salesValue !== undefined
+    ) {
       return "organizations";
     }
     return "organization_overview";
@@ -500,9 +561,7 @@ const getFallbackReply = (toolResult) => {
 - Total value: PKR ${formatCurrency(summary.totalValue || 0)}
 
 ## 📊 PRIMARY CONTENT
-| Result Count | Total Value |
-| --- | --- |
-| ${count} | PKR ${formatCurrency(summary.totalValue || 0)} |
+Data is displayed in the table below.
 
 ## 💡 AI INSIGHTS
 - No additional insights available.
@@ -522,12 +581,15 @@ const formatCurrency = (value) => {
   });
 };
 
+// ============ CHAT WITH AI (Non-Streaming) ============
+
 export const chatWithAI = async (req, res) => {
   try {
     const organizationId = req.organizationId;
     const userId = req.user._id;
     const role = req.user.role;
     const { query } = req.body;
+    console.log("Received query:", query);
 
     const conversationId = getConversationId(req);
 
@@ -633,11 +695,36 @@ export const chatWithAI = async (req, res) => {
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-          page: toolResult.page,
-          totalPages: toolResult.totalPages,
-          count: toolResult.count,
-        }
+            page: toolResult.page,
+            totalPages: toolResult.totalPages,
+            count: toolResult.count,
+          }
         : null;
+
+    const extractedData = extractData(toolResult);
+    let tableData = null;
+    let fields = null;
+    let tableTitle = "Results";
+
+    if (extractedData) {
+      if (extractedData.data && extractedData.fields) {
+        tableData = extractedData.data;
+        fields = extractedData.fields;
+        tableTitle = extractedData.tableTitle || "Results";
+      } else {
+        tableData = extractedData;
+      }
+    }
+
+    if (toolResult.data && toolResult.fields) {
+      tableData = toolResult.data;
+      fields = toolResult.fields;
+      tableTitle = toolResult.tableTitle || "Results";
+    }
+
+    if (toolResult.isDashboard) {
+      tableData = toolResult.dashboard;
+    }
 
     await chatLogModel.create({
       organizationId,
@@ -651,6 +738,9 @@ export const chatWithAI = async (req, res) => {
         toolArgs: call.args ? JSON.parse(JSON.stringify(call.args)) : {},
         suggestedQuestions,
         pagination: paginationMeta,
+        tableData: tableData,
+        fields: fields,
+        tableTitle: tableTitle,
       },
     });
 
@@ -668,15 +758,15 @@ export const chatWithAI = async (req, res) => {
       lastTool: call.name,
       conversationCount: (context.conversationCount || 0) + 1,
     });
-
-    const data = extractData(toolResult);
-
+    console.log("tableData:", tableData);
     const response = {
       success: true,
       conversationId,
       reply: replyText,
       type: responseType,
-      data,
+      data: tableData,
+      fields: fields,
+      tableTitle: tableTitle,
       suggestedQuestions,
     };
 
@@ -698,13 +788,15 @@ export const chatWithAI = async (req, res) => {
   }
 };
 
+// ============ CHAT WITH AI STREAM (SSE) ============
+
 export const chatWithAIStream = async (req, res) => {
   const organizationId = req.organizationId;
   const userId = req.user._id;
   const role = req.user.role;
   const { query } = req.body;
   const conversationId = getConversationId(req);
-  console.log("query", query);
+
   if (!query || query.trim().length === 0) {
     return res.status(400).json({
       success: false,
@@ -848,14 +940,41 @@ export const chatWithAIStream = async (req, res) => {
       return;
     }
 
-    const data = extractData(toolResult);
-    const schema = detectSchema(query, call.name, data);
+    const extractedData = extractData(toolResult);
+    let tableData = null;
+    let fields = null;
+    let tableTitle = "Results";
+
+    if (extractedData) {
+      if (extractedData.data && extractedData.fields) {
+        tableData = extractedData.data;
+        fields = extractedData.fields;
+        tableTitle = extractedData.tableTitle || "Results";
+      } else {
+        tableData = extractedData;
+      }
+    }
+
+    if (toolResult.data && toolResult.fields) {
+      tableData = toolResult.data;
+      fields = toolResult.fields;
+      tableTitle = toolResult.tableTitle || "Results";
+    }
+
+    if (toolResult.isDashboard) {
+      tableData = toolResult.dashboard;
+      tableTitle = "Dashboard";
+    }
+
+    const schema = detectSchema(query, call.name, tableData);
 
     sendStreamEvent(res, {
       type: "tool",
       success: true,
       name: call.name,
-      data: data,
+      data: tableData,
+      fields: fields,
+      tableTitle: tableTitle,
       schema: schema,
     });
 
@@ -955,13 +1074,35 @@ export const chatWithAIStream = async (req, res) => {
 
       return "LISTING_COMPACT";
     };
+
     const buildDynamicPrompt = (query, toolName, trimmedResult) => {
       const intent = classifyIntent(query, toolName, trimmedResult);
       const dataJson = JSON.stringify(trimmedResult, null, 2);
 
-      // Check if unsupported or error
-      if (trimmedResult?.isUnsupported === true || trimmedResult?.error === true) {
-        const msg = trimmedResult?.message || "Requested feature or entity type is not supported.";
+      // Check for simple queries
+      if (isSimpleQuery(query)) {
+        return `You are StockPilot AI, an Inventory Analyst.
+
+User question: ${query}
+
+Tool result JSON:
+${dataJson}
+
+INSTRUCTIONS:
+1. Respond with ONLY the direct answer in 1-2 plain sentences.
+2. DO NOT include Markdown headers (like ## 📦 SUMMARY).
+3. DO NOT include table data or empty sections.
+4. Keep it concise and natural.
+5. If the answer is in the data, extract and present it directly.`;
+      }
+
+      if (
+        trimmedResult?.isUnsupported === true ||
+        trimmedResult?.error === true
+      ) {
+        const msg =
+          trimmedResult?.message ||
+          "Requested feature or entity type is not supported.";
         return `You are StockPilot AI, an Inventory Analyst.
 User question: ${query}
 
@@ -974,20 +1115,27 @@ INSTRUCTIONS:
 3. CRITICAL: DO NOT output Markdown headers (like ## 📦 SUMMARY), DO NOT output markdown tables, DO NOT output empty bullet template sections.`;
       }
 
-      // Check if result is empty
-      const isEmpty = trimmedResult?.summary?.isEmpty === true || (Array.isArray(trimmedResult?.products) && trimmedResult.products.length === 0 && Array.isArray(trimmedResult?.invoices) && trimmedResult.invoices.length === 0);
-      const emptyMessage = trimmedResult?.summary?.message || trimmedResult?.message || "No data found matching your criteria.";
+      const isEmpty =
+        trimmedResult?.summary?.isEmpty === true ||
+        (Array.isArray(trimmedResult?.data) &&
+          trimmedResult.data.length === 0 &&
+          Array.isArray(trimmedResult?.products) &&
+          trimmedResult.products.length === 0 &&
+          Array.isArray(trimmedResult?.invoices) &&
+          trimmedResult.invoices.length === 0);
 
       if (isEmpty) {
-        // Check for positive status check (e.g., asking for out-of-stock items when none exist)
-        const isPositiveCheck = query.toLowerCase().includes("out of stock") || query.toLowerCase().includes("dead stock") || query.toLowerCase().includes("anomalies");
+        const isPositiveCheck =
+          query.toLowerCase().includes("out of stock") ||
+          query.toLowerCase().includes("dead stock") ||
+          query.toLowerCase().includes("anomalies");
         let emptyInstruction = "";
 
         if (isPositiveCheck) {
           emptyInstruction = `
 INTENT: The user checked for items/issues (e.g. out of stock/dead stock/anomalies), but 0 items match.
 INSTRUCTIONS:
-1. Respond in 1–2 clear, encouraging natural sentences stating that there are 0 matching items/issues at this time (e.g., "All products are currently in stock! No out-of-stock items exist at this time.").
+1. Respond in 1–2 clear, encouraging natural sentences stating that there are 0 matching items/issues at this time.
 2. DO NOT output Markdown headers (like ## 📦 SUMMARY), DO NOT output empty markdown tables or zero-value summaries.
 3. Suggest 2-3 logical follow-up questions directly.`;
         } else {
@@ -1009,7 +1157,9 @@ ${emptyInstruction}
 Write in short, direct, friendly sentences.`;
       }
 
-      const showingRangeText = trimmedResult?.showingRange ? `PAGINATION RANGE RULE: Include the exact stated range: "${trimmedResult.showingRange}" in the SUMMARY section.` : "";
+      const showingRangeText = trimmedResult?.showingRange
+        ? `PAGINATION RANGE RULE: Include the exact stated range: "${trimmedResult.showingRange}" in the SUMMARY section.`
+        : "";
 
       let instructions = "";
 
@@ -1019,25 +1169,27 @@ INTENT: The user wants to see specific line items or products within an invoice 
 
 RULES:
 1. Answer the user's specific request FIRST. Provide a clean summary overview.
-2. Present the line items directly under "## 📊 INVOICE ITEMS" or "## 📊 PURCHASE ORDER ITEMS" as a Markdown table.
-3. DO NOT include "## 💡 AI INSIGHTS" or "## 🎯 RECOMMENDATIONS" because recommendations are NOT relevant for simple line item requests.
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
+3. Just state "Data is displayed in the table below." under PRIMARY CONTENT.
 4. ${showingRangeText}
 
 REQUIRED LAYOUT:
 ## 📦 SUMMARY
 - (Key metrics and range)
 
-## 📊 INVOICE ITEMS
-| Product Name | SKU | Quantity | Unit Price | Subtotal | Profit | Margin |
-| --- | --- | --- | --- | --- | --- | --- |
+## 📊 PRIMARY CONTENT
+Data is displayed in the table below.
+
+## 💡 AI INSIGHTS
+- (2-3 observations)
 `;
       } else if (intent === "ENTITY_DETAILS") {
         instructions = `
 INTENT: Comprehensive details/profile for an entity (Invoice, PO, Supplier, Category, User, or Org).
 
 RULES:
-1. Present general information metrics under "## ℹ️ GENERAL INFORMATION".
-2. Present line items or catalog breakdown under "## 📊 PRIMARY CONTENT" as a Markdown table.
+1. Present general information metrics under "## ℹ️ GENERAL INFORMATION" as bullet points.
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
 3. ${showingRangeText}
 
 REQUIRED LAYOUT:
@@ -1045,7 +1197,13 @@ REQUIRED LAYOUT:
 - (Entity attributes as bullet points)
 
 ## 📊 PRIMARY CONTENT
-| Product/Item Name | SKU | Quantity | ... |
+Data is displayed in the table below.
+
+## 💡 AI INSIGHTS
+- (2-3 observations)
+
+## 🎯 RECOMMENDATIONS
+- (2-3 recommendations)
 `;
       } else if (intent === "CUSTOMER_PROFILE") {
         instructions = `
@@ -1053,7 +1211,7 @@ INTENT: Customer spending info or purchased items.
 
 RULES:
 1. Present customer spend metrics FIRST under "## 👤 CUSTOMER PROFILE".
-2. Present purchased products or invoice history under "## 📊 PURCHASED PRODUCTS" as a Markdown table.
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
 3. ${showingRangeText}
 
 REQUIRED LAYOUT:
@@ -1061,8 +1219,11 @@ REQUIRED LAYOUT:
 - Customer Name: ...
 - Total Spent: PKR ...
 
-## 📊 PURCHASED PRODUCTS
-| Product Name | SKU | Quantity Purchased | Total Spent |
+## 📊 PRIMARY CONTENT
+Data is displayed in the table below.
+
+## 💡 AI INSIGHTS
+- (2-3 observations)
 `;
       } else if (intent === "GROUPED_TRANSACTIONS") {
         instructions = `
@@ -1070,13 +1231,22 @@ INTENT: Grouped stock transactions (by role, user, type, or reason).
 
 RULES:
 1. Under "## 📦 SUMMARY", present total transaction groups and total volume.
-2. Present the grouped breakdown under "## 📊 PRIMARY CONTENT" as a Markdown table with exact columns matching the grouped data:
-   - If grouped by Role: | Role | Transaction Count | Items In | Items Out | Total Items Moved | Unique Users |
-   - If grouped by User: | User Name | Role | Transaction Count | Items In | Items Out | Total Items Moved |
-   - If grouped by Type: | Transaction Type | Transaction Count | Total Items Moved |
-   - If grouped by Reason: | Reason | Transaction Count | Total Items Moved |
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
 3. Provide 2-3 analytical observations under "## 💡 AI INSIGHTS".
 4. Provide 2-3 actionable next steps under "## 🎯 RECOMMENDATIONS".
+
+REQUIRED LAYOUT:
+## 📦 SUMMARY
+- (Key metrics)
+
+## 📊 PRIMARY CONTENT
+Data is displayed in the table below.
+
+## 💡 AI INSIGHTS
+- (2-3 observations)
+
+## 🎯 RECOMMENDATIONS
+- (2-3 recommendations)
 `;
       } else if (intent === "GROUPED_ROLES") {
         instructions = `
@@ -1084,10 +1254,22 @@ INTENT: Group team members/users by role.
 
 RULES:
 1. Under "## 📦 SUMMARY", present total users, active users, and role counts.
-2. Present the role breakdown under "## 📊 PRIMARY CONTENT" as a Markdown table:
-   | Role | Total Users | Active Users | Invoices Created | Revenue Generated |
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
 3. Provide 2-3 analytical observations under "## 💡 AI INSIGHTS".
 4. Provide 2-3 strategic next steps under "## 🎯 RECOMMENDATIONS".
+
+REQUIRED LAYOUT:
+## 📦 SUMMARY
+- (Key metrics)
+
+## 📊 PRIMARY CONTENT
+Data is displayed in the table below.
+
+## 💡 AI INSIGHTS
+- (2-3 observations)
+
+## 🎯 RECOMMENDATIONS
+- (2-3 recommendations)
 `;
       } else if (intent === "TEAM_MEMBERS") {
         instructions = `
@@ -1095,10 +1277,22 @@ INTENT: Show organization team members / users.
 
 RULES:
 1. Under "## 📦 SUMMARY", list total users, active users, and roles breakdown.
-2. Present the team members list under "## 👥 TEAM MEMBERS & USERS" as a Markdown table:
-   | Name | Email | Role | Active | Invoices Created | Revenue Generated |
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
 3. Provide 2-3 observations under "## 💡 AI INSIGHTS".
 4. Provide 2-3 next steps under "## 🎯 RECOMMENDATIONS".
+
+REQUIRED LAYOUT:
+## 📦 SUMMARY
+- (Key metrics)
+
+## 📊 PRIMARY CONTENT
+Data is displayed in the table below.
+
+## 💡 AI INSIGHTS
+- (2-3 observations)
+
+## 🎯 RECOMMENDATIONS
+- (2-3 recommendations)
 `;
       } else if (intent === "ORGANIZATION_OVERVIEW") {
         instructions = `
@@ -1106,11 +1300,22 @@ INTENT: Full organization overview including categories, suppliers, users/team m
 
 RULES:
 1. Under "## 📦 SUMMARY", list total users, active users, total categories, total suppliers, total products, and total revenue.
-2. If categories exist in the tool result data, present a Markdown table of Product Categories under "## 📂 PRODUCT CATEGORIES" (Columns: Category Name, Description, Product Count, Valuation).
-3. If suppliers exist in the tool result data, present a Markdown table of Suppliers under "## 🏭 SUPPLIERS" (Columns: Supplier Name, Contact Person, Email/Phone, Product Count, Valuation).
-4. Under "## 👥 TEAM MEMBERS & USERS", present a Markdown table of Users (Columns: Name, Email, Role, Active, Invoices Created, Revenue Generated).
-5. Provide 2-3 analytical observations under "## 💡 AI INSIGHTS".
-6. Provide 2-3 strategic next steps under "## 🎯 RECOMMENDATIONS".
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
+3. Provide 2-3 analytical observations under "## 💡 AI INSIGHTS".
+4. Provide 2-3 strategic next steps under "## 🎯 RECOMMENDATIONS".
+
+REQUIRED LAYOUT:
+## 📦 SUMMARY
+- (Key metrics)
+
+## 📊 PRIMARY CONTENT
+Data is displayed in the table below.
+
+## 💡 AI INSIGHTS
+- (2-3 observations)
+
+## 🎯 RECOMMENDATIONS
+- (2-3 recommendations)
 `;
       } else if (intent === "LISTING_COMPACT") {
         instructions = `
@@ -1118,15 +1323,17 @@ INTENT: Product list or entity listing overview.
 
 RULES:
 1. Provide quick metric summary under "## 📦 SUMMARY". Include ${showingRangeText}.
-2. Present a clean Markdown table of the primary fields under "## 📊 PRIMARY CONTENT".
-3. Provide 2-3 brief insights under "## 💡 AI INSIGHTS". INSIGHT RULE: Every insight MUST add comparative value across rows or highlight concentration risks / outliers — NEVER restate a single cell value directly.
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
+3. Just state "Data is displayed in the table below." under PRIMARY CONTENT.
+4. Provide 2-3 brief insights under "## 💡 AI INSIGHTS".
 
 REQUIRED LAYOUT:
 ## 📦 SUMMARY
 - (Summary metrics & pagination range)
+- Total Stock: [total stock quantity]
 
 ## 📊 PRIMARY CONTENT
-| Name/Number | SKU | Quantity | Selling Price | Status |
+Data is displayed in the table below.
 
 ## 💡 AI INSIGHTS
 - (2-3 analytical comparative observations)
@@ -1137,16 +1344,18 @@ INTENT: Strategic analytical inquiry (Dead stock, stockout risk, forecasts, anom
 
 RULES:
 1. Provide a comprehensive summary under "## 📦 SUMMARY". ${showingRangeText}
-2. Present data table under "## 📊 PRIMARY CONTENT".
-3. Provide 2-4 actionable insights under "## 💡 AI INSIGHTS". INSIGHT RULE: Every insight MUST provide comparative analysis across rows or identify concentration risks/outliers — NEVER restate a single cell value directly.
-4. Provide 2-4 strategic actions under "## 🎯 RECOMMENDATIONS".
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
+3. Just state "Data is displayed in the table below." under PRIMARY CONTENT.
+4. Provide 2-4 actionable insights under "## 💡 AI INSIGHTS".
+5. Provide 2-4 strategic actions under "## 🎯 RECOMMENDATIONS".
 
 REQUIRED LAYOUT:
 ## 📦 SUMMARY
 - (Key metrics & pagination range)
+- Total Stock: [total stock quantity]
 
 ## 📊 PRIMARY CONTENT
-| Product Name | SKU | Quantity | ... |
+Data is displayed in the table below.
 
 ## 💡 AI INSIGHTS
 - (Comparative observations)
@@ -1171,7 +1380,9 @@ CRITICAL FORMATTING RULES:
 - Format percentages as 43%
 - Each bullet point MUST start with "- " on its OWN SEPARATE LINE.
 - DO NOT use Unicode bullet symbols (like •).
-- Write like a knowledgeable colleague. Short, direct sentences.`;
+- NEVER generate markdown tables using pipes (|) and dashes (---).
+- Write like a knowledgeable colleague. Short, direct sentences.
+- ALWAYS include Total Stock in the SUMMARY section.`;
     };
 
     const trimmedResult = trimToolResult(toolResult);
@@ -1220,13 +1431,35 @@ CRITICAL FORMATTING RULES:
     const paginationMeta =
       toolResult.page !== undefined
         ? {
-          page: toolResult.page,
-          totalPages: toolResult.totalPages,
-          count: toolResult.count,
-          pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
-          showingRange: toolResult.showingRange,
-        }
+            page: toolResult.page,
+            totalPages: toolResult.totalPages,
+            count: toolResult.count,
+            pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
+            showingRange: toolResult.showingRange,
+          }
         : null;
+
+    let finalTableData = tableData;
+    let finalFields = fields;
+    let finalTableTitle = tableTitle;
+
+    if (!finalTableData && extractedData) {
+      if (extractedData.data && extractedData.fields) {
+        finalTableData = extractedData.data;
+        finalFields = extractedData.fields;
+        finalTableTitle = extractedData.tableTitle || "Results";
+      } else {
+        finalTableData = extractedData;
+      }
+    }
+
+    if (!finalTableData && toolResult.data) {
+      finalTableData = toolResult.data;
+      if (toolResult.fields) {
+        finalFields = toolResult.fields;
+      }
+      finalTableTitle = toolResult.tableTitle || "Results";
+    }
 
     await chatLogModel.create({
       organizationId,
@@ -1240,13 +1473,12 @@ CRITICAL FORMATTING RULES:
         toolArgs: call.args ? JSON.parse(JSON.stringify(call.args)) : {},
         suggestedQuestions,
         pagination: paginationMeta,
-        tableData: data,
+        tableData: finalTableData,
+        fields: finalFields,
+        tableTitle: finalTableTitle,
         schema: schema,
       },
     });
-    console.log(data);
-    console.log(toolResult);
-    console.log(replyText);
 
     if (toolResult.page !== undefined) {
       context.lastPage = toolResult.page;
@@ -1260,10 +1492,10 @@ CRITICAL FORMATTING RULES:
       activeEntity:
         call.name === "get_details" && call.args
           ? {
-            type: call.args.type,
-            identifier: call.args.identifier,
-            data: toolResult,
-          }
+              type: call.args.type,
+              identifier: call.args.identifier,
+              data: toolResult,
+            }
           : context.activeEntity,
       conversationCount: (context.conversationCount || 0) + 1,
     });
@@ -1273,7 +1505,9 @@ CRITICAL FORMATTING RULES:
       conversationId,
       reply: replyText,
       responseType,
-      data,
+      data: finalTableData,
+      fields: finalFields,
+      tableTitle: finalTableTitle,
       suggestedQuestions,
       toolName: call.name,
       toolArgs: call.args ? JSON.parse(JSON.stringify(call.args)) : {},
@@ -1314,6 +1548,8 @@ CRITICAL FORMATTING RULES:
     res.end();
   }
 };
+
+// ============ GET CHAT PAGE (Pagination) ============
 
 export const getChatPage = async (req, res) => {
   try {
@@ -1370,22 +1606,43 @@ export const getChatPage = async (req, res) => {
       });
     }
 
-    const data = extractData(toolResult);
+    const extractedData = extractData(toolResult);
+    let tableData = null;
+    let fields = null;
+    let tableTitle = "Results";
+
+    if (extractedData) {
+      if (extractedData.data && extractedData.fields) {
+        tableData = extractedData.data;
+        fields = extractedData.fields;
+        tableTitle = extractedData.tableTitle || "Results";
+      } else {
+        tableData = extractedData;
+      }
+    }
+
+    if (toolResult.data && toolResult.fields) {
+      tableData = toolResult.data;
+      fields = toolResult.fields;
+      tableTitle = toolResult.tableTitle || "Results";
+    }
 
     const pagination =
       toolResult.page !== undefined
         ? {
-          page: toolResult.page,
-          totalPages: toolResult.totalPages,
-          count: toolResult.count,
-          pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
-          showingRange: toolResult.showingRange,
-        }
+            page: toolResult.page,
+            totalPages: toolResult.totalPages,
+            count: toolResult.count,
+            pageSize: toolResult.pageSize || CONSTANTS.DEFAULT_PAGE_LIMIT,
+            showingRange: toolResult.showingRange,
+          }
         : null;
 
     return res.json({
       success: true,
-      data,
+      data: tableData,
+      fields: fields,
+      tableTitle: tableTitle,
       pagination,
     });
   } catch (error) {
@@ -1396,6 +1653,8 @@ export const getChatPage = async (req, res) => {
     });
   }
 };
+
+// ============ GET CHAT HISTORY ============
 
 export const getChatHistory = async (req, res) => {
   try {
@@ -1459,6 +1718,8 @@ export const getChatHistory = async (req, res) => {
     });
   }
 };
+
+// ============ CLEAR CONTEXT ============
 
 export const clearContext = async (req, res) => {
   try {

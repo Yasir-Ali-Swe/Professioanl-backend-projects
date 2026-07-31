@@ -15,325 +15,93 @@ import {
 } from "lucide-react"
 import "highlight.js/styles/github-dark.css"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// COLUMN SCHEMAS & UTILS
-// ─────────────────────────────────────────────────────────────────────────────
+// ============ FORMATTING HELPERS ============
 
-const COLUMN_SCHEMAS = {
-    products_compact: [
-        { key: "name", label: "Product Name", align: "left" },
-        { key: "sku", label: "SKU", align: "left" },
-        { key: "quantity", label: "Quantity", align: "right" },
-        { key: "sellingPrice", label: "Selling Price", align: "right", format: "currency" },
-        { key: "status", label: "Status", align: "center", format: "status" },
-    ],
-    products_detailed: [
-        { key: "name", label: "Product Name", align: "left" },
-        { key: "sku", label: "SKU", align: "left" },
-        { key: "quantity", label: "Quantity", align: "right" },
-        { key: "costPrice", label: "Cost Price", align: "right", format: "currency" },
-        { key: "sellingPrice", label: "Selling Price", align: "right", format: "currency" },
-        { key: "category", label: "Category", align: "left" },
-        { key: "supplier", label: "Supplier", align: "left" },
-        { key: "status", label: "Status", align: "center", format: "status" },
-    ],
-    purchases: [
-        { key: "poNumber", label: "PO Number", align: "left" },
-        { key: "supplier", label: "Supplier", align: "left" },
-        { key: "itemsCount", label: "Items", align: "right" },
-        { key: "totalCost", label: "Total Cost", align: "right", format: "currency" },
-        { key: "status", label: "Status", align: "center", format: "status" },
-        { key: "createdBy", label: "Created By", align: "left" },
-        { key: "createdAt", label: "Date", align: "left", format: "date" },
-    ],
-    sales: [
-        { key: "invoiceNumber", label: "Invoice #", align: "left" },
-        { key: "customerName", label: "Customer", align: "left" },
-        { key: "subtotal", label: "Subtotal", align: "right", format: "currency" },
-        { key: "tax", label: "Tax", align: "right", format: "currency" },
-        { key: "total", label: "Total", align: "right", format: "currency" },
-        { key: "status", label: "Status", align: "center", format: "status" },
-        { key: "createdBy", label: "Created By", align: "left" },
-        { key: "createdAt", label: "Date", align: "left", format: "date" },
-    ],
-    transactions: [
-        { key: "productName", label: "Product", align: "left" },
-        { key: "productSku", label: "SKU", align: "left" },
-        { key: "type", label: "Type", align: "center" },
-        { key: "reason", label: "Reason", align: "left" },
-        { key: "quantity", label: "Qty", align: "right" },
-        { key: "referenceNumber", label: "Reference", align: "left" },
-        { key: "performedBy", label: "User", align: "left" },
-        { key: "createdAt", label: "Date", align: "left", format: "date" },
-    ],
-    users: [
-        { key: "name", label: "Name", align: "left" },
-        { key: "email", label: "Email", align: "left" },
-        { key: "role", label: "Role", align: "left" },
-        { key: "isActive", label: "Active", align: "center", format: "boolean" },
-        { key: "revenueGenerated", label: "Revenue", align: "right", format: "currency" },
-        { key: "createdAt", label: "Joined", align: "left", format: "date" },
-    ],
-    organizations: [
-        { key: "name", label: "Organization", align: "left" },
-        { key: "contactEmail", label: "Email", align: "left" },
-        { key: "usersCount", label: "Users", align: "right" },
-        { key: "productsCount", label: "Products", align: "right" },
-        { key: "salesValue", label: "Sales Value", align: "right", format: "currency" },
-        { key: "status", label: "Status", align: "center" },
-    ],
-    forecast: [
-        { key: "productId.name", label: "Product", align: "left" },
-        { key: "predictedDemand", label: "Predicted Demand", align: "right" },
-        { key: "forecastPeriod", label: "Period", align: "center" },
-        { key: "daysUntilStockout", label: "Days to Stockout", align: "right" },
-        { key: "status", label: "Status", align: "center" },
-    ],
-    anomalies: [
-        { key: "productId.name", label: "Product", align: "left" },
-        { key: "type", label: "Type", align: "left" },
-        { key: "description", label: "Description", align: "left" },
-        { key: "severityDisplay", label: "Severity", align: "center" },
-    ],
-    suggestions: [
-        { key: "productId.name", label: "Product", align: "left" },
-        { key: "suggestedReorderQuantity", label: "Suggested Qty", align: "right" },
-        { key: "supplierName", label: "Supplier", align: "left" },
-        { key: "priority", label: "Priority", align: "center" },
-    ],
-    deadStock: [
-        { key: "name", label: "Product Name", align: "left" },
-        { key: "sku", label: "SKU", align: "left" },
-        { key: "quantity", label: "Quantity", align: "right" },
-        { key: "costPrice", label: "Cost Price", align: "right", format: "currency" },
-        { key: "value", label: "Total Value", align: "right", format: "currency" },
-        { key: "category", label: "Category", align: "left" },
-        { key: "supplier", label: "Supplier", align: "left" },
-    ],
-    invoice_items: [
-        { key: "productName", label: "Product Name", align: "left" },
-        { key: "sku", label: "SKU", align: "left" },
-        { key: "quantity", label: "Quantity", align: "right" },
-        { key: "unitPrice", label: "Unit Price", align: "right", format: "currency" },
-        { key: "unitCost", label: "Unit Cost", align: "right", format: "currency" },
-        { key: "subtotal", label: "Subtotal", align: "right", format: "currency" },
-        { key: "profit", label: "Profit", align: "right", format: "currency" },
-        { key: "margin", label: "Margin", align: "right", format: "percentage" },
-    ],
-    po_items: [
-        { key: "productName", label: "Product Name", align: "left" },
-        { key: "sku", label: "SKU", align: "left" },
-        { key: "quantity", label: "Quantity", align: "right" },
-        { key: "unitCost", label: "Unit Cost", align: "right", format: "currency" },
-        { key: "totalCost", label: "Total Cost", align: "right", format: "currency" },
-    ],
-    customer_purchases: [
-        { key: "productName", label: "Product Name", align: "left" },
-        { key: "sku", label: "SKU", align: "left" },
-        { key: "quantityPurchased", label: "Qty Bought", align: "right" },
-        { key: "totalSpent", label: "Total Spent", align: "right", format: "currency" },
-    ],
-    // GROUP BY SCHEMAS
-    grouped_categories: [
-        { key: "categoryName", label: "Category Name", align: "left" },
-        { key: "productCount", label: "Products", align: "right" },
-        { key: "totalStock", label: "Stock", align: "right" },
-        { key: "totalCostValue", label: "Cost Value", align: "right", format: "currency" },
-        { key: "totalSellingValue", label: "Selling Value", align: "right", format: "currency" },
-        { key: "totalPotentialProfit", label: "Potential Profit", align: "right", format: "currency" },
-        { key: "averageMargin", label: "Avg Margin", align: "right", format: "percentage" },
-    ],
-    grouped_suppliers: [
-        { key: "supplierName", label: "Supplier", align: "left" },
-        { key: "productCount", label: "Products", align: "right" },
-        { key: "totalStock", label: "Total Stock", align: "right" },
-        { key: "totalCostValue", label: "Total Cost", align: "right", format: "currency" },
-        { key: "totalSellingValue", label: "Total Value", align: "right", format: "currency" },
-        { key: "totalPotentialProfit", label: "Potential Profit", align: "right", format: "currency" },
-        { key: "averageMargin", label: "Avg Margin", align: "right", format: "percentage" },
-    ],
-    grouped_status: [
-        { key: "statusDisplay", label: "Status", align: "center" },
-        { key: "productCount", label: "Products", align: "right" },
-        { key: "totalStock", label: "Total Stock", align: "right" },
-        { key: "totalCostValue", label: "Total Cost", align: "right", format: "currency" },
-        { key: "totalSellingValue", label: "Total Value", align: "right", format: "currency" },
-        { key: "totalPotentialProfit", label: "Potential Profit", align: "right", format: "currency" },
-        { key: "averageMargin", label: "Avg Margin", align: "right", format: "percentage" },
-    ],
-    grouped_customers: [
-        { key: "_id", label: "Customer", align: "left" },
-        { key: "salesCount", label: "Orders", align: "right" },
-        { key: "totalRevenue", label: "Total Revenue", align: "right", format: "currency" },
-        { key: "averageRevenue", label: "Avg Revenue", align: "right", format: "currency" },
-    ],
-    grouped_sales_monthly: [
-        { key: "_id", label: "Month", align: "left" },
-        { key: "salesCount", label: "Orders", align: "right" },
-        { key: "totalRevenue", label: "Total Revenue", align: "right", format: "currency" },
-        { key: "averageRevenue", label: "Avg Revenue", align: "right", format: "currency" },
-    ],
-    grouped_sales_daily: [
-        { key: "_id", label: "Date", align: "left" },
-        { key: "salesCount", label: "Orders", align: "right" },
-        { key: "totalRevenue", label: "Total Revenue", align: "right", format: "currency" },
-        { key: "averageRevenue", label: "Avg Revenue", align: "right", format: "currency" },
-    ],
-    grouped_sales_status: [
-        { key: "_id", label: "Status", align: "center" },
-        { key: "salesCount", label: "Orders", align: "right" },
-        { key: "totalRevenue", label: "Total Revenue", align: "right", format: "currency" },
-        { key: "averageRevenue", label: "Avg Revenue", align: "right", format: "currency" },
-    ],
-    grouped_purchase_suppliers: [
-        { key: "supplierName", label: "Supplier", align: "left" },
-        { key: "orderCount", label: "Orders", align: "right" },
-        { key: "totalSpent", label: "Total Spent", align: "right", format: "currency" },
-        { key: "averageSpent", label: "Avg Spent", align: "right", format: "currency" },
-    ],
-    grouped_purchase_status: [
-        { key: "status", label: "Status", align: "center" },
-        { key: "orderCount", label: "Orders", align: "right" },
-        { key: "totalSpent", label: "Total Spent", align: "right", format: "currency" },
-        { key: "averageSpent", label: "Avg Spent", align: "right", format: "currency" },
-    ],
-    grouped_transactions_role: [
-        { key: "roleDisplay", label: "Role", align: "left" },
-        { key: "transactionCount", label: "Transactions", align: "right" },
-        { key: "totalQuantityIn", label: "Items In", align: "right" },
-        { key: "totalQuantityOut", label: "Items Out", align: "right" },
-        { key: "totalQuantity", label: "Total Items", align: "right" },
-        { key: "uniqueUsersCount", label: "Users", align: "right" },
-    ],
-    grouped_transactions_user: [
-        { key: "userName", label: "User Name", align: "left" },
-        { key: "userRole", label: "Role", align: "left" },
-        { key: "transactionCount", label: "Transactions", align: "right" },
-        { key: "totalQuantityIn", label: "Items In", align: "right" },
-        { key: "totalQuantityOut", label: "Items Out", align: "right" },
-        { key: "totalQuantity", label: "Total Items", align: "right" },
-    ],
-    grouped_transactions_type: [
-        { key: "typeDisplay", label: "Type", align: "center" },
-        { key: "transactionCount", label: "Transactions", align: "right" },
-        { key: "totalQuantity", label: "Total Items", align: "right" },
-    ],
-    grouped_transactions_reason: [
-        { key: "reason", label: "Reason", align: "left" },
-        { key: "transactionCount", label: "Transactions", align: "right" },
-        { key: "totalQuantity", label: "Total Items", align: "right" },
-    ],
-    grouped_roles: [
-        { key: "roleDisplay", label: "Role", align: "left" },
-        { key: "userCount", label: "Total Users", align: "right" },
-        { key: "activeCount", label: "Active Users", align: "right" },
-        { key: "invoicesCreated", label: "Invoices Created", align: "right" },
-        { key: "totalRevenue", label: "Revenue Generated", align: "right", format: "currency" },
-    ],
+const formatCurrency = (value) => {
+    const num = typeof value === "number" ? value : parseFloat(value);
+    if (num === undefined || num === null || isNaN(num)) return "PKR 0.00";
+    return `PKR ${num.toLocaleString("en-PK", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
 };
 
-const isDetailedRequest = (userQueryText = "") => {
-    if (!userQueryText) return false;
-    const lower = userQueryText.toLowerCase();
-    return (
-        lower.includes("detail") ||
-        lower.includes("complete") ||
-        lower.includes("all field") ||
-        lower.includes("every field") ||
-        lower.includes("full info") ||
-        lower.includes("margin") ||
-        lower.includes("cost price") ||
-        lower.includes("profit") ||
-        lower.includes("valuation")
-    );
+const formatPercentage = (value) => {
+    if (value === undefined || value === null || isNaN(value)) return "0%";
+    const pctVal = value > 1 ? value : value * 100;
+    return `${Math.round(pctVal)}%`;
 };
 
-const resolveTableConfig = (data, toolName, userQueryText = "") => {
-    if (!Array.isArray(data) || data.length === 0) {
-        return { schema: [], title: "Data" };
-    }
-    const sample = data[0];
+const formatCellValue = (value, col) => {
+    if (value === null || value === undefined || value === "") return "—";
 
-    // Check for grouped data - ORDER MATTERS!
-    if (sample.categoryName !== undefined && sample.productCount !== undefined) {
-        return { schema: COLUMN_SCHEMAS.grouped_categories, title: "Categories" };
-    }
-    if (sample.supplierName !== undefined && sample.productCount !== undefined) {
-        return { schema: COLUMN_SCHEMAS.grouped_suppliers, title: "Suppliers" };
-    }
-    if (sample.statusDisplay !== undefined && sample.productCount !== undefined) {
-        return { schema: COLUMN_SCHEMAS.grouped_status, title: "Stock Status" };
-    }
-    if (sample.status !== undefined && sample.orderCount !== undefined) {
-        return { schema: COLUMN_SCHEMAS.grouped_purchase_status, title: "Purchase Status" };
-    }
-    if (sample.salesCount !== undefined && sample.totalRevenue !== undefined) {
-        if (sample._id && /^\d{4}-\d{2}$/.test(sample._id)) {
-            return { schema: COLUMN_SCHEMAS.grouped_sales_monthly, title: "Monthly Sales" };
+    // If value is already a formatted string, return it
+    if (typeof value === 'string') {
+        if (value.startsWith('PKR')) return value;
+        if (value.endsWith('%')) return value;
+        if (!isNaN(Date.parse(value))) {
+            const d = new Date(value);
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" });
+            }
         }
-        if (sample._id && /^\d{4}-\d{2}-\d{2}$/.test(sample._id)) {
-            return { schema: COLUMN_SCHEMAS.grouped_sales_daily, title: "Daily Sales" };
+        return value;
+    }
+
+    if (col?.format === "currency") {
+        const num = typeof value === 'number' ? value : parseFloat(value);
+        if (isNaN(num)) return "PKR 0.00";
+        return formatCurrency(num);
+    }
+    if (col?.format === "percentage") {
+        const num = typeof value === 'number' ? value : parseFloat(value);
+        if (isNaN(num)) return "0%";
+        return formatPercentage(num);
+    }
+    if (col?.format === "date") {
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) {
+            return d.toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" });
         }
-        return { schema: COLUMN_SCHEMAS.grouped_customers, title: "Customer Sales" };
+        return String(value);
     }
-    if (sample.orderCount !== undefined && sample.totalSpent !== undefined) {
-        return { schema: COLUMN_SCHEMAS.grouped_purchase_suppliers, title: "Supplier Orders" };
-    }
-
-    // Regular data detection
-    if (sample.unitPrice !== undefined && sample.quantity !== undefined) {
-        return { schema: COLUMN_SCHEMAS.invoice_items, title: "Invoice Line Items" };
-    }
-    if (sample.unitCost !== undefined && sample.totalCost !== undefined) {
-        return { schema: COLUMN_SCHEMAS.po_items, title: "Purchase Order Items" };
-    }
-    if (sample.quantityPurchased !== undefined && sample.totalSpent !== undefined) {
-        return { schema: COLUMN_SCHEMAS.customer_purchases, title: "Purchased Products" };
-    }
-    if (toolName === "query_inventory" || (sample.sku !== undefined && sample.quantity !== undefined && sample.sellingPrice !== undefined)) {
-        const isDetailed = isDetailedRequest(userQueryText);
-        return {
-            schema: isDetailed ? COLUMN_SCHEMAS.products_detailed : COLUMN_SCHEMAS.products_compact,
-            title: isDetailed ? "Detailed Products" : "Products",
-        };
-    }
-    if (toolName === "query_purchases" || sample.poNumber !== undefined) {
-        return { schema: COLUMN_SCHEMAS.purchases, title: "Purchase Orders" };
-    }
-    if (toolName === "query_sales" || sample.invoiceNumber !== undefined) {
-        return { schema: COLUMN_SCHEMAS.sales, title: "Invoices" };
-    }
-    if (toolName === "query_transactions" || (sample.type !== undefined && sample.reason !== undefined && sample.performedBy !== undefined)) {
-        return { schema: COLUMN_SCHEMAS.transactions, title: "Transactions" };
-    }
-    if (sample.role !== undefined && sample.email !== undefined) {
-        return { schema: COLUMN_SCHEMAS.users, title: "Users" };
-    }
-    if (sample.contactEmail !== undefined && sample.productsCount !== undefined) {
-        return { schema: COLUMN_SCHEMAS.organizations, title: "Organizations" };
-    }
-    if (sample.predictedDemand !== undefined) {
-        return { schema: COLUMN_SCHEMAS.forecast, title: "Demand Forecast" };
-    }
-    if (sample.severityDisplay !== undefined || sample.severity !== undefined) {
-        return { schema: COLUMN_SCHEMAS.anomalies, title: "Anomalies" };
-    }
-    if (sample.suggestedReorderQuantity !== undefined) {
-        return { schema: COLUMN_SCHEMAS.suggestions, title: "Reorder Suggestions" };
-    }
-    if (sample.daysWithoutSale !== undefined || (sample.value !== undefined && sample.costPrice !== undefined && sample.quantity !== undefined)) {
-        return { schema: COLUMN_SCHEMAS.deadStock, title: "Dead Stock" };
+    if (col?.format === "boolean") {
+        return value ? "Yes" : "No";
     }
 
-    const excludedKeys = new Set(["_id", "__v", "statusKey", "statusEmoji", "statusLabel", "organizationId", "updatedAt", "createdBy", "supplierId", "categoryId"]);
-    const keys = Object.keys(sample).filter((k) => !excludedKeys.has(k));
-    const schema = keys.map((k) => ({
-        key: k,
-        label: k.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase()).trim(),
-        align: typeof sample[k] === "number" ? "right" : k.toLowerCase().includes("status") ? "center" : "left",
-    }));
+    // Auto-detect formatting
+    if (typeof value === 'number') {
+        const keyLower = (col?.key || '').toLowerCase();
+        if (keyLower.includes('price') || keyLower.includes('cost') ||
+            keyLower.includes('revenue') || keyLower.includes('total') ||
+            keyLower.includes('amount') || keyLower.includes('value') ||
+            keyLower.includes('profit') || keyLower.includes('subtotal') ||
+            keyLower.includes('valuation')) {
+            return formatCurrency(value);
+        }
+        if (keyLower.includes('margin') || keyLower.includes('percentage')) {
+            return formatPercentage(value);
+        }
+        return value;
+    }
 
-    return { schema, title: "Results" };
+    if (value instanceof Date) {
+        return value.toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" });
+    }
+
+    if (typeof value === 'boolean') {
+        return value ? "Yes" : "No";
+    }
+
+    if (Array.isArray(value)) {
+        return value.length;
+    }
+
+    if (typeof value === 'object') {
+        return JSON.stringify(value);
+    }
+
+    return String(value);
 };
 
 const hasStatusEmoji = (text) => {
@@ -343,77 +111,18 @@ const hasStatusEmoji = (text) => {
 
 const getValueByPath = (obj, path) => {
     if (!obj || !path) return undefined;
-    return path.split(".").reduce((acc, part) => acc && acc[part], obj);
+    const parts = path.split('.');
+    let current = obj;
+    for (const part of parts) {
+        if (current === null || current === undefined || typeof current !== 'object') {
+            return undefined;
+        }
+        current = current[part];
+    }
+    return current;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FIXED: formatCellValue - percentage now multiplies by 100
-// ─────────────────────────────────────────────────────────────────────────────
-
-const formatCellValue = (row, col) => {
-    const val = getValueByPath(row, col.key);
-    if (val === null || val === undefined || val === "") return "—";
-
-    if (col.format === "currency") {
-        if (typeof val === "string") {
-            const trimmed = val.trim();
-            if (trimmed.startsWith("PKR") || trimmed.startsWith("$")) {
-                return trimmed;
-            }
-            const cleanNum = parseFloat(trimmed.replace(/[^0-9.-]+/g, ""));
-            if (!isNaN(cleanNum)) {
-                return `PKR ${cleanNum.toLocaleString("en-PK", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                })}`;
-            }
-            return trimmed;
-        }
-        if (typeof val === "number" && !isNaN(val)) {
-            return `PKR ${val.toLocaleString("en-PK", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            })}`;
-        }
-        return String(val);
-    }
-
-    if (col.format === "percentage") {
-        if (typeof val === "string") {
-            const trimmed = val.trim();
-            if (trimmed.endsWith("%")) {
-                return trimmed;
-            }
-            const cleanNum = parseFloat(trimmed.replace(/[^0-9.-]+/g, ""));
-            if (!isNaN(cleanNum)) {
-                const pctVal = cleanNum > 1 ? cleanNum : cleanNum * 100;
-                return `${Math.round(pctVal)}%`;
-            }
-            return trimmed;
-        }
-        if (typeof val === "number" && !isNaN(val)) {
-            const pctVal = val > 1 ? val : val * 100;
-            return `${Math.round(pctVal)}%`;
-        }
-        return String(val);
-    }
-
-    if (col.format === "date" || val instanceof Date) {
-        const d = new Date(val);
-        return !isNaN(d.getTime()) ? d.toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" }) : String(val);
-    }
-    if (col.format === "boolean") {
-        return val ? "Yes" : "No";
-    }
-    if (col.format === "status") {
-        return val;
-    }
-    return String(val);
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// EMPTY STATE
-// ─────────────────────────────────────────────────────────────────────────────
+// ============ EMPTY STATE ============
 
 function EmptyState({ message }) {
     return (
@@ -441,9 +150,7 @@ function EmptyState({ message }) {
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STRUCTURED TABLE - UPDATED WITH FIXES
-// ─────────────────────────────────────────────────────────────────────────────
+// ============ STRUCTURED TABLE ============
 
 function StructuredTable({
     data,
@@ -451,131 +158,50 @@ function StructuredTable({
     messageId,
     onPageChange,
     isLoading,
-    toolName,
-    userQueryText,
-    schema,
+    fields,
+    tableTitle,
 }) {
-    // Check if data is empty
-    const isEmpty = !Array.isArray(data) || data.length === 0;
-
-    if (isEmpty) {
+    if (!Array.isArray(data) || data.length === 0) {
         return <EmptyState />;
     }
 
-    let resolvedSchema = [];
-    let resolvedTitle = "";
+    // Use fields from backend, or auto-detect from data
+    let columns = fields;
+    if (!columns || columns.length === 0) {
+        const sample = data[0];
+        columns = Object.keys(sample)
+            .filter(k => !k.startsWith('_') && k !== '__v')
+            .map((key) => {
+                const value = sample[key];
+                let type = typeof value;
+                if (value instanceof Date) type = 'date';
+                if (Array.isArray(value)) type = 'array';
 
-    // --- CRITICAL: Check for grouped data FIRST ---
-    const sample = data[0];
+                let format = undefined;
+                if (type === 'number') {
+                    const keyLower = key.toLowerCase();
+                    if (keyLower.includes('price') || keyLower.includes('cost') ||
+                        keyLower.includes('revenue') || keyLower.includes('total') ||
+                        keyLower.includes('amount') || keyLower.includes('value') ||
+                        keyLower.includes('profit') || keyLower.includes('subtotal') ||
+                        keyLower.includes('valuation')) {
+                        format = 'currency';
+                    } else if (keyLower.includes('margin') || keyLower.includes('percentage')) {
+                        format = 'percentage';
+                    }
+                }
+                if (type === 'date') format = 'date';
+                if (type === 'boolean') format = 'boolean';
 
-    // Category grouping
-    if (sample.categoryName !== undefined && sample.productCount !== undefined) {
-        resolvedSchema = COLUMN_SCHEMAS.grouped_categories;
-        resolvedTitle = "Categories";
-    }
-    // Supplier grouping
-    else if (sample.supplierName !== undefined && sample.productCount !== undefined) {
-        resolvedSchema = COLUMN_SCHEMAS.grouped_suppliers;
-        resolvedTitle = "Suppliers";
-    }
-    // Status grouping
-    else if ((sample.statusDisplay !== undefined || sample.status !== undefined) && sample.productCount !== undefined) {
-        resolvedSchema = COLUMN_SCHEMAS.grouped_status;
-        resolvedTitle = "Stock Status";
-    }
-    // Sales grouping
-    else if (sample.salesCount !== undefined && sample.totalRevenue !== undefined) {
-        if (sample._id && /^\d{4}-\d{2}$/.test(sample._id)) {
-            resolvedSchema = COLUMN_SCHEMAS.grouped_sales_monthly;
-            resolvedTitle = "Monthly Sales";
-        } else if (sample._id && /^\d{4}-\d{2}-\d{2}$/.test(sample._id)) {
-            resolvedSchema = COLUMN_SCHEMAS.grouped_sales_daily;
-            resolvedTitle = "Daily Sales";
-        } else {
-            resolvedSchema = COLUMN_SCHEMAS.grouped_customers;
-            resolvedTitle = "Customer Sales";
-        }
-    }
-    // Purchase grouping
-    else if (sample.orderCount !== undefined && sample.totalSpent !== undefined) {
-        if (sample.supplierName !== undefined) {
-            resolvedSchema = COLUMN_SCHEMAS.grouped_purchase_suppliers;
-            resolvedTitle = "Supplier Orders";
-        } else {
-            resolvedSchema = COLUMN_SCHEMAS.grouped_purchase_status;
-            resolvedTitle = "Purchase Status";
-        }
-    }
-    // Transaction grouping
-    else if (sample.transactionCount !== undefined) {
-        if (sample.roleDisplay !== undefined || sample.role !== undefined) {
-            resolvedSchema = COLUMN_SCHEMAS.grouped_transactions_role;
-            resolvedTitle = "Transactions by Role";
-        } else if (sample.userName !== undefined) {
-            resolvedSchema = COLUMN_SCHEMAS.grouped_transactions_user;
-            resolvedTitle = "Transactions by User";
-        } else if (sample.typeDisplay !== undefined || sample.type !== undefined) {
-            resolvedSchema = COLUMN_SCHEMAS.grouped_transactions_type;
-            resolvedTitle = "Transactions by Type";
-        } else if (sample.reason !== undefined) {
-            resolvedSchema = COLUMN_SCHEMAS.grouped_transactions_reason;
-            resolvedTitle = "Transactions by Reason";
-        }
-    }
-    // Role grouping
-    else if (sample.userCount !== undefined && sample.roleDisplay !== undefined) {
-        resolvedSchema = COLUMN_SCHEMAS.grouped_roles;
-        resolvedTitle = "Role Breakdown";
-    }
-    // Schema prop provided
-    else if (schema && COLUMN_SCHEMAS[schema]) {
-        resolvedSchema = COLUMN_SCHEMAS[schema];
-        const titleMap = {
-            products_compact: "Products",
-            products_detailed: "Detailed Products",
-            purchases: "Purchase Orders",
-            sales: "Invoices",
-            transactions: "Transactions",
-            transactions_grouped: "Grouped Transactions",
-            users: "Users",
-            grouped_roles: "Role Breakdown",
-            organizations: "Organizations",
-            forecast: "Demand Forecast",
-            anomalies: "Anomalies",
-            suggestions: "Reorder Suggestions",
-            deadStock: "Dead Stock",
-            grouped_categories: "Categories",
-            grouped_suppliers: "Suppliers",
-            grouped_status: "Stock Status",
-            grouped_customers: "Customer Sales",
-            grouped_sales_monthly: "Monthly Sales",
-            grouped_sales_daily: "Daily Sales",
-            grouped_sales_status: "Sales by Status",
-            grouped_purchase_suppliers: "Supplier Orders",
-            grouped_purchase_status: "Purchase Status",
-        };
-        resolvedTitle = titleMap[schema] || "Results";
-    }
-    // Fallback: resolve from data
-    else {
-        const config = resolveTableConfig(data, toolName, userQueryText);
-        resolvedSchema = config.schema;
-        resolvedTitle = config.title;
-    }
-
-    // If still no schema, create dynamic one
-    if (!resolvedSchema || resolvedSchema.length === 0) {
-        const keys = Object.keys(sample).filter(k => !k.startsWith('_') && !['__v', 'organizationId'].includes(k));
-        resolvedSchema = keys.map(k => ({
-            key: k,
-            label: k.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
-            align: typeof sample[k] === "number" ? "right" : "left",
-            format: typeof sample[k] === "number" &&
-                (k.toLowerCase().includes('cost') || k.toLowerCase().includes('revenue') ||
-                    k.toLowerCase().includes('spent') || k.toLowerCase().includes('value')) ? "currency" :
-                k.toLowerCase().includes('margin') || k.toLowerCase().includes('percentage') ? "percentage" : undefined,
-        }));
-        resolvedTitle = "Results";
+                return {
+                    key: key,
+                    label: key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()),
+                    type: type,
+                    align: type === 'number' ? 'right' :
+                        key.toLowerCase().includes('status') ? 'center' : 'left',
+                    format: format,
+                };
+            });
     }
 
     const page = pagination?.page || 1;
@@ -588,13 +214,15 @@ function StructuredTable({
     const isPrevDisabled = page <= 1 || isLoading;
     const isNextDisabled = page >= totalPages || isLoading;
 
+    const title = tableTitle || "Results";
+
     return (
         <div className="w-full my-4 shadow-2xs bg-card overflow-hidden transition-all">
             <div className="w-full overflow-x-auto max-h-[380px] scrollbar-thin relative">
                 <table className="w-full text-xs border-collapse min-w-[550px]">
                     <thead className="bg-muted/90 backdrop-blur-xs text-foreground border-b border-border font-semibold sticky top-0 z-10 select-none">
                         <tr>
-                            {resolvedSchema.map((col) => (
+                            {columns.map((col) => (
                                 <th
                                     key={col.key}
                                     className={cn(
@@ -608,48 +236,33 @@ function StructuredTable({
                         </tr>
                     </thead>
                     <tbody className={cn("divide-y divide-border transition-opacity duration-200", isLoading && "opacity-40")}>
-                        {data.map((row, rowIdx) => {
-                            // For grouped data, ensure we have proper display values
-                            const displayRow = { ...row };
-
-                            // If status exists but statusDisplay doesn't, create it
-                            if (row.status !== undefined && row.statusDisplay === undefined) {
-                                const statusMap = {
-                                    'in_stock': '🟢 In Stock',
-                                    'low_stock': '🟡 Low Stock',
-                                    'out_of_stock': '🔴 Out of Stock',
-                                    'dead_stock': '⚫ Dead Stock',
-                                };
-                                displayRow.statusDisplay = statusMap[row.status] || row.status;
-                            }
-
-                            return (
-                                <tr key={rowIdx} className="hover:bg-muted/40 transition-colors">
-                                    {resolvedSchema.map((col) => {
-                                        const formatted = formatCellValue(displayRow, col);
-                                        const hasEmoji = hasStatusEmoji(formatted);
-                                        return (
-                                            <td
-                                                key={col.key}
-                                                className={cn(
-                                                    "px-3.5 py-2.5 border-r last:border-0 border-border text-foreground whitespace-nowrap text-xs",
-                                                    col.align === "right" ? "text-right font-mono text-[11px]" : col.align === "center" || hasEmoji ? "text-center" : "text-left"
-                                                )}
-                                            >
-                                                {formatted}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            );
-                        })}
+                        {data.map((row, rowIdx) => (
+                            <tr key={rowIdx} className="hover:bg-muted/40 transition-colors">
+                                {columns.map((col) => {
+                                    const value = getValueByPath(row, col.key);
+                                    const formatted = formatCellValue(value, col);
+                                    const hasEmoji = hasStatusEmoji(formatted);
+                                    return (
+                                        <td
+                                            key={col.key}
+                                            className={cn(
+                                                "px-3.5 py-2.5 border-r last:border-0 border-border text-foreground whitespace-nowrap text-xs",
+                                                col.align === "right" ? "text-right font-mono text-[11px]" : col.align === "center" || hasEmoji ? "text-center" : "text-left"
+                                            )}
+                                        >
+                                            {formatted}
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        ))}
                     </tbody>
                 </table>
             </div>
 
             <div className="px-3 py-2 bg-muted/30 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <span className="text-[11px] text-muted-foreground select-none">
-                    Showing <span className="font-medium text-foreground">{start}–{end}</span> of <span className="font-medium text-foreground">{count}</span> {resolvedTitle.toLowerCase()}
+                    Showing <span className="font-medium text-foreground">{start}–{end}</span> of <span className="font-medium text-foreground">{count}</span> {title.toLowerCase()}
                 </span>
 
                 {totalPages > 1 && (
@@ -688,9 +301,7 @@ function StructuredTable({
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUGGESTED QUESTIONS
-// ─────────────────────────────────────────────────────────────────────────────
+// ============ SUGGESTED QUESTIONS ============
 
 function SuggestedQuestions({ questions, onSuggestionClick, disabled }) {
     if (!Array.isArray(questions) || questions.length === 0) return null;
@@ -721,9 +332,7 @@ function SuggestedQuestions({ questions, onSuggestionClick, disabled }) {
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MARKDOWN COMPONENTS & RENDERER
-// ─────────────────────────────────────────────────────────────────────────────
+// ============ MARKDOWN COMPONENTS ============
 
 const markdownComponents = {
     h1: ({ node, ...props }) => (
@@ -750,38 +359,13 @@ const markdownComponents = {
             {children}
         </li>
     ),
-    ol: ({ node, ...props }) => (
-        <ol className="list-decimal pl-5 mb-3.5 space-y-1.5 text-sm text-foreground wrap-break-word [word-break:break-word]" {...props} />
-    ),
-    blockquote: ({ node, ...props }) => (
-        <blockquote className="border-l-4 border-primary/50 bg-muted/40 pl-3 py-1 my-2.5 italic rounded-r text-foreground/80 text-sm wrap-break-word [word-break:break-word]" {...props} />
-    ),
-    strong: ({ node, ...props }) => (
-        <strong className="font-bold text-foreground" {...props} />
-    ),
-    em: ({ node, ...props }) => (
-        <em className="italic text-foreground" {...props} />
-    ),
-    table: ({ node, ...props }) => (
-        <div className="my-3 overflow-x-auto rounded-lg border border-border bg-card/60 shadow-sm scrollbar-thin">
-            <table className="w-full text-xs text-left text-foreground border-collapse" {...props} />
-        </div>
-    ),
-    thead: ({ node, ...props }) => (
-        <thead className="bg-muted/70 text-muted-foreground uppercase text-[11px] font-semibold tracking-wider border-b border-border" {...props} />
-    ),
-    tbody: ({ node, ...props }) => (
-        <tbody className="divide-y divide-border/50 bg-background/50" {...props} />
-    ),
-    tr: ({ node, ...props }) => (
-        <tr className="hover:bg-muted/40 transition-colors" {...props} />
-    ),
-    th: ({ node, ...props }) => (
-        <th className="px-3 py-2 font-semibold border-b border-border text-foreground" {...props} />
-    ),
-    td: ({ node, ...props }) => (
-        <td className="px-3 py-2 whitespace-nowrap text-foreground" {...props} />
-    ),
+    // CRITICAL: Override all table elements to render nothing
+    table: () => null,
+    thead: () => null,
+    tbody: () => null,
+    tr: () => null,
+    th: () => null,
+    td: () => null,
     code: ({ node, className, children, ...props }) => {
         const inline = !className;
         if (inline) {
@@ -822,9 +406,7 @@ const markdownComponents = {
     },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN MESSAGE COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
+// ============ MAIN MESSAGE COMPONENT ============
 
 export function MessageAnimated({
     message,
@@ -872,89 +454,32 @@ export function MessageAnimated({
     const pagination = message.pagination || null;
     const suggestedQuestions = message.suggestedQuestions || [];
     const pageLoading = message.pageLoading || false;
-    const schema = message.schema || null;
+    const fields = message.fields || null;
+    const tableTitle = message.tableTitle || "Results";
 
     const suggestionsDisabled = isHistoryConversation || isChatPending || pageLoading;
 
-    // Check if this is grouped data from the backend
-    const isGroupedData = tableData && Array.isArray(tableData) && tableData.length > 0 &&
-        (tableData[0].categoryName !== undefined ||
-            tableData[0].supplierName !== undefined ||
-            (tableData[0].status !== undefined && tableData[0].orderCount !== undefined) ||
-            (tableData[0].statusDisplay !== undefined && tableData[0].productCount !== undefined) ||
-            (tableData[0].salesCount !== undefined && tableData[0].totalRevenue !== undefined) ||
-            (tableData[0].orderCount !== undefined && tableData[0].totalSpent !== undefined));
+    const hasData = tableData && Array.isArray(tableData) && tableData.length > 0;
 
-    const cleanContent = useMemo(() => {
-        if (!content) return "";
-
-        // 1. Strip 💬 SUGGESTED QUESTIONS header
-        let cleaned = content.replace(/💬\s*SUGGESTED QUESTIONS[\s\S]*$/i, "").trim();
-
-        // 2. Normalize unicode bullets to markdown hyphen bullets
-        cleaned = cleaned.replace(/(\n|^)[ \t]*•[ \t]*/g, "$1- ");
-
-        // 3. Check if the result is empty
-        const hasEmptyData = message?.summary?.isEmpty === true ||
-            message?.isEmpty === true ||
-            (message?.pagination?.count === 0);
-
-        // 4. If empty data, clean up zero-summary and N/A rows
-        if (hasEmptyData) {
-            cleaned = cleaned.replace(/\|.*N\/A.*\|/g, "").trim();
-            cleaned = cleaned.replace(/\|[\s\-:]+\|/g, "").trim();
-            cleaned = cleaned.replace(/\| Name\/Number \| SKU \| Quantity \| Selling Price \| Status \|/g, "").trim();
-            cleaned = cleaned.replace(/\| \-\-\- \| \-\-\- \| \-\-\- \| \-\-\- \| \-\-\- \|/g, "").trim();
-        }
-
-        // 5. For grouped data, ensure the table renders properly
-        if (isGroupedData && !cleaned.includes("|")) {
-            const primaryRegex = /(##?\s*📊\s*PRIMARY CONTENT[^\n]*)/i;
-            if (primaryRegex.test(cleaned)) {
-                cleaned = cleaned.replace(primaryRegex, "$1\n\n| Data |\n| --- |\n");
-            } else {
-                cleaned = cleaned + "\n\n## 📊 PRIMARY CONTENT\n| Data |\n| --- |\n";
+    const customMarkdownComponents = useMemo(() => ({
+        ...markdownComponents,
+        table: () => {
+            if (hasData) {
+                return (
+                    <StructuredTable
+                        data={tableData}
+                        pagination={pagination}
+                        messageId={message.id}
+                        onPageChange={onPageChange}
+                        isLoading={pageLoading}
+                        fields={fields}
+                        tableTitle={tableTitle}
+                    />
+                );
             }
-        }
-
-        // 6. Regular data table placeholder
-        const hasData = message?.tableData && Array.isArray(message.tableData) && message.tableData.length > 0;
-        if (hasData && !hasEmptyData && !isGroupedData && !cleaned.includes("|")) {
-            const primaryRegex = /(##?\s*📊\s*PRIMARY CONTENT[^\n]*)/i;
-            if (primaryRegex.test(cleaned)) {
-                cleaned = cleaned.replace(primaryRegex, "$1\n\n| Data Table |\n| --- |\n");
-            } else {
-                cleaned = cleaned + "\n\n## 📊 PRIMARY CONTENT\n| Data Table |\n| --- |\n";
-            }
-        }
-
-        return cleaned;
-    }, [content, message?.tableData, message?.summary, message?.pagination, message?.isEmpty, isGroupedData]);
-
-    const customMarkdownComponents = useMemo(() => {
-        const hasData = tableData && Array.isArray(tableData) && tableData.length > 0;
-
-        return {
-            ...markdownComponents,
-            table: (props) => {
-                if (hasData) {
-                    return (
-                        <StructuredTable
-                            data={tableData}
-                            pagination={pagination}
-                            messageId={message.id}
-                            onPageChange={onPageChange}
-                            isLoading={pageLoading}
-                            toolName={message.toolName}
-                            userQueryText={message.userQueryText || message.query}
-                            schema={schema}
-                        />
-                    );
-                }
-                return markdownComponents.table(props);
-            },
-        };
-    }, [tableData, pagination, message.id, onPageChange, pageLoading, message.toolName, message.userQueryText, schema, message.query]);
+            return null;
+        },
+    }), [tableData, pagination, message.id, onPageChange, pageLoading, fields, tableTitle]);
 
     return (
         <div
@@ -982,8 +507,20 @@ export function MessageAnimated({
                             rehypePlugins={[rehypeHighlight]}
                             components={customMarkdownComponents}
                         >
-                            {cleanContent}
+                            {content}
                         </ReactMarkdown>
+
+                        {hasData && (
+                            <StructuredTable
+                                data={tableData}
+                                pagination={pagination}
+                                messageId={message.id}
+                                onPageChange={onPageChange}
+                                isLoading={pageLoading}
+                                fields={fields}
+                                tableTitle={tableTitle}
+                            />
+                        )}
 
                         <SuggestedQuestions
                             questions={suggestedQuestions}

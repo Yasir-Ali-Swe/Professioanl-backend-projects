@@ -1,3 +1,4 @@
+// pages/ChatbotPage.jsx
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,9 +27,9 @@ const ACTIVE_CHAT_CONVERSATION_KEY = "stockpilot.activeChatConversationId";
 
 const suggestionChips = [
     "Which products are low in stock right now?",
-    "Evaluate Acme Corp delivery compliance",
     "What was our total sales revenue this week?",
-    "Explain Zone A warehouse capacity issues",
+    "Show me all products",
+    "Show me all invoices",
 ];
 
 const createConversationId = () => {
@@ -155,6 +156,8 @@ function ChatbotPage() {
                     toolName: log.metadata?.toolName || null,
                     toolArgs: log.metadata?.toolArgs || null,
                     tableData: log.metadata?.tableData || null,
+                    fields: log.metadata?.fields || null,
+                    tableTitle: log.metadata?.tableTitle || "Results",
                     userQueryText: log.query,
                     schema: log.metadata?.schema || null,
                     logId: log._id,
@@ -226,6 +229,9 @@ function ChatbotPage() {
                 logId: null,
                 userQueryText: query,
                 schema: null,
+                tableData: null,
+                fields: null,
+                tableTitle: "Results",
             },
         ]);
 
@@ -261,6 +267,8 @@ function ChatbotPage() {
 
                     const toolData = res?.data || null;
                     const toolSchema = res?.schema || null;
+                    const toolFields = res?.fields || null;
+                    const toolTitle = res?.tableTitle || "Results";
 
                     if (pendingAssistantIdRef.current) {
                         setLocalMessages((prev) =>
@@ -271,6 +279,8 @@ function ChatbotPage() {
                                 return {
                                     ...message,
                                     tableData: toolData,
+                                    fields: toolFields,
+                                    tableTitle: toolTitle,
                                     schema: toolSchema,
                                 };
                             })
@@ -295,6 +305,8 @@ function ChatbotPage() {
                     const toolName = res?.toolName || null;
                     const toolArgs = res?.toolArgs || null;
                     const schema = res?.schema || null;
+                    const fields = res?.fields || null;
+                    const tableTitle = res?.tableTitle || "Results";
 
                     if (pendingAssistantIdRef.current) {
                         setLocalMessages((prev) =>
@@ -311,6 +323,8 @@ function ChatbotPage() {
                                     toolName,
                                     toolArgs,
                                     schema,
+                                    fields: fields || message.fields || null,
+                                    tableTitle: tableTitle || message.tableTitle || "Results",
                                     tableData: message.tableData || res?.data || null,
                                 };
                             })
@@ -375,18 +389,6 @@ function ChatbotPage() {
         }
     };
 
-    const handleClearContext = () => {
-        clearMutation.mutate(
-            { conversationId },
-            {
-                onSuccess: () => {
-                    setLocalMessages([]);
-                    setInput("");
-                },
-            }
-        );
-    };
-
     const handleSuggestionClick = useCallback((question) => {
         if (isHistoryConversation || isPending) return;
         submitQuery(question);
@@ -422,6 +424,8 @@ function ChatbotPage() {
                         return {
                             ...m,
                             tableData: result.data,
+                            fields: result.fields || m.fields,
+                            tableTitle: result.tableTitle || m.tableTitle || "Results",
                             pagination: result.pagination,
                             pageLoading: false,
                         };
@@ -523,14 +527,10 @@ function ChatbotPage() {
                                 <MessageScrollerContent className="px-4 pb-6 max-w-4xl mx-auto w-full">
                                     <div className="flex flex-col gap-6">
                                         <AnimatePresence initial={false}>
-                                            // In the message rendering section, add this check:
                                             {localMessages.map((message) => {
-                                                // Check if this is an empty result message
-                                                const isEmptyResult = message?.summary?.isEmpty === true ||
-                                                    message?.isEmpty === true ||
+                                                const isEmptyResult = message?.isEmpty === true ||
                                                     (message?.pagination?.count === 0 && message?.content?.includes("No data found"));
 
-                                                // If empty result, we want to show the friendly message without empty table
                                                 return (
                                                     <MessageScrollerItem
                                                         key={message.id}
@@ -643,4 +643,3 @@ function ChatbotPage() {
 }
 
 export default ChatbotPage;
-

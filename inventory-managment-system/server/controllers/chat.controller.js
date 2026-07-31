@@ -10,6 +10,7 @@ import {
 import chatLogModel from "../models/chatLog.model.js";
 import { GEMINI_API_KEY, GEMINI_MODEL } from "../config/env.js";
 import { CONSTANTS } from "../config/constants.js";
+import { verifyChatbotAccessPermission } from "../middleware/featureAccess.middleware.js";
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
@@ -362,10 +363,16 @@ For simple queries (e.g., organization name, tax rate, subscription details):
 - DO NOT include Markdown headers (like ## 📦 SUMMARY).
 - DO NOT include insights or recommendations.
 
-For data-driven responses:
+For plain list/record lookups (when isAnalytical is false, e.g. "show all products", "show all invoices", "show all suppliers", "show all categories", "show all users"):
+- Provide ONLY:
+  1. ## 📦 SUMMARY (Key metrics as bullet points)
+  2. ## 📊 PRIMARY CONTENT (State "Data is displayed in the table below.")
+- NEVER include ## 💡 AI INSIGHTS or ## 🎯 RECOMMENDATIONS for plain list lookups.
+
+For analytical queries (when isAnalytical is true, e.g. profit margins, ABC analysis, demand forecasts, anomaly reports, performance breakdowns):
 - Use this exact order:
   1. ## 📦 SUMMARY (Key metrics as bullet points)
-  2. ## 📊 PRIMARY CONTENT (Markdown table of retrieved rows)
+  2. ## 📊 PRIMARY CONTENT (State "Data is displayed in the table below.")
   3. ## 💡 AI INSIGHTS (2-3 comparative observations)
   4. ## 🎯 RECOMMENDATIONS (2-3 actionable steps)
 
@@ -596,6 +603,15 @@ export const chatWithAI = async (req, res) => {
     const role = req.user.role;
     const { query } = req.body;
 
+    const permCheck = await verifyChatbotAccessPermission(req.user, organizationId);
+    if (!permCheck.allowed) {
+      return res.status(permCheck.status || 403).json({
+        success: false,
+        message: permCheck.message,
+        upgradeRequired: permCheck.upgradeRequired || false,
+      });
+    }
+
     const conversationId = getConversationId(req);
 
     console.log("Received query:", query);
@@ -670,6 +686,8 @@ export const chatWithAI = async (req, res) => {
       call.args,
       organizationId,
       role,
+      null,
+      query,
     );
 
     if (toolResult.error) {
@@ -804,6 +822,15 @@ export const chatWithAIStream = async (req, res) => {
   const { query } = req.body;
   const conversationId = getConversationId(req);
 
+  const permCheck = await verifyChatbotAccessPermission(req.user, organizationId);
+  if (!permCheck.allowed) {
+    return res.status(permCheck.status || 403).json({
+      success: false,
+      message: permCheck.message,
+      upgradeRequired: permCheck.upgradeRequired || false,
+    });
+  }
+
   if (!query || query.trim().length === 0) {
     return res.status(400).json({
       success: false,
@@ -928,11 +955,16 @@ export const chatWithAIStream = async (req, res) => {
       return;
     }
 
+    const lastLog = await chatLogModel.findOne({ conversationId, userId }).sort({ createdAt: -1 }).lean();
+    const previousMetadata = lastLog?.metadata || null;
+
     const toolResult = await executeTool(
       call.name,
       call.args,
       organizationId,
       role,
+      previousMetadata,
+      query,
     );
 
     if (toolResult.error) {
@@ -1168,9 +1200,26 @@ Write in short, direct, friendly sentences.`;
         ? `PAGINATION RANGE RULE: Include the exact stated range: "${trimmedResult.showingRange}" in the SUMMARY section.`
         : "";
 
+      const isAnalytical = trimmedResult?.isAnalytical === true;
       let instructions = "";
 
-      if (intent === "LINE_ITEMS") {
+      if (!isAnalytical) {
+        instructions = `
+INTENT: Plain record/list lookup query.
+RULES:
+1. Provide a concise summary metric list under "## 📦 SUMMARY". Include ${showingRangeText}.
+2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
+3. Under "## 📊 PRIMARY CONTENT", state "Data is displayed in the table below."
+4. CRITICAL MANDATORY RULE: NEVER include "## 💡 AI INSIGHTS" or "## 🎯 RECOMMENDATIONS" sections in your response. Plain record lookups must NEVER receive insights or recommendations.
+
+REQUIRED LAYOUT:
+## 📦 SUMMARY
+- (Key metrics & summary)
+
+## 📊 PRIMARY CONTENT
+Data is displayed in the table below.
+`;
+      } else if (intent === "LINE_ITEMS") {
         instructions = `
 INTENT: The user wants to see specific line items or products within an invoice or purchase order.
 
@@ -1188,7 +1237,7 @@ REQUIRED LAYOUT:
 Data is displayed in the table below.
 
 ## 💡 AI INSIGHTS
-- (2-3 observations)
+- (2-3 observations grounded strictly in the tool result data)
 `;
       } else if (intent === "ENTITY_DETAILS") {
         instructions = `
@@ -1207,10 +1256,10 @@ REQUIRED LAYOUT:
 Data is displayed in the table below.
 
 ## 💡 AI INSIGHTS
-- (2-3 observations)
+- (2-3 observations grounded strictly in the tool result data)
 
 ## 🎯 RECOMMENDATIONS
-- (2-3 recommendations)
+- (2-3 recommendations grounded strictly in the tool result data)
 `;
       } else if (intent === "CUSTOMER_PROFILE") {
         instructions = `
@@ -1230,7 +1279,7 @@ REQUIRED LAYOUT:
 Data is displayed in the table below.
 
 ## 💡 AI INSIGHTS
-- (2-3 observations)
+- (2-3 observations grounded strictly in the tool result data)
 `;
       } else if (intent === "GROUPED_TRANSACTIONS") {
         instructions = `
@@ -1285,8 +1334,6 @@ INTENT: Show organization team members / users.
 RULES:
 1. Under "## 📦 SUMMARY", list total users, active users, and roles breakdown.
 2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
-3. Provide 2-3 observations under "## 💡 AI INSIGHTS".
-4. Provide 2-3 next steps under "## 🎯 RECOMMENDATIONS".
 
 REQUIRED LAYOUT:
 ## 📦 SUMMARY
@@ -1294,12 +1341,6 @@ REQUIRED LAYOUT:
 
 ## 📊 PRIMARY CONTENT
 Data is displayed in the table below.
-
-## 💡 AI INSIGHTS
-- (2-3 observations)
-
-## 🎯 RECOMMENDATIONS
-- (2-3 recommendations)
 `;
       } else if (intent === "ORGANIZATION_OVERVIEW") {
         instructions = `
@@ -1332,7 +1373,6 @@ RULES:
 1. Provide quick metric summary under "## 📦 SUMMARY". Include ${showingRangeText}.
 2. CRITICAL: DO NOT generate markdown tables. The table data will be rendered separately.
 3. Just state "Data is displayed in the table below." under PRIMARY CONTENT.
-4. Provide 2-3 brief insights under "## 💡 AI INSIGHTS".
 
 REQUIRED LAYOUT:
 ## 📦 SUMMARY
@@ -1341,9 +1381,6 @@ REQUIRED LAYOUT:
 
 ## 📊 PRIMARY CONTENT
 Data is displayed in the table below.
-
-## 💡 AI INSIGHTS
-- (2-3 analytical comparative observations)
 `;
       } else {
         instructions = `

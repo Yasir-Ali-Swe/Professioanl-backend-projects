@@ -39,7 +39,7 @@ const formatCellValue = (value, col) => {
     if (typeof value === 'string') {
         if (value.startsWith('PKR')) return value;
         if (value.endsWith('%')) return value;
-        if (!isNaN(Date.parse(value))) {
+        if (col?.format === "date" || col?.type === "date") {
             const d = new Date(value);
             if (!isNaN(d.getTime())) {
                 return d.toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" });

@@ -283,7 +283,7 @@ const createEmptyResult = (message) => {
 
 // ============ 1. INVENTORY TOOL ============
 
-const handleInventory = async (args, organizationId) => {
+export const handleInventory = async (args, organizationId) => {
   const filter = buildFindFilter(organizationId, { isActive: true });
 
   if (args.search) {
@@ -695,7 +695,7 @@ const handlePurchases = async (args, organizationId) => {
 
 // ============ 3. SALES TOOL ============
 
-const handleSales = async (args, organizationId) => {
+export const handleSales = async (args, organizationId) => {
   const filter = buildFindFilter(organizationId);
 
   const { startDate, endDate } = parseDateRange(args);
@@ -1063,9 +1063,11 @@ const handleGetDetails = async (args, organizationId) => {
   switch (type) {
     case "invoice": {
       const isObjectId = mongoose.Types.ObjectId.isValid(identifier);
+      const escapedInv = escapeRegex(identifier);
+      const flexInvPattern = escapedInv.replace(/(\d+)$/, (match, num) => `0*${num}`);
       const q = isObjectId
         ? { _id: identifier }
-        : { invoiceNumber: new RegExp(`^${escapeRegex(identifier)}$`, "i") };
+        : { invoiceNumber: new RegExp(`^${flexInvPattern}$`, "i") };
 
       const invoice = await invoiceModel
         .findOne({ ...baseQuery, ...q })
@@ -1153,9 +1155,11 @@ const handleGetDetails = async (args, organizationId) => {
 
     case "purchase_order": {
       const isObjectId = mongoose.Types.ObjectId.isValid(identifier);
+      const escapedPo = escapeRegex(identifier);
+      const flexPoPattern = escapedPo.replace(/(\d+)$/, (match, num) => `0*${num}`);
       const q = isObjectId
         ? { _id: identifier }
-        : { poNumber: new RegExp(`^${escapeRegex(identifier)}$`, "i") };
+        : { poNumber: new RegExp(`^${flexPoPattern}$`, "i") };
 
       const po = await purchaseOrderModel
         .findOne({ ...baseQuery, ...q })
@@ -1358,6 +1362,8 @@ const handleTransactions = async (args, organizationId) => {
   };
 };
 
+import { planAndExecuteChatQuery } from "./resolvers/chatQueryPlanner.js";
+
 // ============ EXPORTS ============
 
 export const executeTool = async (
@@ -1365,57 +1371,18 @@ export const executeTool = async (
   args,
   organizationId,
   role = "admin",
+  previousMetadata = null,
+  userQuery = "",
 ) => {
   try {
-    const enhancedArgs = { ...args, _query: args._query || "" };
-    const queryText = (args._query || "").toLowerCase();
-
-    // Intent 1: Admin Profile Lookup
-    if (
-      queryText.includes("admin profile") ||
-      queryText.includes("admin user") ||
-      queryText.includes("admin of org") ||
-      queryText.includes("who is the admin") ||
-      queryText.includes("admin info") ||
-      args.role === "admin"
-    ) {
-      if (toolName === "query_organization" || toolName === "get_details") {
-        return await resolveAdminProfileIntent(organizationId);
-      }
-    }
-
-    // Intent 2: Category Profit Margin Lookup / Aggregation
-    if (
-      queryText.includes("profit margin") ||
-      queryText.includes("margin from") ||
-      queryText.includes("category margin") ||
-      queryText.includes("category profit")
-    ) {
-      return await resolveProfitMarginByCategoryIntent(
-        queryText,
-        enhancedArgs,
-        organizationId,
-      );
-    }
-
-    switch (toolName) {
-      case "query_inventory":
-        return await handleInventory(enhancedArgs, organizationId);
-      case "query_purchases":
-        return await handlePurchases(enhancedArgs, organizationId);
-      case "query_sales":
-        return await handleSales(enhancedArgs, organizationId);
-      case "query_organization":
-        return await handleOrganization(enhancedArgs, organizationId);
-      case "query_insights":
-        return await handleInsights(enhancedArgs, organizationId);
-      case "get_details":
-        return await handleGetDetails(enhancedArgs, organizationId);
-      case "query_transactions":
-        return await handleTransactions(enhancedArgs, organizationId);
-      default:
-        return createEmptyResult("I don't understand that request. Please rephrase.");
-    }
+    const queryText = userQuery || args?._query || "";
+    return await planAndExecuteChatQuery({
+      queryText,
+      args,
+      organizationId,
+      role,
+      previousMetadata,
+    });
   } catch (error) {
     console.error(`Error in ${toolName}:`, error);
     return createEmptyResult("An error occurred processing your request.");

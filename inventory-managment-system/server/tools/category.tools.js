@@ -3,8 +3,6 @@ import Product from "../models/product.model.js";
 import { applyScopeFilter } from "../utils/scopeFilter.js";
 import { sanitizeForModel } from "../utils/sanitizeForModel.js";
 
-// ============ DECLARATION ============
-
 export const categoryToolsDeclaration = {
   name: "query_categories",
   description: `
@@ -54,8 +52,6 @@ Use this tool whenever the user asks about:
     required: ["action"],
   },
 };
-
-// ============ HANDLER ============
 
 export const categoryToolsHandler = async (args, scopeContext) => {
   const { scope, organizationId } = scopeContext;

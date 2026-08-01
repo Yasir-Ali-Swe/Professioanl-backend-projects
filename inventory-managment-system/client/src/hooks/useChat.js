@@ -20,7 +20,7 @@ export const useConversations = (options = {}) => {
   return useQuery({
     queryKey: CHAT_KEYS.conversations(),
     queryFn: () => chatApi.getConversations(),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,              // always consider stale so invalidation always refetches
     refetchOnMount: "always",
     refetchOnWindowFocus: false,
     ...options,
@@ -82,7 +82,7 @@ export const useChatWithAI = () => {
 
       toast.error(
         error.response?.data?.message ||
-          "Failed to send message. Please try again.",
+        "Failed to send message. Please try again.",
       );
     },
   });

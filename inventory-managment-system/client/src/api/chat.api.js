@@ -1,3 +1,4 @@
+// src/api/chat.api.js
 import axios from "axios";
 import axiosInstance from "@/lib/axiosInstance";
 import store from "@/store";
@@ -61,15 +62,37 @@ const parseSseBuffer = (buffer, onPayload) => {
   return workingBuffer;
 };
 
-export const chatWithAI = (data, config = {}) => {
+// ============================================================
+// Get all conversations for the current user
+// ============================================================
+export const getConversations = () => {
+  return axiosInstance.get("/api/v1/ai/conversations").then((res) => res.data);
+};
+
+// ============================================================
+// Get conversation history by conversationId
+// ============================================================
+export const getChatHistory = (conversationId) => {
   return axiosInstance
-    .post("/api/v1/ai/chat", data, config)
+    .get(`/api/v1/ai/history/${conversationId}`)
     .then((res) => res.data);
 };
 
+// ============================================================
+// Non-streaming chat (fallback)
+// ============================================================
+export const chatWithAI = (data, config = {}) => {
+  return axiosInstance
+    .post("/api/v1/ai/message", data, config)
+    .then((res) => res.data);
+};
+
+// ============================================================
+// Streaming chat (main)
+// ============================================================
 export const chatWithAIStream = async (data = {}, handlers = {}) => {
-  const { signal, ...payload } = data;
-  const streamUrl = `${getBaseUrl()}/api/v1/ai/chat/stream`;
+  const { signal, message, conversationId, ...payload } = data;
+  const streamUrl = `${getBaseUrl()}/api/v1/ai/message/stream`;
 
   const executeRequest = async (retried = false) => {
     const accessToken = getAccessToken();
@@ -81,7 +104,7 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       credentials: "include",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ message, conversationId }),
       signal,
     });
 
@@ -111,29 +134,39 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let fullMarkdown = "";
     let finalPayload = null;
 
     const handlePayload = (payloadEvent) => {
-      handlers.onEvent?.(payloadEvent);
-
-      if (payloadEvent.type === "chunk") {
-        handlers.onChunk?.(payloadEvent.content || "", payloadEvent);
+      // Handle thinking event
+      if (payloadEvent.event === "thinking") {
+        handlers.onThinking?.(payloadEvent.message);
+        return;
       }
 
-      if (payloadEvent.type === "tool") {
-        handlers.onTool?.(payloadEvent);
+      // Handle streaming chunk
+      if (payloadEvent.chunk) {
+        fullMarkdown += payloadEvent.chunk;
+        handlers.onChunk?.(payloadEvent.chunk, fullMarkdown);
+        return;
       }
 
-      if (payloadEvent.type === "complete") {
-        // Backend now sends suggestedQuestions as structured metadata directly
-        // in the complete event — no markdown parsing needed.
-        finalPayload = payloadEvent;
-        handlers.onComplete?.(payloadEvent);
+      // Handle completion
+      if (payloadEvent.done === true) {
+        finalPayload = {
+          markdown: fullMarkdown,
+          conversationId: payloadEvent.conversationId,
+          intent: payloadEvent.intent,
+          entityRefs: payloadEvent.entityRefs,
+        };
+        handlers.onComplete?.(finalPayload);
+        return;
       }
 
-      if (payloadEvent.type === "error") {
+      // Handle error
+      if (payloadEvent.error) {
         const streamError = new Error(
-          payloadEvent.message || "Streaming request failed",
+          payloadEvent.error || "Streaming request failed",
         );
         streamError.response = { data: payloadEvent };
         handlers.onError?.(streamError);
@@ -158,7 +191,6 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
         buffer = parseSseBuffer(buffer, handlePayload);
       }
 
-      // Flush any remaining bytes
       buffer += decoder.decode();
       buffer = parseSseBuffer(buffer, handlePayload);
 
@@ -169,27 +201,4 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
   };
 
   return executeRequest();
-};
-
-/**
- * Fetch a specific page of table data for an existing chatbot response.
- * Returns structured data without generating a new AI response.
- */
-export const getChatPage = (data) =>
-  axiosInstance.post("/api/v1/ai/chat/page", data).then((res) => res.data);
-
-export const getChatHistory = (params = {}) => {
-  return axiosInstance
-    .get("/api/v1/ai/chat/history", { params })
-    .then((res) => res.data);
-};
-
-export const clearContext = (data = {}) => {
-  return axiosInstance
-    .delete("/api/v1/ai/chat/context", { data })
-    .then((res) => res.data);
-};
-
-export const getChatAnalytics = () => {
-  return axiosInstance.get("/api/v1/ai/chat/analytics").then((res) => res.data);
 };

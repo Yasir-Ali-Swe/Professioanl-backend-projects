@@ -1,5 +1,5 @@
-import Organization from "../models/Organization.model.js";
-import SubscriptionPlan from "../models/Organization.subscriptionPlan.js";
+import Organization from "../models/organization.model.js";
+import SubscriptionPlan from "../models/organization.subscriptionPlan.js";
 import Subscription from "../models/subscription.model.js";
 import User from "../models/user.model.js";
 import Product from "../models/product.model.js";
@@ -88,6 +88,7 @@ export const organizationToolsHandler = async (args, scopeContext) => {
           organizationId: organization._id,
         })
           .select("name email role isActive isVerified")
+          .sort({ name: 1 })
           .lean();
       }
 

@@ -66,7 +66,8 @@ export const verifyChatbotAccessPermission = async (user, organizationId) => {
     return {
       allowed: false,
       status: 403,
-      message: "Chatbot access is not available for your role. Access is restricted to organization administrators.",
+      message:
+        "Chatbot access is not available for your role. Access is restricted to organization administrators.",
     };
   }
 
@@ -79,15 +80,19 @@ export const verifyChatbotAccessPermission = async (user, organizationId) => {
       };
     }
 
-    const { hasAccess, plan, message, upgradeRequired } = await checkPremiumAccess(organizationId);
+    const { hasAccess, plan, message, upgradeRequired } =
+      await checkPremiumAccess(organizationId);
     if (!hasAccess) {
       return {
         allowed: false,
         status: 403,
         upgradeRequired: true,
         currentPlan: plan || "free",
-        message: message || "The StockPilot AI chatbot requires an active Premium subscription with AI features enabled.",
-        recommendedAction: "Please upgrade to Premium plan to access this feature",
+        message:
+          message ||
+          "The StockPilot AI chatbot requires an active Premium subscription with AI features enabled.",
+        recommendedAction:
+          "Please upgrade to Premium plan to access this feature",
       };
     }
 
@@ -103,7 +108,10 @@ export const verifyChatbotAccessPermission = async (user, organizationId) => {
 
 export const authorizeChatbotAccess = async (req, res, next) => {
   try {
-    const result = await verifyChatbotAccessPermission(req.user, req.organizationId);
+    const result = await verifyChatbotAccessPermission(
+      req.user,
+      req.organizationId,
+    );
 
     if (!result.allowed) {
       return res.status(result.status || 403).json({

@@ -2,9 +2,8 @@ import { v4 as uuidv4 } from "uuid";
 import ChatLog from "../models/chatLog.model.js";
 import { GeminiChatService } from "../services/geminiChatService.js";
 import { sanitizeForModel } from "../utils/sanitizeForModel.js";
-import { GEMINI_API_KEY, GEMINI_MODEL } from "../config/env.js";
 
-const geminiService = new GeminiChatService(GEMINI_API_KEY);
+const geminiService = new GeminiChatService(process.env.GEMINI_API_KEY);
 
 const buildConversationHistory = async (
   conversationId,
@@ -71,6 +70,9 @@ const buildConversationHistory = async (
   return { history, contextNote, lastEntityRefs };
 };
 
+// ============================================================
+// Non-streaming endpoint (existing - unchanged)
+// ============================================================
 export const sendMessage = async (req, res) => {
   try {
     const { message, conversationId } = req.body;
@@ -146,6 +148,155 @@ export const sendMessage = async (req, res) => {
   }
 };
 
+// ============================================================
+// Streaming endpoint (NEW)
+// ============================================================
+export const sendMessageStream = async (req, res) => {
+  // Set up SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering if present
+  res.flushHeaders();
+
+  try {
+    const { message, conversationId } = req.body;
+
+    if (!message || message.trim().length === 0) {
+      res.write(
+        `data: ${JSON.stringify({
+          error: "Message is required",
+          done: true,
+        })}\n\n`,
+      );
+      res.end();
+      return;
+    }
+
+    const user = req.user;
+    const organizationId = req.organizationId || null;
+    const scope = req.chatbotScope || "org";
+
+    const convId = conversationId || uuidv4();
+
+    const { history, contextNote } = await buildConversationHistory(
+      convId,
+      user._id,
+      organizationId,
+      6,
+    );
+
+    const geminiHistory = history.map((entry) => ({
+      role: entry.role === "user" ? "user" : "model",
+      parts: entry.parts,
+    }));
+
+    const scopeContext = {
+      scope,
+      organizationId,
+    };
+
+    // Send initial "thinking" event
+    res.write(
+      `data: ${JSON.stringify({
+        event: "thinking",
+        message: "🤔 Analyzing your request...",
+        done: false,
+      })}\n\n`,
+    );
+
+    let fullMarkdown = "";
+    let finalIntent = "";
+    let finalEntityRefs = null;
+    let hasError = false;
+
+    // Stream the response
+    for await (const event of geminiService.processMessageStream(
+      user._id,
+      convId,
+      message,
+      geminiHistory,
+      scopeContext,
+      contextNote,
+    )) {
+      if (event.error) {
+        hasError = true;
+        res.write(
+          `data: ${JSON.stringify({
+            error: event.chunk,
+            done: true,
+          })}\n\n`,
+        );
+        res.end();
+        return;
+      }
+
+      if (event.done) {
+        // Final event with complete data
+        fullMarkdown = event.fullMarkdown || fullMarkdown;
+        finalIntent = event.intent || "";
+        finalEntityRefs = event.entityRefs || null;
+
+        res.write(
+          `data: ${JSON.stringify({
+            done: true,
+            conversationId: convId,
+            intent: finalIntent,
+            entityRefs: finalEntityRefs,
+          })}\n\n`,
+        );
+        break;
+      }
+
+      // Streaming chunk
+      if (event.chunk) {
+        fullMarkdown += event.chunk;
+        res.write(
+          `data: ${JSON.stringify({
+            chunk: event.chunk,
+            done: false,
+          })}\n\n`,
+        );
+      }
+    }
+
+    // Save to ChatLog only if no error occurred
+    if (!hasError && fullMarkdown) {
+      const chatLog = new ChatLog({
+        organizationId: organizationId,
+        userId: user._id,
+        conversationId: convId,
+        query: message,
+        response: JSON.stringify({
+          markdown: fullMarkdown,
+          intent: finalIntent,
+          entityRefs: finalEntityRefs,
+        }),
+        intent: finalIntent || null,
+        metadata: {
+          entityRefs: finalEntityRefs || null,
+        },
+      });
+
+      await chatLog.save();
+    }
+
+    res.end();
+  } catch (error) {
+    console.error("Error in sendMessageStream:", error);
+    res.write(
+      `data: ${JSON.stringify({
+        error: error.message || "Internal server error",
+        done: true,
+      })}\n\n`,
+    );
+    res.end();
+  }
+};
+
+// ============================================================
+// Get conversation history (existing - unchanged)
+// ============================================================
 export const getHistory = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -206,6 +357,69 @@ export const getHistory = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getHistory:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ============================================================
+// List all conversations for the current user (NEW)
+// ============================================================
+export const listConversations = async (req, res) => {
+  try {
+    const user = req.user;
+    const organizationId = req.organizationId || null;
+
+    const query = {
+      userId: user._id,
+    };
+
+    if (organizationId) {
+      query.organizationId = organizationId;
+    }
+
+    // Get all distinct conversation IDs with their latest message
+    const conversations = await ChatLog.aggregate([
+      { $match: query },
+      {
+        $sort: { createdAt: -1 },
+      },
+      {
+        $group: {
+          _id: "$conversationId",
+          firstMessage: { $first: "$query" },
+          lastMessage: { $first: "$query" },
+          createdAt: { $first: "$createdAt" },
+          updatedAt: { $first: "$createdAt" },
+          messageCount: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { updatedAt: -1 },
+      },
+    ]);
+
+    // Format the response
+    const formattedConversations = conversations.map((conv) => ({
+      id: conv._id,
+      firstMessage: conv.firstMessage || "New conversation",
+      lastMessage: conv.lastMessage || "New conversation",
+      createdAt: conv.createdAt,
+      updatedAt: conv.updatedAt,
+      messageCount: conv.messageCount,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        conversations: formattedConversations,
+        count: formattedConversations.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error in listConversations:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",

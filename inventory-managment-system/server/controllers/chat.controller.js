@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import ChatLog from "../models/chatLog.model.js";
 import { GeminiChatService } from "../services/geminiChatService.js";
@@ -84,6 +85,8 @@ export const sendMessage = async (req, res) => {
       });
     }
 
+    console.log("Message is called.");
+
     const user = req.user;
     const organizationId = req.organizationId || null;
     const scope = req.chatbotScope || "org";
@@ -161,6 +164,7 @@ export const sendMessageStream = async (req, res) => {
 
   try {
     const { message, conversationId } = req.body;
+    console.log("Message Stream is called.")
 
     if (!message || message.trim().length === 0) {
       res.write(
@@ -236,15 +240,6 @@ export const sendMessageStream = async (req, res) => {
         fullMarkdown = event.fullMarkdown || fullMarkdown;
         finalIntent = event.intent || "";
         finalEntityRefs = event.entityRefs || null;
-
-        res.write(
-          `data: ${JSON.stringify({
-            done: true,
-            conversationId: convId,
-            intent: finalIntent,
-            entityRefs: finalEntityRefs,
-          })}\n\n`,
-        );
         break;
       }
 
@@ -260,26 +255,41 @@ export const sendMessageStream = async (req, res) => {
       }
     }
 
-    // Save to ChatLog only if no error occurred
+    // Save to ChatLog BEFORE sending final done event to client to avoid race conditions
     if (!hasError && fullMarkdown) {
-      const chatLog = new ChatLog({
-        organizationId: organizationId,
-        userId: user._id,
-        conversationId: convId,
-        query: message,
-        response: JSON.stringify({
-          markdown: fullMarkdown,
-          intent: finalIntent,
-          entityRefs: finalEntityRefs,
-        }),
-        intent: finalIntent || null,
-        metadata: {
-          entityRefs: finalEntityRefs || null,
-        },
-      });
-
-      await chatLog.save();
+      try {
+        const chatLog = new ChatLog({
+          organizationId: organizationId,
+          userId: user._id,
+          conversationId: convId,
+          query: message,
+          response: JSON.stringify({
+            markdown: fullMarkdown,
+            intent: finalIntent,
+            entityRefs: finalEntityRefs,
+          }),
+          intent: finalIntent || null,
+          metadata: {
+            entityRefs: finalEntityRefs || null,
+          },
+        });
+        console.log("ChatLog: ", chatLog);
+        await chatLog.save();
+        console.log(`✅ Saved ChatLog to DB for conversationId: ${convId}`);
+      } catch (saveErr) {
+        console.error("❌ Error saving ChatLog to DB:", saveErr.message);
+      }
     }
+
+    // Send final completion event to client ONLY AFTER ChatLog is saved
+    res.write(
+      `data: ${JSON.stringify({
+        done: true,
+        conversationId: convId,
+        intent: finalIntent,
+        entityRefs: finalEntityRefs,
+      })}\n\n`,
+    );
 
     res.end();
   } catch (error) {
@@ -301,7 +311,6 @@ export const getHistory = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const user = req.user;
-    const organizationId = req.organizationId || null;
 
     if (!conversationId) {
       return res.status(400).json({
@@ -314,10 +323,6 @@ export const getHistory = async (req, res) => {
       conversationId,
       userId: user._id,
     };
-
-    if (organizationId) {
-      query.organizationId = organizationId;
-    }
 
     const logs = await ChatLog.find(query).sort({ createdAt: 1 }).lean();
 
@@ -372,32 +377,40 @@ export const listConversations = async (req, res) => {
     const user = req.user;
     const organizationId = req.organizationId || null;
 
+    const userIdObj = mongoose.Types.ObjectId.isValid(user._id)
+      ? new mongoose.Types.ObjectId(user._id)
+      : user._id;
+
     const query = {
-      userId: user._id,
+      userId: userIdObj,
     };
 
     if (organizationId) {
-      query.organizationId = organizationId;
+      query.organizationId = mongoose.Types.ObjectId.isValid(organizationId)
+        ? new mongoose.Types.ObjectId(organizationId)
+        : organizationId;
     }
 
-    // Get all distinct conversation IDs with their latest message
+    // Get all distinct conversation IDs with their latest message.
+    // Sort ascending FIRST so $first = oldest message (real title) and
+    // $last = newest message (for updatedAt ordering).
     const conversations = await ChatLog.aggregate([
       { $match: query },
       {
-        $sort: { createdAt: -1 },
+        $sort: { createdAt: 1 }, // ascending: oldest first
       },
       {
         $group: {
           _id: "$conversationId",
-          firstMessage: { $first: "$query" },
-          lastMessage: { $first: "$query" },
-          createdAt: { $first: "$createdAt" },
-          updatedAt: { $first: "$createdAt" },
+          firstMessage: { $first: "$query" }, // oldest message = real conversation title
+          lastMessage: { $last: "$query" },   // newest message
+          createdAt: { $first: "$createdAt" }, // when the conversation started
+          updatedAt: { $last: "$createdAt" },  // when it was last active
           messageCount: { $sum: 1 },
         },
       },
       {
-        $sort: { updatedAt: -1 },
+        $sort: { updatedAt: -1 }, // show most recently active conversations first
       },
     ]);
 

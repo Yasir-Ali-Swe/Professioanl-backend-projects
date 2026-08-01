@@ -1,3 +1,5 @@
+// src/hooks/useChat.js
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as chatApi from "@/api/chat.api";
@@ -5,17 +7,19 @@ import * as chatApi from "@/api/chat.api";
 // ============ QUERY KEYS ============
 const CHAT_KEYS = {
   all: ["chat"],
+  conversationsRoot: () => [...CHAT_KEYS.all, "conversations"],
+  conversations: () => [...CHAT_KEYS.conversationsRoot()],
   historyRoot: () => [...CHAT_KEYS.all, "history"],
-  history: (params) => [...CHAT_KEYS.historyRoot(), { ...params }],
-  analyticsRoot: () => [...CHAT_KEYS.all, "analytics"],
-  analytics: () => [...CHAT_KEYS.analyticsRoot()],
+  history: (conversationId) => [...CHAT_KEYS.historyRoot(), conversationId],
 };
 
 // ============ QUERY HOOKS ============
-export const useChatHistory = (params = {}, options = {}) => {
+
+// Get all conversations for the sidebar
+export const useConversations = (options = {}) => {
   return useQuery({
-    queryKey: CHAT_KEYS.history(params),
-    queryFn: () => chatApi.getChatHistory(params),
+    queryKey: CHAT_KEYS.conversations(),
+    queryFn: () => chatApi.getConversations(),
     staleTime: 2 * 60 * 1000,
     refetchOnMount: "always",
     refetchOnWindowFocus: false,
@@ -23,45 +27,45 @@ export const useChatHistory = (params = {}, options = {}) => {
   });
 };
 
-export const useChatAnalytics = (options = {}) => {
+// Get conversation history by ID
+export const useChatHistory = (conversationId, options = {}) => {
   return useQuery({
-    queryKey: CHAT_KEYS.analytics(),
-    queryFn: () => chatApi.getChatAnalytics(),
+    queryKey: CHAT_KEYS.history(conversationId),
+    queryFn: () => chatApi.getChatHistory(conversationId),
+    enabled: Boolean(conversationId),
     staleTime: 5 * 60 * 1000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
     ...options,
   });
 };
 
 // ============ MUTATION HOOKS ============
 
+// Streaming chat mutation
 export const useChatWithAI = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
-      query,
+      message,
       conversationId,
       signal,
       onChunk,
-      onEvent,
+      onThinking,
       onComplete,
-      onTool,
     }) =>
       chatApi.chatWithAIStream(
-        { query, conversationId, signal },
-        {
-          onChunk,
-          onEvent,
-          onComplete,
-          onTool,
-        },
+        { message, conversationId, signal },
+        { onChunk, onThinking, onComplete },
       ),
     onSuccess: () => {
+      // Invalidate both conversations list and history
       queryClient.invalidateQueries({
-        queryKey: CHAT_KEYS.historyRoot(),
+        queryKey: CHAT_KEYS.conversations(),
       });
       queryClient.invalidateQueries({
-        queryKey: CHAT_KEYS.analyticsRoot(),
+        queryKey: CHAT_KEYS.historyRoot(),
       });
     },
     onError: (error) => {
@@ -79,55 +83,6 @@ export const useChatWithAI = () => {
       toast.error(
         error.response?.data?.message ||
           "Failed to send message. Please try again.",
-      );
-    },
-  });
-};
-
-export const useChatPage = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data) => chatApi.getChatPage(data),
-    onError: (error) => {
-      const isAbort =
-        error?.name === "AbortError" ||
-        error?.code === "ERR_CANCELED" ||
-        error?.message?.toLowerCase().includes("abort");
-
-      if (!isAbort) {
-        toast.error(
-          error.response?.data?.message ||
-            "Failed to load page. Please try again.",
-        );
-      }
-    },
-  });
-};
-export const useClearContext = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data = {}) => chatApi.clearContext(data),
-    onSuccess: (data, variables) => {
-      toast.success(
-        data.message || "Conversation context cleared successfully!",
-      );
-      queryClient.invalidateQueries({
-        queryKey: CHAT_KEYS.historyRoot(),
-      });
-      if (variables?.conversationId) {
-        queryClient.removeQueries({
-          queryKey: CHAT_KEYS.history({
-            conversationId: variables.conversationId,
-          }),
-        });
-      }
-    },
-    onError: (error) => {
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to clear context. Please try again.",
       );
     },
   });

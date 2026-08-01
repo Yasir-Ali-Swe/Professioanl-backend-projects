@@ -144,6 +144,16 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
         return;
       }
 
+      // Handle error (check before done flag)
+      if (payloadEvent.error) {
+        const streamError = new Error(
+          payloadEvent.error || "Streaming request failed",
+        );
+        streamError.response = { data: payloadEvent };
+        handlers.onError?.(streamError);
+        throw streamError;
+      }
+
       // Handle streaming chunk
       if (payloadEvent.chunk) {
         fullMarkdown += payloadEvent.chunk;
@@ -155,22 +165,12 @@ export const chatWithAIStream = async (data = {}, handlers = {}) => {
       if (payloadEvent.done === true) {
         finalPayload = {
           markdown: fullMarkdown,
-          conversationId: payloadEvent.conversationId,
+          conversationId: payloadEvent.conversationId || conversationId,
           intent: payloadEvent.intent,
           entityRefs: payloadEvent.entityRefs,
         };
         handlers.onComplete?.(finalPayload);
         return;
-      }
-
-      // Handle error
-      if (payloadEvent.error) {
-        const streamError = new Error(
-          payloadEvent.error || "Streaming request failed",
-        );
-        streamError.response = { data: payloadEvent };
-        handlers.onError?.(streamError);
-        throw streamError;
       }
     };
 

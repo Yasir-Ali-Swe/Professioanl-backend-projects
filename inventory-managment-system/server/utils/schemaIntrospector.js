@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 export const generateSchemaDescription = () => {
   const models = mongoose.modelNames();
   const parts = [];
-
+  const orderedModels = ['Organization', ...models.filter(m => m !== 'Organization')];
   for (const modelName of models) {
     const model = mongoose.model(modelName);
     const schema = model.schema;
@@ -58,6 +58,15 @@ export const generateSchemaDescription = () => {
   parts.push(
     "Settings: Organization.invoiceSettings: {taxRate, defaultDiscount, invoicePrefix, nextInvoiceNumber}",
   );
+  parts.push("\nKEY DATA TYPES:");
+  parts.push("- Organization: Company information (name, contactEmail, address, phone, status, invoiceSettings)");
+  parts.push("- Product: Inventory items (SKU, quantity, pricing, category, supplier)");
+  parts.push("- Invoice: Sales records (customerName, total, status, products)");
+  parts.push("- Supplier: Vendor information (name, contactPerson, email, phone, leadTimeDays)");
+  parts.push("- Category: Product categories (name, categorySlug)");
+  parts.push("- User: System users (name, email, role, isActive, isVerified)");
+  parts.push("- StockLog: Inventory movements (type, reason, quantity)");
+  parts.push("- PurchaseOrder: Purchase records (poNumber, supplier, items, status)");
 
   return parts.join("\n");
 };

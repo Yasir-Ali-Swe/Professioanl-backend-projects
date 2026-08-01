@@ -155,6 +155,7 @@ export const productToolsHandler = async (args, scopeContext) => {
   switch (action) {
     case "list_products": {
       if (status) match.isActive = status === "active";
+
       const products = await Product.find(match)
         .sort(sortObj)
         .limit(limit)

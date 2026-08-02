@@ -46,5 +46,8 @@ const stockLogSchema = new mongoose.Schema(
 );
 
 stockLogSchema.index({ organizationId: 1, productId: 1, createdAt: -1 });
+stockLogSchema.index({ organizationId: 1, type: 1, createdAt: -1 });
+stockLogSchema.index({ organizationId: 1, performedBy: 1 });
+
 const stockLogModel = mongoose.model("StockLog", stockLogSchema);
 export default stockLogModel;

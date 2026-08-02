@@ -88,6 +88,14 @@ Supports exact lookups, fuzzy searches, filtering, sorting, comparisons, and dat
         enum: ["active", "inactive"],
         description: "Filter by product status.",
       },
+      minPrice: {
+        type: "number",
+        description: "Minimum selling price filter.",
+      },
+      maxPrice: {
+        type: "number",
+        description: "Maximum selling price filter.",
+      },
       stockStatus: {
         type: "string",
         enum: ["normal", "low_stock", "out_of_stock", "over_stock"],
@@ -100,29 +108,19 @@ Supports exact lookups, fuzzy searches, filtering, sorting, comparisons, and dat
           "quantity",
           "costPrice",
           "sellingPrice",
-          "profitMargin",
           "createdAt",
+          "updatedAt",
         ],
-        description: "Field to sort by.",
+        description: "Field to sort products by.",
       },
       sortOrder: {
         type: "string",
         enum: ["asc", "desc"],
-        description: "Sort order.",
-      },
-      startDate: {
-        type: "string",
-        description: "Start date for filtering (ISO format).",
-      },
-      endDate: {
-        type: "string",
-        description: "End date for filtering (ISO format).",
+        description: "Sort direction.",
       },
       limit: {
-        type: "integer",
-        description: "Maximum number of results (default: 50).",
-        minimum: 1,
-        maximum: 500,
+        type: "number",
+        description: "Maximum number of products to return (default 50).",
       },
     },
     required: ["action"],
@@ -140,6 +138,8 @@ export const productToolsHandler = async (args, scopeContext) => {
     productNames,
     status,
     stockStatus,
+    minPrice,
+    maxPrice,
     sortBy = "createdAt",
     sortOrder = "desc",
     startDate,
@@ -148,6 +148,12 @@ export const productToolsHandler = async (args, scopeContext) => {
   } = args;
 
   const match = applyScopeFilter(scope, organizationId, {});
+
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    match.sellingPrice = {};
+    if (minPrice !== undefined) match.sellingPrice.$gte = minPrice;
+    if (maxPrice !== undefined) match.sellingPrice.$lte = maxPrice;
+  }
 
   const sortObj = {};
   sortObj[sortBy] = sortOrder === "desc" ? -1 : 1;
@@ -584,8 +590,8 @@ export const productToolsHandler = async (args, scopeContext) => {
         profitMargin:
           p.sellingPrice > 0
             ? (((p.sellingPrice - p.costPrice) / p.sellingPrice) * 100).toFixed(
-                2,
-              )
+              2,
+            )
             : 0,
         stockValue: p.quantity * p.costPrice,
         totalRevenue: p.quantity * p.sellingPrice,
@@ -604,39 +610,67 @@ export const productToolsHandler = async (args, scopeContext) => {
 };
 
 async function enrichProducts(products) {
-  return await Promise.all(
-    products.map(async (product) => {
-      const category = await Category.findById(product.categoryId)
-        .select("name")
-        .lean();
-      const supplier = await Supplier.findById(product.supplierId)
-        .select("name")
-        .lean();
-      return {
-        ...product,
-        categoryName: category?.name || null,
-        supplierName: supplier?.name || null,
-        profitMargin:
-          product.sellingPrice > 0
-            ? (
-                ((product.sellingPrice - product.costPrice) /
-                  product.sellingPrice) *
-                100
-              ).toFixed(2)
-            : 0,
-        stockValue: product.quantity * product.costPrice,
-      };
-    }),
+  if (!products || products.length === 0) return [];
+
+  const categoryIds = [
+    ...new Set(products.map((p) => p.categoryId).filter(Boolean)),
+  ];
+  const supplierIds = [
+    ...new Set(products.map((p) => p.supplierId).filter(Boolean)),
+  ];
+
+  const [categories, suppliers] = await Promise.all([
+    Category.find({ _id: { $in: categoryIds } })
+      .select("name")
+      .lean(),
+    Supplier.find({ _id: { $in: supplierIds } })
+      .select("name")
+      .lean(),
+  ]);
+
+  const categoryMap = new Map(
+    categories.map((c) => [c._id.toString(), c.name]),
   );
+  const supplierMap = new Map(
+    suppliers.map((s) => [s._id.toString(), s.name]),
+  );
+
+  return products.map((product) => {
+    const catName = product.categoryId
+      ? categoryMap.get(product.categoryId.toString())
+      : null;
+    const supName = product.supplierId
+      ? supplierMap.get(product.supplierId.toString())
+      : null;
+
+    return {
+      ...product,
+      categoryName: catName || null,
+      supplierName: supName || null,
+      profitMargin:
+        product.sellingPrice > 0
+          ? (
+            ((product.sellingPrice - product.costPrice) /
+              product.sellingPrice) *
+            100
+          ).toFixed(2)
+          : 0,
+      stockValue: (product.quantity || 0) * (product.costPrice || 0),
+    };
+  });
 }
 
 async function enrichSingleProduct(product) {
-  const category = await Category.findById(product.categoryId)
-    .select("name")
-    .lean();
-  const supplier = await Supplier.findById(product.supplierId)
-    .select("name")
-    .lean();
+  if (!product) return null;
+
+  const [category, supplier] = await Promise.all([
+    product.categoryId
+      ? Category.findById(product.categoryId).select("name").lean()
+      : null,
+    product.supplierId
+      ? Supplier.findById(product.supplierId).select("name").lean()
+      : null,
+  ]);
 
   return {
     ...product,
@@ -645,12 +679,12 @@ async function enrichSingleProduct(product) {
     profitMargin:
       product.sellingPrice > 0
         ? (
-            ((product.sellingPrice - product.costPrice) /
-              product.sellingPrice) *
-            100
-          ).toFixed(2)
+          ((product.sellingPrice - product.costPrice) /
+            product.sellingPrice) *
+          100
+        ).toFixed(2)
         : 0,
-    stockValue: product.quantity * product.costPrice,
+    stockValue: (product.quantity || 0) * (product.costPrice || 0),
     lowStock: product.quantity <= product.reorderThreshold,
   };
 }

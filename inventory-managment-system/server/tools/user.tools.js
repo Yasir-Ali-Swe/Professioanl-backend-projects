@@ -300,21 +300,22 @@ export const userToolsHandler = async (args, scopeContext) => {
 };
 
 async function enrichUsers(users) {
-  return await Promise.all(
-    users.map(async (user) => {
-      let invitedByUser = null;
-      if (user.invitedBy) {
-        const inviter = await User.findById(user.invitedBy)
-          .select("name email")
-          .lean();
-        invitedByUser = inviter;
-      }
-      return {
-        ...user,
-        invitedBy: invitedByUser,
-      };
-    }),
-  );
+  if (!users || users.length === 0) return [];
+
+  const inviterIds = [
+    ...new Set(users.map((u) => u.invitedBy).filter(Boolean)),
+  ];
+  const inviters = await User.find({ _id: { $in: inviterIds } })
+    .select("name email")
+    .lean();
+  const inviterMap = new Map(inviters.map((inv) => [inv._id.toString(), inv]));
+
+  return users.map((user) => ({
+    ...user,
+    invitedBy: user.invitedBy
+      ? inviterMap.get(user.invitedBy.toString()) || null
+      : null,
+  }));
 }
 
 async function enrichSingleUser(user) {

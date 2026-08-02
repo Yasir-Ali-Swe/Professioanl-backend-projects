@@ -348,45 +348,63 @@ export const purchaseOrderToolsHandler = async (args, scopeContext) => {
 };
 
 async function enrichPurchaseOrders(pos) {
-  return await Promise.all(
-    pos.map(async (po) => {
-      const supplier = await Supplier.findById(po.supplierId)
-        .select("name")
-        .lean();
-      return {
-        ...po,
-        supplierName: supplier?.name || "Unknown",
-        itemCount: po.items?.length || 0,
-      };
-    }),
+  if (!pos || pos.length === 0) return [];
+
+  const supplierIds = [
+    ...new Set(pos.map((po) => po.supplierId).filter(Boolean)),
+  ];
+  const suppliers = await Supplier.find({ _id: { $in: supplierIds } })
+    .select("name")
+    .lean();
+  const supplierMap = new Map(
+    suppliers.map((s) => [s._id.toString(), s.name]),
   );
+
+  return pos.map((po) => ({
+    ...po,
+    supplierName: po.supplierId
+      ? supplierMap.get(po.supplierId.toString()) || "Unknown"
+      : "Unknown",
+    itemCount: po.items?.length || 0,
+  }));
 }
 
 async function enrichSinglePurchaseOrder(po) {
-  const [supplier, createdBy, approvedBy] = await Promise.all([
-    Supplier.findById(po.supplierId)
-      .select("name contactPerson email phone")
-      .lean(),
-    User.findById(po.createdBy).select("name email").lean(),
+  if (!po) return null;
+
+  const productIds = [
+    ...new Set((po.items || []).map((i) => i.productId).filter(Boolean)),
+  ];
+
+  const [supplier, createdBy, approvedBy, products] = await Promise.all([
+    po.supplierId
+      ? Supplier.findById(po.supplierId)
+        .select("name contactPerson email phone")
+        .lean()
+      : null,
+    po.createdBy ? User.findById(po.createdBy).select("name email").lean() : null,
     po.approvedBy
       ? User.findById(po.approvedBy).select("name email").lean()
       : null,
+    Product.find({ _id: { $in: productIds } })
+      .select("name sku unit sellingPrice")
+      .lean(),
   ]);
 
-  const enrichedItems = await Promise.all(
-    po.items.map(async (item) => {
-      const product = await Product.findById(item.productId)
-        .select("name sku unit sellingPrice")
-        .lean();
-      return {
-        ...item,
-        productName: product?.name || "Unknown",
-        productSku: product?.sku || "Unknown",
-        unit: product?.unit || "unknown",
-        totalCost: item.quantity * item.unitCost,
-      };
-    }),
-  );
+  const productMap = new Map(products.map((p) => [p._id.toString(), p]));
+
+  const enrichedItems = (po.items || []).map((item) => {
+    const product = item.productId
+      ? productMap.get(item.productId.toString())
+      : null;
+    return {
+      ...item,
+      productName: product?.name || "Unknown",
+      productSku: product?.sku || "Unknown",
+      unit: product?.unit || "unknown",
+      totalCost: item.quantity * item.unitCost,
+    };
+  });
 
   return {
     ...po,

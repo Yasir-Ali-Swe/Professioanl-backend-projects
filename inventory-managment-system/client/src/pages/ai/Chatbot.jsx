@@ -72,6 +72,7 @@ function ChatbotPage() {
     // "live" messages optimistically added while streaming.
     const [liveMessages, setLiveMessages] = useState([]);
     const [isThinking, setIsThinking] = useState(false);
+    const [thinkingText, setThinkingText] = useState("Analyzing your request...");
     const [input, setInput] = useState("");
 
     // Refs that survive re-renders without causing them
@@ -119,6 +120,7 @@ function ChatbotPage() {
         // Clear live messages — history will load from the query
         setLiveMessages([]);
         setIsThinking(false);
+        setThinkingText("Analyzing your request...");
         setInput("");
         if (textareaRef.current) textareaRef.current.style.height = "auto";
     }, [activeConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -199,6 +201,7 @@ function ChatbotPage() {
 
             setInput("");
             setIsThinking(true);
+            setThinkingText("Analyzing your request...");
             if (textareaRef.current) textareaRef.current.style.height = "auto";
 
             const userMsgId = `live-${Date.now()}-user`;
@@ -221,7 +224,11 @@ function ChatbotPage() {
                     message: query,
                     conversationId: activeConversationId,
                     signal: controller.signal,
-                    onThinking: () => { /* handled by isThinking state */ },
+                    onThinking: (msg) => {
+                        if (isMountedRef.current && msg) {
+                            setThinkingText(msg);
+                        }
+                    },
                     onChunk: (_chunk, fullMarkdown) => {
                         if (!isMountedRef.current) return;
                         if (mutationConvRef.current !== activeConvRef.current) return;
@@ -410,7 +417,7 @@ function ChatbotPage() {
                                             <div className="flex w-full gap-3 justify-start opacity-100 translate-y-0">
                                                 <div className="w-full max-w-full sm:w-auto sm:max-w-[85%] bg-background border border-border text-foreground px-5 py-4 rounded-2xl rounded-tl-none shadow-2xs flex items-center gap-2.5 select-none">
                                                     <span className="text-xs text-muted-foreground font-medium">
-                                                        {isThinking ? "Analyzing your request..." : "Thinking..."}
+                                                        {thinkingText || "Thinking..."}
                                                     </span>
                                                     <span className="flex gap-1 items-center h-2">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "0ms" }} />

@@ -671,9 +671,9 @@ Be smart. Be honest. Show the data. State only what the data supports.`;
   }
 
   // ============================================================
-  // METHOD 10: Run Tool Loop (shared between streaming and non-streaming)
+  // METHOD 10: Run Tool Loop Stream (shared between streaming & non-streaming)
   // ============================================================
-  async #runToolLoop(message, history, scopeContext, contextNote = null) {
+  async *_runToolLoopStream(message, history, scopeContext, contextNote = null) {
     const model = this.getModel();
     const systemPrompt = this.getSystemPrompt();
     const tools = getToolDeclarations();
@@ -724,6 +724,9 @@ Be smart. Be honest. Show the data. State only what the data supports.`;
 
     while (iterationCount < MAX_TOOL_ITERATIONS) {
       iterationCount++;
+      if (iterationCount === 1) {
+        yield { status: "🤔 Analyzing request & checking tools..." };
+      }
 
       try {
         const result = await retryWithBackoff(() =>
@@ -736,6 +739,13 @@ Be smart. Be honest. Show the data. State only what the data supports.`;
         if (!functionCalls || functionCalls.length === 0) {
           hitMaxIterations = false;
           break;
+        }
+
+        for (const call of functionCalls) {
+          const cleanTool = call.name
+            .replace(/^(query|get|list)_/, "")
+            .replace(/_/g, " ");
+          yield { status: `🔍 Querying ${cleanTool} from database...` };
         }
 
         const { functionResponses, toolResults } =
@@ -791,7 +801,8 @@ Be smart. Be honest. Show the data. State only what the data supports.`;
     const intent = this.detectIntentFromTools(allToolResults);
     const finalPrompt = this.buildFinalPrompt(message, allToolResults, intent);
 
-    return {
+    yield {
+      type: "tool_loop_complete",
       accumulatedHistory,
       finalPrompt,
       allToolResults,
@@ -801,7 +812,7 @@ Be smart. Be honest. Show the data. State only what the data supports.`;
   }
 
   // ============================================================
-  // METHOD 11: Process Message (Non-streaming - existing behavior)
+  // METHOD 11: Process Message (Non-streaming)
   // ============================================================
   async processMessage(
     userId,
@@ -813,12 +824,16 @@ Be smart. Be honest. Show the data. State only what the data supports.`;
   ) {
     let loopResult;
     try {
-      loopResult = await this.#runToolLoop(
+      for await (const step of this._runToolLoopStream(
         message,
         history,
         scopeContext,
         contextNote,
-      );
+      )) {
+        if (step.type === "tool_loop_complete") {
+          loopResult = step;
+        }
+      }
     } catch (error) {
       if (error.message === "MAX_ITERATIONS") {
         return {
@@ -930,12 +945,18 @@ Be smart. Be honest. Show the data. State only what the data supports.`;
   ) {
     let loopResult;
     try {
-      loopResult = await this.#runToolLoop(
+      for await (const step of this._runToolLoopStream(
         message,
         history,
         scopeContext,
         contextNote,
-      );
+      )) {
+        if (step.status) {
+          yield { status: step.status, done: false };
+        } else if (step.type === "tool_loop_complete") {
+          loopResult = step;
+        }
+      }
     } catch (error) {
       if (error.message === "MAX_ITERATIONS") {
         yield {

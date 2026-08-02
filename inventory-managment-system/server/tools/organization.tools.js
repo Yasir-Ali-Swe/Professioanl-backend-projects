@@ -16,7 +16,7 @@ CRITICAL: Use this tool for ANY query about:
 - Company name, organization name, org name
 - Company address, organization address
 - Contact email, phone number
-- Invoice settings (tax rate, default discount, invoice prefix, next invoice number)
+- Invoice settings (tax rate, default discount, invoice prefix)
 - Organization status
 - Organization profile
 - Company details

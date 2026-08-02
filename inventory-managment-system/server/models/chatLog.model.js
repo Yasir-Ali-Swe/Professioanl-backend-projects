@@ -37,5 +37,6 @@ chatLogSchema.index({
   createdAt: -1,
 });
 chatLogSchema.index({ organizationId: 1, userId: 1, createdAt: -1 });
+chatLogSchema.index({ query: "text", response: "text" });
 
 export default mongoose.model("ChatLog", chatLogSchema);

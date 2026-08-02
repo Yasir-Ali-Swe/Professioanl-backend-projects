@@ -159,33 +159,36 @@ export const invoiceToolsHandler = async (args, scopeContext) => {
       const invoice = await Invoice.findOne(query).lean();
       if (!invoice) return { found: false, message: "Invoice not found" };
 
-      const enrichedProducts = await Promise.all(
-        invoice.products.map(async (item) => {
-          const product = await Product.findById(item.productId)
-            .select("name sku sellingPrice")
-            .lean();
-          return {
-            ...item,
-            productName: product?.name || "Unknown",
-            productSku: product?.sku || "Unknown",
-          };
-        }),
-      );
+      const productIds = [
+        ...new Set(
+          invoice.products.map((item) => item.productId).filter(Boolean),
+        ),
+      ];
 
-      let createdByUser = null;
-      let voidedByUser = null;
-      if (invoice.createdBy) {
-        const user = await User.findById(invoice.createdBy)
-          .select("name email")
-          .lean();
-        createdByUser = user;
-      }
-      if (invoice.voidedBy) {
-        const user = await User.findById(invoice.voidedBy)
-          .select("name email")
-          .lean();
-        voidedByUser = user;
-      }
+      const [products, createdByUser, voidedByUser] = await Promise.all([
+        Product.find({ _id: { $in: productIds } })
+          .select("name sku sellingPrice")
+          .lean(),
+        invoice.createdBy
+          ? User.findById(invoice.createdBy).select("name email").lean()
+          : null,
+        invoice.voidedBy
+          ? User.findById(invoice.voidedBy).select("name email").lean()
+          : null,
+      ]);
+
+      const productMap = new Map(products.map((p) => [p._id.toString(), p]));
+
+      const enrichedProducts = invoice.products.map((item) => {
+        const product = item.productId
+          ? productMap.get(item.productId.toString())
+          : null;
+        return {
+          ...item,
+          productName: product?.name || "Unknown",
+          productSku: product?.sku || "Unknown",
+        };
+      });
 
       return sanitizeForModel({
         ...invoice,

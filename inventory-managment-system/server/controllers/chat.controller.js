@@ -223,6 +223,17 @@ export const sendMessageStream = async (req, res) => {
       scopeContext,
       contextNote,
     )) {
+      if (event.status) {
+        res.write(
+          `data: ${JSON.stringify({
+            event: "thinking",
+            message: event.status,
+            done: false,
+          })}\n\n`,
+        );
+        continue;
+      }
+
       if (event.error) {
         hasError = true;
         res.write(
